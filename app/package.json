@@ -1,0 +1,33 @@
+{
+  "name": "stemkit-mobile",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "StemKit Mobile: stems on your phone for playing live (fork of danielravina/stemkit, MIT)",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "sync": "vite build && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor-community/keep-awake": "8.0.1",
+    "@capacitor/android": "8.5.3",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/share": "8.0.3",
+    "@capacitor/status-bar": "8.0.4",
+    "lucide-react": "1.50.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "~5.9.3",
+    "vite": "8.3.4"
+  }
+}

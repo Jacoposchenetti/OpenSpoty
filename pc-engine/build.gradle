@@ -1,0 +1,16 @@
+// The phone's YouTube / Spotify code (YouTubeSource.java), run on the PC by the bridge.
+plugins { id 'application' }
+repositories { mavenCentral(); maven { url 'https://jitpack.io' } }
+dependencies {
+    implementation 'com.github.teamnewpipe:NewPipeExtractor:v0.26.5'
+    implementation 'org.json:json:20240303' // built into Android
+    implementation 'com.microsoft.onnxruntime:onnxruntime:1.31.0' // chords (the phone uses onnxruntime-android)
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+sourceSets.main.java {
+    srcDir 'src/main/java'
+    srcDir '../app/android/app/src/main/java'
+    include 'app/stemkitmobile/PcEngine.java', 'app/stemkitmobile/YouTubeSource.java', 'app/stemkitmobile/SpotifyCatalog.java',
+        'app/stemkitmobile/core/ChordRecognizer.java', 'app/stemkitmobile/core/Fft.java'
+}
+application { mainClass = 'app.stemkitmobile.PcEngine' }

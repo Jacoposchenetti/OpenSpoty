@@ -1,0 +1,7 @@
+plugins { id 'application' }
+repositories { mavenCentral(); maven { url 'https://jitpack.io' } }
+dependencies {
+    implementation 'com.github.teamnewpipe:NewPipeExtractor:v0.26.5'
+}
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+application { mainClass = 'NpTest' }
