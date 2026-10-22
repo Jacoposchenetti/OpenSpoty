@@ -15,8 +15,8 @@ curl -s -m 5 -X POST http://127.0.0.1:8777/api/pc/stop-engine -d '{}' >/dev/null
 (cd "$ROOT/pc-engine" && ./gradlew.bat -q installDist 2>&1 | grep -iE "error|FAIL" || true)
 # a failed build must not install the previous APK
 (cd android && ./gradlew.bat assembleDebug -q) || { echo "BUILD FAILED"; exit 1; }
-cp android/app/build/outputs/apk/debug/app-debug.apk ~/Desktop/StemKitMobile.apk
-$ADB install -r "$(cygpath -w ~/Desktop/StemKitMobile.apk)" | tail -1
+cp android/app/build/outputs/apk/debug/app-debug.apk ~/Desktop/OpenSpoty.apk
+$ADB install -r "$(cygpath -w ~/Desktop/OpenSpoty.apk)" | tail -1
 $ADB shell am force-stop app.stemkitmobile
 $ADB shell am start -n app.stemkitmobile/.MainActivity >/dev/null
 sleep 5
