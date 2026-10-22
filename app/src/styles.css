@@ -143,7 +143,7 @@ code {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   border-top: 1px solid var(--line);
   background: var(--panel);
 }
@@ -2547,4 +2547,139 @@ input.with-ico {
 }
 .tabs button {
   font-size: 12px;
+}
+
+/* Accordatore */
+.tuner-page {
+  gap: 16px;
+}
+.tuning-select {
+  min-height: 46px;
+  font-size: 16px;
+}
+.tuner-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 12px;
+  border-radius: 20px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  transition: border-color 0.2s, background 0.2s;
+}
+.tuner-display.good {
+  border-color: #34d399;
+  background: color-mix(in srgb, #34d399 14%, var(--panel));
+}
+.tuner-note {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1;
+}
+.tuner-display.good .tuner-note {
+  color: #34d399;
+}
+.tuner-octave {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.tuner-it {
+  font-size: 20px;
+  color: var(--muted);
+}
+.gauge {
+  position: relative;
+  width: 100%;
+  height: 54px;
+  margin-top: 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgb(248 113 113 / 0.25), rgb(52 211 153 / 0.3) 45% 55%, rgb(248 113 113 / 0.25));
+}
+.gauge .tick {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  margin-left: -1px;
+  background: rgb(255 255 255 / 0.25);
+}
+.gauge .tick.zero {
+  top: 0;
+  bottom: 0;
+  background: #34d399;
+  width: 3px;
+}
+.gauge .needle {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 0 10px rgb(255 255 255 / 0.6);
+  transition: left 0.12s ease-out;
+}
+.tuner-display.good .needle {
+  background: #34d399;
+}
+.tuner-hint {
+  margin-top: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  min-height: 24px;
+  text-align: center;
+}
+.tuner-freq {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.strings {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.string {
+  flex: 1;
+  max-width: 64px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  border-radius: 14px;
+  padding: 4px;
+}
+.string small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.string.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.string.locked {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.string.locked small {
+  color: var(--accent-ink);
+}
+.tuner-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tabs button {
+  font-size: 11px;
+  padding-left: 0;
+  padding-right: 0;
 }

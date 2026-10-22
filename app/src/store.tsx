@@ -31,7 +31,7 @@ import { isLocalPath, youtubeIdOf } from './lib/media'
 import { findPc, mergeDeleted, mergeItems, pingPc, syncWithPc } from './lib/sync'
 import type { MixState, Playlist, Song } from './lib/types'
 
-export type Tab = 'library' | 'add' | 'alarm' | 'capture'
+export type Tab = 'library' | 'add' | 'tuner' | 'alarm' | 'capture'
 
 /** pages opened on top of a tab (artist, album), like Spotify */
 export type Page = { kind: 'artist' | 'album' | 'playlist'; uri: string; name?: string }

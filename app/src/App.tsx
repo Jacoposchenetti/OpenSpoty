@@ -1,4 +1,4 @@
-import { AlarmClock, AudioLines, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
+import { AlarmClock, AudioLines, Guitar, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
 import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef, useState } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
@@ -12,11 +12,13 @@ import { CatalogPage } from './screens/Catalog'
 import { Player } from './screens/Player'
 import { AlarmPage, AlarmRinging } from './screens/Alarm'
 import { CapturePage } from './screens/Capture'
+import { TunerPage } from './screens/Tuner'
 import { useStore, type Tab } from './store'
 
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'library', label: 'Libreria', icon: LibraryBig },
   { id: 'add', label: 'Cerca', icon: Search },
+  { id: 'tuner', label: 'Accorda', icon: Guitar },
   { id: 'alarm', label: 'Sveglia', icon: AlarmClock },
   { id: 'capture', label: 'Cattura', icon: AudioLines }
 ]
@@ -68,6 +70,7 @@ export function App() {
             <div hidden={store.pages.length > 0}>
               {store.tab === 'library' && <Library />}
               {store.tab === 'add' && <Add />}
+              {store.tab === 'tuner' && <TunerPage />}
               {store.tab === 'alarm' && <AlarmPage />}
               {store.tab === 'capture' && <CapturePage />}
             </div>
