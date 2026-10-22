@@ -67,6 +67,7 @@ export interface Playlist {
   songIds: string[]
   createdAt: number
   source?: string // the Spotify album / playlist it was saved from
+  pos?: number // place in the library (set by drag and drop, synced)
 }
 
 export interface PcSong {

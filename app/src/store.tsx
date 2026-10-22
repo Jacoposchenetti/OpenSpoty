@@ -90,6 +90,8 @@ interface Store {
   addToPlaylist(id: string, songIds: string[]): number
   removeFromPlaylist(id: string, index: number): void
   reorderPlaylist(id: string, from: number, to: number): void
+  /** the playlists' own order in the library (drag and drop) */
+  reorderPlaylists(from: number, to: number): void
   moveToPlaylist(fromId: string, index: number, toId: string): boolean
   setBridgeCfg(cfg: BridgeConfig): Promise<void>
   /** add (or refresh) a song from what the phone saved */
@@ -461,6 +463,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updatePlaylist]
   )
 
+  // playlists in the order you gave them (pos); new ones at the end
+  const byPos = (list: Playlist[]) => [...list].sort((a, b) => (a.pos ?? 1e9) - (b.pos ?? 1e9))
+  const orderedPlaylists = useMemo(() => byPos(playlists), [playlists])
+
+  const reorderPlaylists = useCallback(
+    (from: number, to: number) => {
+      const list = byPos(playlistsRef.current)
+      const [moved] = list.splice(from, 1)
+      list.splice(to, 0, moved)
+      // only the playlists whose place changed get a new pos (and travel in the sync)
+      commitPlaylists(list.map((p, i) => (p.pos === i ? p : { ...p, pos: i })))
+    },
+    [commitPlaylists]
+  )
+
   const moveToPlaylist = useCallback(
     (fromId: string, index: number, toId: string) => {
       const from = playlistsRef.current.find((p) => p.id === fromId)
@@ -549,7 +566,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     ready,
     songs,
-    playlists,
+    playlists: orderedPlaylists,
     bridgeCfg,
     bridge,
     tab,
@@ -578,6 +595,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addToPlaylist,
     removeFromPlaylist,
     reorderPlaylist,
+    reorderPlaylists,
     moveToPlaylist,
     setBridgeCfg,
     adoptSong,

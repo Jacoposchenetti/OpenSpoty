@@ -92,10 +92,14 @@ function Overview() {
         </button>
       )}
 
-      {store.playlists.map((p) => {
+      <SortableList
+        items={store.playlists}
+        keyOf={(p) => p.id}
+        onMove={store.reorderPlaylists}
+        render={(p, _i, handle) => {
         const first = p.songIds.map((id) => byId.get(id)).find(Boolean)
         return (
-          <div key={p.id} className="lib-row-wrap">
+          <div className="lib-row-wrap">
             <button className="lib-row" onClick={() => store.setLibView(p.id)}>
               {first ? <SongThumb song={first} size={56} /> : <span className="thumb ph" style={{ width: 56, height: 56 }}><ListMusic /></span>}
               <span className="lib-text">
@@ -106,9 +110,11 @@ function Overview() {
             <button className="icon-btn" onClick={() => setMenu(p)} aria-label={`Opzioni ${p.name}`}>
               <EllipsisVertical />
             </button>
+            {store.playlists.length > 1 && handle}
           </div>
         )
-      })}
+        }}
+      />
 
       {!store.songs.length && (
         <div className="empty">
