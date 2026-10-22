@@ -35,6 +35,7 @@ export function songFor(t: SpTrack, videoId: string): Song {
     addedAt: Date.now(),
     art: t.image || undefined,
     artistUri: t.artistUris[0],
+    albumUri: t.albumUri,
     spotifyUri: t.uri
   }
 }

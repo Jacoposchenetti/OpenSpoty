@@ -1,11 +1,11 @@
-import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, GripVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2 } from 'lucide-react'
+import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, GripVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PromptSheet, Sheet, SongThumb, SortableList, Spinner, StemDots, useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
 import { fmtTime } from '../lib/format'
 import { sharePlaylist, shareSong } from '../lib/share'
 import { artistOf, isDownloaded, nameParts, youtubeIdOf } from '../lib/media'
-import { useOpenArtist } from './Catalog'
+import { useOpenAlbum, useOpenArtist } from './Catalog'
 import type { Playlist, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
@@ -379,6 +379,7 @@ function ListView({ viewId }: { viewId: string }) {
 export function SongMenu({ song, index, playlist, onClose }: { song: Song; index: number; playlist: Playlist | null; onClose: () => void }) {
   const store = useStore()
   const openArtist = useOpenArtist()
+  const openAlbum = useOpenAlbum()
   const playback = usePlayback()
   const [mode, setMode] = useState<null | 'add' | 'move' | 'rename' | 'delete'>(null)
 
@@ -448,6 +449,9 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
       )}
       <button onClick={() => (void openArtist(song), onClose())}>
         <MicVocal /> Vai all'artista
+      </button>
+      <button onClick={() => (void openAlbum(song), onClose())}>
+        <Disc3 /> Vai all'album
       </button>
       {song.stems.length > 0 ? (
         <button

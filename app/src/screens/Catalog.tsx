@@ -6,7 +6,8 @@ import { engine, type SpAlbum, type SpArtist, type SpArtistRef, type SpPlaylistR
 import { addRecent } from '../lib/recents'
 import { errMsg, fmtTime } from '../lib/format'
 import { shareSpotify } from '../lib/share'
-import { artistOf } from '../lib/media'
+import { artistOf, nameParts } from '../lib/media'
+import type { Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useStore, type Page } from '../store'
 
@@ -34,6 +35,34 @@ export function useOpenArtist() {
       const a = r.artists.find((x) => fold(x.name) === fold(name)) ?? r.artists[0]
       if (a) store.openPage({ kind: 'artist', uri: a.uri, name: a.name })
       else store.showToast(`“${name}” non trovato`)
+    } catch (e) {
+      store.showToast(errMsg(e))
+    }
+  }
+}
+
+/**
+ * "Vai all'album": known for songs that came from Spotify; for the others
+ * (YouTube, imports) the track is looked up on Spotify by title and artist,
+ * and the album remembered on the song.
+ */
+export function useOpenAlbum() {
+  const store = useStore()
+  return async (song: Song) => {
+    if (song.albumUri) return store.openPage({ kind: 'album', uri: song.albumUri })
+    const { name, artist } = nameParts(song.title)
+    const fold = (t: string) =>
+      t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\(.*?\)|\[.*?]|- .*remaster.*$/g, '').replace(/[^a-z0-9 ]/g, ' ').trim()
+    try {
+      const r = await engine.spSearch(artist ? `${artist} ${name}` : name)
+      const want = fold(name)
+      const t =
+        r.tracks.find((x) => x.albumUri && fold(x.title).includes(want) && (!artist || x.artists.some((a) => fold(a) === fold(artist)))) ??
+        r.tracks.find((x) => x.albumUri && fold(x.title).includes(want)) ??
+        r.tracks.find((x) => x.albumUri)
+      if (!t?.albumUri) return store.showToast('Album non trovato')
+      if (store.songs.some((s) => s.id === song.id)) store.updateSong(song.id, { albumUri: t.albumUri, spotifyUri: song.spotifyUri ?? t.uri })
+      store.openPage({ kind: 'album', uri: t.albumUri, name: t.album })
     } catch (e) {
       store.showToast(errMsg(e))
     }

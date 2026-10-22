@@ -55,6 +55,7 @@ export interface Song {
   cover?: string // local copy of the artwork (path under the data folder)
   art?: string // artwork address (Spotify), until the local copy exists
   artistUri?: string // Spotify artist, for "Vai all'artista"
+  albumUri?: string // Spotify album, for "Vai all'album"
   spotifyUri?: string
   /** chords corrected by hand: start time ("12.34") -> BTC label ("A:min7"), "" = no chord */
   chordEdits?: Record<string, string>
