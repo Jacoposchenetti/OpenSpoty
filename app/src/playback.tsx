@@ -144,6 +144,9 @@ export function gainFor(song: Song | undefined, normalize: boolean): number {
 
 let normalizeOn = true // read by nativeSpec (outside React)
 
+/** a song for the alarm clock (it plays it natively, also with the app closed) */
+export const alarmSpec = (song: Song): PlayerSpec => nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, true)
+
 function nativeSpec(song: Song, mix: MixState, startAt = 0, autoplay = true): PlayerSpec {
   const stems: Record<string, string> = {}
   for (const id of song.stems) {

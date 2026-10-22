@@ -33,6 +33,16 @@ export interface YtResult {
   kind: 'song' | 'video'
 }
 
+export interface CaptureMatch {
+  title: string
+  artist: string
+  image?: string
+  album?: string
+  year?: string
+  genre?: string
+  url?: string
+}
+
 export interface TransferEvent {
   id: string
   pct: number
@@ -76,6 +86,10 @@ export interface StemKitNativePlugin {
   separationStatus(): Promise<SeparationEvent | { state: 'idle' }>
   addListener(event: 'separation', cb: (e: SeparationEvent) => void): Promise<PluginListenerHandle>
   addListener(event: 'transfer', cb: (e: TransferEvent) => void): Promise<PluginListenerHandle>
+  /** "Cattura": listens and asks Shazam (core/ShazamSignature.java) */
+  capture(): Promise<{ match: CaptureMatch | null; stopped?: boolean }>
+  stopCapture(): Promise<void>
+  addListener(event: 'capture', cb: (e: { phase: 'listening' | 'searching'; seconds: number; level: number }) => void): Promise<PluginListenerHandle>
 }
 
 export const StemKitNative = registerPlugin<StemKitNativePlugin>('StemKitNative')

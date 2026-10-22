@@ -50,8 +50,12 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
     }
 
     private Engine.Spec spec(JSONObject data) {
+        return specOf(getContext().getFilesDir(), data);
+    }
+
+    /** a song as the JS side describes it (lib/player.ts PlayerSpec); also used by the alarm clock */
+    static Engine.Spec specOf(File base, JSONObject data) {
         Engine.Spec s = new Engine.Spec();
-        File base = getContext().getFilesDir();
         s.songId = data.optString("songId", "");
         s.title = data.optString("title", "");
         String orig = data.isNull("original") ? null : data.optString("original", null);

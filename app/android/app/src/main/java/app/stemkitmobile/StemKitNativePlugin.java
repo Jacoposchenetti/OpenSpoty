@@ -40,7 +40,10 @@ import java.util.concurrent.Executors;
 /** Native side of src/lib/native.ts. */
 @CapacitorPlugin(
     name = "StemKitNative",
-    permissions = {@Permission(strings = {Manifest.permission.POST_NOTIFICATIONS}, alias = "notifications")}
+    permissions = {
+        @Permission(strings = {Manifest.permission.POST_NOTIFICATIONS}, alias = "notifications"),
+        @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone")
+    }
 )
 public class StemKitNativePlugin extends Plugin {
     private final ExecutorService io = Executors.newCachedThreadPool();
@@ -659,6 +662,106 @@ public class StemKitNativePlugin extends Plugin {
                 if (c != null) c.disconnect();
             }
         });
+    }
+
+    // ---------------------------------------------------------- "Cattura" (core/ShazamSignature)
+
+    private volatile boolean captureStop;
+
+    /**
+     * Listens with the microphone and asks Shazam what is playing: first after
+     * 4 seconds, then 8 and 12 (like Shazam), stopping at the first match.
+     * Events "capture": {phase: listening|searching, seconds, level 0..1}.
+     * Resolves {match: {title, artist, image, album, year, genre, url} | null}.
+     */
+    @PluginMethod
+    public void capture(PluginCall call) {
+        if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            requestPermissionForAlias("microphone", call, "afterMicPermission");
+            return;
+        }
+        startCapture(call);
+    }
+
+    @PermissionCallback
+    private void afterMicPermission(PluginCall call) {
+        if (getPermissionState("microphone") == PermissionState.GRANTED) startCapture(call);
+        else call.reject("Serve il permesso del microfono per riconoscere la canzone");
+    }
+
+    @PluginMethod
+    public void stopCapture(PluginCall call) {
+        captureStop = true;
+        call.resolve();
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    private void startCapture(PluginCall call) {
+        captureStop = false;
+        io.execute(() -> {
+            android.media.AudioRecord rec = null;
+            try {
+                int rate = app.stemkitmobile.core.ShazamSignature.RATE;
+                int min = android.media.AudioRecord.getMinBufferSize(rate, android.media.AudioFormat.CHANNEL_IN_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT);
+                // the raw microphone (no voice processing): music is recognised better
+                int source = android.media.MediaRecorder.AudioSource.UNPROCESSED;
+                android.media.AudioManager am = (android.media.AudioManager) getContext().getSystemService(android.content.Context.AUDIO_SERVICE);
+                if (!"true".equals(am.getProperty(android.media.AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED))) {
+                    source = android.media.MediaRecorder.AudioSource.VOICE_RECOGNITION;
+                }
+                rec = new android.media.AudioRecord(source, rate, android.media.AudioFormat.CHANNEL_IN_MONO,
+                    android.media.AudioFormat.ENCODING_PCM_16BIT, Math.max(min, rate));
+                rec.startRecording();
+                float[] all = new float[rate * 13];
+                int got = 0, next = 4 * rate;
+                short[] buf = new short[rate / 10];
+                while (got < all.length && !captureStop) {
+                    int n = rec.read(buf, 0, buf.length);
+                    if (n <= 0) continue;
+                    double sum = 0;
+                    for (int i = 0; i < n && got < all.length; i++) {
+                        float v = buf[i] / 32768f;
+                        all[got++] = v;
+                        sum += v * v;
+                    }
+                    captureEvent("listening", got / (float) rate, (float) Math.min(1, Math.sqrt(sum / n) * 6));
+                    if (got >= next) {
+                        captureEvent("searching", got / (float) rate, 0);
+                        byte[] sig = app.stemkitmobile.core.ShazamSignature.compute(all, got);
+                        JSONObject m = app.stemkitmobile.core.ShazamSignature.summary(app.stemkitmobile.core.ShazamSignature.recognize(sig, got));
+                        if (m != null) {
+                            JSObject r = new JSObject();
+                            r.put("match", JSObject.fromJSONObject(m));
+                            call.resolve(r);
+                            return;
+                        }
+                        next += 4 * rate;
+                    }
+                }
+                JSObject r = new JSObject();
+                r.put("match", JSONObject.NULL);
+                r.put("stopped", captureStop);
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject("Riconoscimento non riuscito: " + e.getMessage());
+            } finally {
+                if (rec != null) {
+                    try {
+                        rec.stop();
+                    } catch (Exception ignored) {
+                    }
+                    rec.release();
+                }
+            }
+        });
+    }
+
+    private void captureEvent(String phase, float seconds, float level) {
+        JSObject e = new JSObject();
+        e.put("phase", phase);
+        e.put("seconds", seconds);
+        e.put("level", level);
+        notifyListeners("capture", e);
     }
 
     /** resolves the YouTube streams of songs about to be played (search results, an album) */

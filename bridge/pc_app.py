@@ -634,6 +634,27 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
                 f.unlink()
             h.send_json({"ok": True})
         return True
+    if p[:3] == ["api", "pc", "capture"] and method == "POST":
+        # "Cattura" on the PC: the browser sends the microphone as 16 kHz mono float32
+        if not h.authed():
+            return True
+        n = int(h.headers.get("Content-Length") or 0)
+        if n <= 0 or n > 16000 * 4 * 20:
+            raise ValueError("audio non valido")
+        raw = h.rfile.read(n)
+        with tempfile.TemporaryDirectory(prefix="openspoty-capture-") as tmp:
+            f = Path(tmp) / "mic.wav"
+            import array, wave
+            samples = array.array("f")
+            samples.frombytes(raw[: len(raw) // 4 * 4])
+            pcm = array.array("h", (max(-32768, min(32767, int(v * 32767))) for v in samples))
+            with wave.open(str(f), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(16000)
+                w.writeframes(pcm.tobytes())
+            h.send_json(engine.call("shazam", timeout=60, path=str(f), ffmpeg=sb.find_ffmpeg(), send=True, middle=False))
+        return True
     if p[:2] == ["api", "pc"]:
         if not h.authed():
             return True

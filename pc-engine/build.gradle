@@ -11,6 +11,7 @@ sourceSets.main.java {
     srcDir 'src/main/java'
     srcDir '../app/android/app/src/main/java'
     include 'app/stemkitmobile/PcEngine.java', 'app/stemkitmobile/YouTubeSource.java', 'app/stemkitmobile/SpotifyCatalog.java',
-        'app/stemkitmobile/core/ChordRecognizer.java', 'app/stemkitmobile/core/Fft.java'
+        'app/stemkitmobile/core/ChordRecognizer.java', 'app/stemkitmobile/core/Fft.java',
+        'app/stemkitmobile/core/ShazamSignature.java'
 }
 application { mainClass = 'app.stemkitmobile.PcEngine' }

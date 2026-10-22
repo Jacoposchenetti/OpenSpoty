@@ -58,6 +58,8 @@ public final class PcEngine {
                 return SpotifyCatalog.artist(r.getString("uri"));
             case "spAlbum":
                 return SpotifyCatalog.album(r.getString("uri"));
+            case "shazam":
+                return shazam(r.getString("path"), r.optString("ffmpeg", "ffmpeg"), r.optBoolean("send", true), r.optBoolean("middle", false));
             case "chords":
                 return chords(id, r.getString("path"), r.getString("ffmpeg"), r.getString("model"));
             case "spotifyQuery":
@@ -106,6 +108,27 @@ public final class PcEngine {
             });
         }
         return segmentsJson(segs, mono.length / (double) app.stemkitmobile.core.ChordRecognizer.SR);
+    }
+
+    /** "Cattura" on the PC: 16 kHz mono via ffmpeg, Shazam signature, recognition */
+    private static JSONObject shazam(String path, String ffmpeg, boolean send, boolean middle) throws Exception {
+        Process p = new ProcessBuilder(ffmpeg, "-v", "error", "-i", path, "-ac", "1", "-ar", "16000", "-f", "f32le", "-")
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        byte[] raw = p.getInputStream().readAllBytes();
+        p.waitFor();
+        java.nio.FloatBuffer fb = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        float[] y = new float[fb.remaining()];
+        fb.get(y);
+        int len = 12 * 16000;
+        float[] seg = new float[len];
+        int from = middle && y.length > len ? y.length / 2 - len / 2 : 0;
+        int n = Math.min(len, y.length - from);
+        System.arraycopy(y, from, seg, 0, n);
+        int count = middle ? len : Math.max(n, 0);
+        byte[] sig = app.stemkitmobile.core.ShazamSignature.compute(seg, count);
+        if (!send) return new JSONObject().put("signature", java.util.Base64.getEncoder().encodeToString(sig));
+        JSONObject s = app.stemkitmobile.core.ShazamSignature.summary(app.stemkitmobile.core.ShazamSignature.recognize(sig, count));
+        return new JSONObject().put("match", s == null ? JSONObject.NULL : s);
     }
 
     static JSONObject segmentsJson(java.util.List<app.stemkitmobile.core.ChordRecognizer.Segment> segs, double duration) {

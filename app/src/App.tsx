@@ -1,4 +1,4 @@
-import { LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
+import { AlarmClock, AudioLines, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
 import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef, useState } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
@@ -10,11 +10,15 @@ import { Add } from './screens/Add'
 import { Library } from './screens/Library'
 import { CatalogPage } from './screens/Catalog'
 import { Player } from './screens/Player'
+import { AlarmPage, AlarmRinging } from './screens/Alarm'
+import { CapturePage } from './screens/Capture'
 import { useStore, type Tab } from './store'
 
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'library', label: 'Libreria', icon: LibraryBig },
-  { id: 'add', label: 'Cerca', icon: Search }
+  { id: 'add', label: 'Cerca', icon: Search },
+  { id: 'alarm', label: 'Sveglia', icon: AlarmClock },
+  { id: 'capture', label: 'Cattura', icon: AudioLines }
 ]
 
 export function App() {
@@ -64,6 +68,8 @@ export function App() {
             <div hidden={store.pages.length > 0}>
               {store.tab === 'library' && <Library />}
               {store.tab === 'add' && <Add />}
+              {store.tab === 'alarm' && <AlarmPage />}
+              {store.tab === 'capture' && <CapturePage />}
             </div>
           </main>
           <MiniPlayer />
@@ -86,6 +92,7 @@ export function App() {
         </>
       )}
       {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
+      <AlarmRinging />
       {store.toast && <div className="toast">{store.toast}</div>}
     </div>
   )

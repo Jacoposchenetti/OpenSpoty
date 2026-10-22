@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Timer, X, Share2 } from 'lucide-react'
+import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Share2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -23,7 +23,6 @@ export function Player() {
   const [showTempo, setShowTempo] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [showLyrics, setShowLyrics] = useState(false)
-  const [showSleep, setShowSleep] = useState(false)
   const scrubbing = useRef(false)
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
@@ -106,10 +105,6 @@ export function Player() {
           <Guitar />
           <small>Suona</small>
         </button>
-        <button className={pb.sleep.at || pb.sleep.atEnd ? 'on' : ''} onClick={() => setShowSleep(true)} aria-label="Timer">
-          <Timer />
-          <small>{pb.sleep.atEnd ? 'Fine brano' : pb.sleep.at ? `${Math.max(1, Math.round((pb.sleep.at - Date.now()) / 60000))} min` : 'Timer'}</small>
-        </button>
       </div>
       {song.notes && (
         <button className="song-notes" onClick={() => setShowNotes(true)}>
@@ -183,7 +178,6 @@ export function Player() {
       </div>
 
       {showQueue && <QueueSheet onClose={() => setShowQueue(false)} />}
-      {showSleep && <SleepSheet onClose={() => setShowSleep(false)} />}
       {pb.countingIn && <div className="countin">1 · 2 · 3 · 4</div>}
       {showLyrics && <LyricsView key={song.id} songId={song.id} onClose={() => setShowLyrics(false)} />}
       {showNotes && (
@@ -221,27 +215,6 @@ export function tempoLabel(mix: MixState): string {
   if (p) parts.push(`${p > 0 ? '+' : ''}${p} st`)
   if (Math.abs(sp - 1) > 0.001) parts.push(`${Math.round(sp * 100)}%`)
   return parts.join(' · ')
-}
-
-function SleepSheet({ onClose }: { onClose: () => void }) {
-  const pb = usePlayback()
-  const set = (m: number) => (pb.setSleep(m), onClose())
-  const active = pb.sleep.at || pb.sleep.atEnd
-  return (
-    <Sheet title="Timer di spegnimento" onClose={onClose}>
-      {[5, 15, 30, 45, 60].map((m) => (
-        <button key={m} onClick={() => set(m)}>
-          {m} minuti
-        </button>
-      ))}
-      <button onClick={() => set(-1)}>Alla fine di questo brano</button>
-      {active ? (
-        <button className="danger" onClick={() => set(0)}>
-          Annulla il timer
-        </button>
-      ) : null}
-    </Sheet>
-  )
 }
 
 export function TempoSheet({ song, mix, onChange, onClose }: { song: Song; mix: MixState; onChange: (m: MixState) => void; onClose: () => void }) {
