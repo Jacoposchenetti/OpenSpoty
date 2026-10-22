@@ -50,6 +50,8 @@ public final class PcEngine {
                 return YouTubeSource.matchSong(r.getString("title"), r.optString("artist"), r.optLong("duration"));
             case "spotifyList":
                 return YouTubeSource.spotifyList(r.getString("url"));
+            case "suggest":
+                return YouTubeSource.suggest(r.getString("query"));
             case "spSearch":
                 return SpotifyCatalog.search(r.getString("query"));
             case "spArtist":

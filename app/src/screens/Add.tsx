@@ -1,4 +1,4 @@
-import { Check, Play, Plus, SlidersVertical, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpLeft, Check, Clock, Play, Plus, Search as SearchIcon, SlidersVertical, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine } from '../lib/engine'
 import { errMsg, fmtTime } from '../lib/format'
@@ -7,7 +7,9 @@ import { useImports, type Import } from '../imports'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { Spinner } from '../components/ui'
-import { CatalogResults } from './Catalog'
+import { CatalogResults, Shelf } from './Catalog'
+import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
+import { buildHome, type Home } from '../lib/home'
 import type { Song } from '../lib/types'
 
 const isLink = (q: string) => /^https?:\/\/|^spotify:/i.test(q)
@@ -41,6 +43,11 @@ function Search() {
   const [searching, setSearching] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const seq = useRef(0)
+  // Spotify's three states: recommendations; focused (recent searches); typing (suggestions + results)
+  const [focused, setFocused] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [recents, setRecents] = useState<Recent[]>(loadRecents)
+  const input = useRef<HTMLInputElement>(null)
   const titleOf = (hit: Hit) => (hit.kind === 'song' && hit.channel ? `${hit.channel} – ${hit.title}` : hit.title)
 
   const songOf = (hit: Hit): Song =>
@@ -60,6 +67,8 @@ function Search() {
       if (!results) return
       const songs = results.items.map(songOf)
       store.addTemp(songs)
+      const hitSong = songs.find((x) => x.id === `yt-${hit.videoId}`)
+      if (hitSong) addRecent({ kind: 'song', id: hitSong.id, title: hitSong.title, sub: 'Brano', image: hit.thumbnail })
       playback.playList(
         songs.map((s) => s.id),
         Math.max(0, songs.findIndex((s) => s.id === `yt-${hit.videoId}`)),
@@ -150,6 +159,51 @@ function Search() {
     return () => clearTimeout(t)
   }, [query, runSearch])
 
+  useEffect(() => {
+    const q = query.trim()
+    if (!focused || !q || isLink(q)) return setSuggestions([])
+    let alive = true
+    const t = setTimeout(() => {
+      engine
+        .suggest(q)
+        .then((x) => alive && setSuggestions(x.slice(0, 5)))
+        .catch(() => undefined)
+    }, 120)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [query, focused])
+
+  const submit = (text: string) => {
+    if (!isLink(text.trim())) addRecent({ kind: 'query', id: text.trim(), title: text.trim() })
+    setQuery(text)
+    setFocused(false)
+    input.current?.blur()
+    void runSearch(text)
+    setRecents(loadRecents())
+  }
+  const exit = () => {
+    setFocused(false)
+    setQuery('')
+    setResults(null)
+    setSuggestions([])
+    input.current?.blur()
+  }
+  const openRecent = (r: Recent) => {
+    addRecent(r)
+    setRecents(loadRecents())
+    if (r.kind === 'query') return submit(r.id)
+    if (r.kind === 'song') {
+      const song = store.getSong(r.id) ?? { id: r.id, title: r.title, duration: 0, stems: [], files: {}, source: 'device' as const, addedAt: Date.now() }
+      store.addTemp([song])
+      setFocused(false)
+      return playback.playList([song.id], 0, 'Recenti')
+    }
+    setFocused(false)
+    store.openPage({ kind: r.kind, uri: r.id, name: r.title })
+  }
+
   const job = store.deviceJob
   const status = (id: string): string | null => {
     const song = store.songs.find((s) => s.id === `yt-${id}`)
@@ -167,24 +221,90 @@ function Search() {
     )
   }
 
+  const typing = focused && !!query.trim()
   return (
     <section className="card">
-      <div className="search">
-        <input
-          placeholder="Cerca una canzone o incolla un link"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void runSearch(query)}
-          enterKeyHint="search"
-          autoCapitalize="off"
-          autoCorrect="off"
-        />
-        <button className="primary" disabled={searching || !query.trim()} onClick={() => void runSearch(query)}>
-          {searching ? <Spinner /> : 'Cerca'}
-        </button>
+      <div className={`search ${focused ? 'focused' : ''}`}>
+        {(focused || results) && (
+          <button className="icon-btn" onClick={exit} aria-label="Indietro">
+            <ArrowLeft />
+          </button>
+        )}
+        <span className="search-field">
+          {!focused && !results && <SearchIcon className="search-ico" />}
+          <input
+            ref={input}
+            placeholder="Cosa vuoi ascoltare?"
+            value={query}
+            onFocus={() => (setFocused(true), setRecents(loadRecents()))}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && query.trim() && submit(query)}
+            enterKeyHint="search"
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
+          {query && (
+            <button className="clear" onClick={() => (setQuery(''), input.current?.focus())} aria-label="Cancella">
+              {searching ? <Spinner size={16} /> : <X />}
+            </button>
+          )}
+        </span>
       </div>
-      {results && <CatalogResults query={results.q} />}
-      {(results || searching) && (
+
+      {!focused && !results && <HomeShelves />}
+
+      {focused && !query.trim() && (
+        <div className="recents">
+          {recents.length > 0 && <h3 className="sec">Recenti</h3>}
+          {recents.map((r) => (
+            <div key={`${r.kind}:${r.id}`} className="recent-row">
+              <button className="recent-main" onMouseDown={(e) => e.preventDefault()} onClick={() => openRecent(r)}>
+                {r.kind === 'query' ? (
+                  <span className="recent-ico">
+                    <Clock />
+                  </span>
+                ) : r.image ? (
+                  <img className={r.kind === 'artist' ? 'round' : ''} src={r.image} alt="" />
+                ) : (
+                  <span className="recent-ico">
+                    <SearchIcon />
+                  </span>
+                )}
+                <span className="lib-text">
+                  <span className="row-title">{r.title}</span>
+                  {r.sub && <span className="row-sub">{r.sub}</span>}
+                </span>
+              </button>
+              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => (removeRecent(r), setRecents(loadRecents()))} aria-label="Togli">
+                <X />
+              </button>
+            </div>
+          ))}
+          {recents.length > 0 && (
+            <button className="clear-recents" onMouseDown={(e) => e.preventDefault()} onClick={() => (clearRecents(), setRecents([]))}>
+              Cancella ricerche recenti
+            </button>
+          )}
+        </div>
+      )}
+
+      {typing && suggestions.length > 0 && (
+        <div className="suggestions">
+          {suggestions.map((x) => (
+            <div key={x} className="sugg-row">
+              <button className="sugg-main" onMouseDown={(e) => e.preventDefault()} onClick={() => submit(x)}>
+                <SearchIcon /> {x}
+              </button>
+              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setQuery(x + ' ')} aria-label="Completa">
+                <ArrowUpLeft />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {results && (typing || !focused) && <CatalogResults query={results.q} />}
+      {(results || searching) && (typing || !focused) && (
         <div className="results">
           {results && <h3 className="sec">Brani</h3>}
           {searching && !results && (
@@ -362,5 +482,37 @@ function SplitJob() {
         </div>
       </div>
     </section>
+  )
+}
+
+/* ------------------------------------------------------------- recommendations */
+
+function HomeShelves() {
+  const store = useStore()
+  const [home, setHome] = useState<Home | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let alive = true
+    buildHome(store.songs)
+      .then((h) => alive && setHome(h))
+      .catch(() => alive && setFailed(true))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.songs.length])
+  if (failed) return null
+  if (!home)
+    return (
+      <div className="page-loading">
+        <Spinner size={26} />
+      </div>
+    )
+  return (
+    <div className="home-shelves">
+      <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
+      <Shelf title="Playlist da ascoltare" items={home.playlists} />
+      <Shelf title="Ultime uscite dei tuoi artisti" items={home.releases} showArtist />
+    </div>
   )
 }

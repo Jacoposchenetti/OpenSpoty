@@ -668,6 +668,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
                 for vid in ids:
                     threading.Thread(target=lambda v=vid: _quiet(stream_file, v), daemon=True).start()
                 h.send_json({"ok": True})
+            elif op == "suggest":
+                h.send_json({"suggestions": engine.call("suggest", timeout=20, query=str(b.get("query") or ""))})
             elif op in ("spSearch", "spArtist", "spAlbum"):
                 key = "query" if op == "spSearch" else "uri"
                 h.send_json(engine.call(op, timeout=60, **{key: str(b.get(key) or "")}))

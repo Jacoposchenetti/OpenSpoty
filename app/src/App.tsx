@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef, useState } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
 import { SyncButton, SyncSheet } from './components/SyncSheet'
+import { UpdateBanner } from './components/UpdateBanner'
 import { popBack } from './components/ui'
 import { isNative } from './lib/native'
 import { Add } from './screens/Add'
@@ -56,6 +57,7 @@ export function App() {
             )}
             <SyncButton onClick={() => setSyncOpen(true)} />
           </header>
+          <UpdateBanner />
           <main className="content">
             {store.pages.length > 0 && <CatalogPage page={store.pages[store.pages.length - 1]} />}
             {/* tabs stay mounted under a page: the search results are still there when you come back */}

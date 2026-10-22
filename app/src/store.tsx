@@ -34,7 +34,7 @@ import type { MixState, Playlist, Song } from './lib/types'
 export type Tab = 'library' | 'add'
 
 /** pages opened on top of a tab (artist, album), like Spotify */
-export type Page = { kind: 'artist'; uri: string; name?: string } | { kind: 'album'; uri: string; name?: string }
+export type Page = { kind: 'artist' | 'album' | 'playlist'; uri: string; name?: string }
 
 export interface SyncStatus {
   state: 'off' | 'syncing' | 'ok' | 'offline' | 'error'

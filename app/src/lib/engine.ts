@@ -6,7 +6,9 @@ import { StemPlayer } from './player'
 
 export interface SpotifyList {
   name: string
-  tracks: Array<{ title: string; artist: string; duration: number }>
+  image?: string
+  owner?: string
+  tracks: Array<{ title: string; artist: string; duration: number; uri?: string; image?: string; artistUri?: string }>
 }
 
 export interface Match {
@@ -36,6 +38,7 @@ export interface SpRelease {
   type: string
   image: string
   year?: number
+  date?: string // YYYY-MM-DD
   artists: string[]
   trackCount?: number
 }
@@ -44,6 +47,14 @@ export interface SpArtistRef {
   uri: string
   name: string
   image: string
+}
+
+export interface SpPlaylistRef {
+  uri: string
+  name: string
+  image: string
+  owner?: string
+  description?: string
 }
 
 export interface SpArtist extends SpArtistRef {
@@ -57,6 +68,7 @@ export interface SpArtist extends SpArtistRef {
   latest?: SpRelease
   related: SpArtistRef[]
   appearsOn?: SpRelease[]
+  playlists?: SpPlaylistRef[]
 }
 
 export interface SpAlbum extends SpRelease {
@@ -67,6 +79,7 @@ export interface SpSearch {
   artists: SpArtistRef[]
   albums: SpRelease[]
   tracks: SpTrack[]
+  playlists?: SpPlaylistRef[]
 }
 
 /* searches and pages already seen come back at once (kept in memory, and on
@@ -189,6 +202,18 @@ export const engine = {
     if (isNative) void StemKitNative.warmStreams({ videoIds: ids, prefetch }).catch(() => undefined)
     else if (isDesktop && prefetch) void pc('warm', { videoIds: ids, prefetch }).catch(() => undefined)
   },
+
+  /** what to suggest while typing (YouTube's autocomplete) */
+  async suggest(query: string): Promise<string[]> {
+    return (isNative ? await StemKitNative.suggest({ query }) : await pc<{ suggestions: string[] }>('suggest', { query })).suggestions
+  },
+
+  /** a Spotify playlist's tracks (cached for a day) */
+  spPlaylist: (uri: string): Promise<SpotifyList> =>
+    remember(uri, 86400_000, () => {
+      const url = `https://open.spotify.com/playlist/${uri.split(':').pop()}`
+      return isNative ? StemKitNative.spotifyList({ url }) : pc('spotifyList', { url })
+    }),
 
   spSearch: (query: string): Promise<SpSearch> =>
     remember(`sp:${query.toLowerCase()}`, 86400_000, () => (isNative ? StemKitNative.spSearch({ query }) : pc('spSearch', { query }))),

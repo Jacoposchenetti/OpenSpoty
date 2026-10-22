@@ -598,6 +598,69 @@ public class StemKitNativePlugin extends Plugin {
         });
     }
 
+    /**
+     * "Aggiornamento disponibile": downloads the APK of a GitHub release and
+     * opens Android's installer. The first time Android asks to allow
+     * installing from this app: then {needsPermission: true}, try again after.
+     */
+    @PluginMethod
+    public void installUpdate(PluginCall call) {
+        String url = call.getString("url", "");
+        if (!url.startsWith("https://github.com/") && !url.startsWith("https://objects.githubusercontent.com/")) {
+            call.reject("indirizzo non valido");
+            return;
+        }
+        android.content.pm.PackageManager pm = getContext().getPackageManager();
+        if (!pm.canRequestPackageInstalls()) {
+            Intent i = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Uri.parse("package:" + getContext().getPackageName())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            JSObject r = new JSObject();
+            r.put("needsPermission", true);
+            call.resolve(r);
+            return;
+        }
+        io.execute(() -> {
+            HttpURLConnection c = null;
+            try {
+                File dir = new File(getContext().getCacheDir(), "update");
+                //noinspection ResultOfMethodCallIgnored
+                dir.mkdirs();
+                File apk = new File(dir, "OpenSpoty.apk");
+                c = (HttpURLConnection) new URL(url).openConnection();
+                c.setInstanceFollowRedirects(true);
+                c.setConnectTimeout(15_000);
+                c.setReadTimeout(60_000);
+                long size = c.getContentLengthLong();
+                try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(apk)) {
+                    byte[] buf = new byte[1 << 16];
+                    long got = 0, last = -1;
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        out.write(buf, 0, n);
+                        got += n;
+                        long pct = size > 0 ? got * 100 / size : 0;
+                        if (pct != last) {
+                            last = pct;
+                            transfer("update", pct);
+                        }
+                    }
+                }
+                Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", apk);
+                Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+                JSObject r = new JSObject();
+                r.put("needsPermission", false);
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject("Aggiornamento non scaricato: " + e.getMessage());
+            } finally {
+                if (c != null) c.disconnect();
+            }
+        });
+    }
+
     /** resolves the YouTube streams of songs about to be played (search results, an album) */
     @PluginMethod
     public void warmStreams(PluginCall call) {
@@ -616,6 +679,20 @@ public class StemKitNativePlugin extends Plugin {
         } catch (Exception ignored) {
         }
         call.resolve();
+    }
+
+    @PluginMethod
+    public void suggest(PluginCall call) {
+        String q = call.getString("query", "");
+        io.execute(() -> {
+            try {
+                JSObject r = new JSObject();
+                r.put("suggestions", new com.getcapacitor.JSArray(YouTubeSource.suggest(q).toString()));
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
     }
 
     /* Spotify catalogue for the artist / album pages (SpotifyCatalog.java) */

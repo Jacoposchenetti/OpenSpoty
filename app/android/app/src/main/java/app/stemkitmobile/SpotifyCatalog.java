@@ -57,6 +57,12 @@ final class SpotifyCatalog {
             JSONObject d = a.optJSONObject("data");
             if (d != null && "Album".equals(d.optString("__typename"))) albums.put(release(d));
         }
+        JSONArray playlists = new JSONArray();
+        for (JSONObject p : items(s.optJSONObject("playlists"))) {
+            JSONObject d = p.optJSONObject("data");
+            if (d != null && "Playlist".equals(d.optString("__typename"))) playlists.put(playlistRef(d));
+        }
+        out.put("playlists", playlists);
         JSONArray tracks = new JSONArray();
         for (JSONObject t : items(s.optJSONObject("tracksV2"))) {
             JSONObject item = t.optJSONObject("item");
@@ -103,6 +109,18 @@ final class SpotifyCatalog {
                 for (JSONObject rel : items(r.optJSONObject("releases"))) appears.put(release(rel));
             }
             out.put("appearsOn", appears);
+            // "This Is …" and the playlists the artist is in
+            JSONArray pls = new JSONArray();
+            for (JSONObject r : items(rc.optJSONObject("featuringV2"))) {
+                JSONObject d = r.optJSONObject("data");
+                if (d != null && "Playlist".equals(d.optString("__typename"))) pls.put(playlistRef(d));
+            }
+            JSONObject own = p != null ? p.optJSONObject("playlistsV2") : null;
+            for (JSONObject r : items(own)) {
+                JSONObject d = r.optJSONObject("data");
+                if (d != null && "Playlist".equals(d.optString("__typename"))) pls.put(playlistRef(d));
+            }
+            out.put("playlists", pls);
         }
         out.put("related", related);
         return out;
@@ -129,6 +147,20 @@ final class SpotifyCatalog {
         JSONObject vis = d.optJSONObject("visuals");
         return new JSONObject().put("uri", d.optString("uri")).put("name", p != null ? p.optString("name") : "")
             .put("image", image(vis != null ? vis.optJSONObject("avatarImage") : null, 300));
+    }
+
+    private static JSONObject playlistRef(JSONObject d) throws Exception {
+        JSONObject img = null;
+        JSONObject images = d.optJSONObject("images");
+        for (JSONObject i : items(images)) {
+            img = i;
+            break;
+        }
+        JSONObject owner = d.optJSONObject("ownerV2");
+        JSONObject od = owner != null ? owner.optJSONObject("data") : null;
+        return new JSONObject().put("uri", d.optString("uri")).put("name", d.optString("name"))
+            .put("image", image(img, 300)).put("owner", od != null ? od.optString("name") : "")
+            .put("description", d.optString("description").replaceAll("<[^>]+>", ""));
     }
 
     private static JSONObject track(JSONObject d, String cover) throws Exception {
@@ -177,6 +209,8 @@ final class SpotifyCatalog {
             String iso = date.optString("isoString");
             if (year == 0 && iso.length() >= 4) year = Integer.parseInt(iso.substring(0, 4));
             if (year > 0) o.put("year", year);
+            if (iso.length() >= 10) o.put("date", iso.substring(0, 10));
+            else if (year > 0 && date.has("month")) o.put("date", String.format(java.util.Locale.ROOT, "%04d-%02d-%02d", year, date.optInt("month", 1), Math.max(1, date.optInt("day", 1))));
         }
         JSONArray names = new JSONArray();
         for (JSONObject a : items(r.optJSONObject("artists"))) {

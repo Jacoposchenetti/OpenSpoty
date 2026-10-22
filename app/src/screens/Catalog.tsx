@@ -2,7 +2,8 @@ import { Check, ChevronLeft, Download, Play, Plus, Shuffle, Share2 } from 'lucid
 import { useEffect, useMemo, useState } from 'react'
 import { Spinner, useBackHandler } from '../components/ui'
 import { isMatched, matchTrack, songsFor } from '../lib/catalog'
-import { engine, type SpAlbum, type SpArtist, type SpArtistRef, type SpRelease, type SpTrack } from '../lib/engine'
+import { engine, type SpAlbum, type SpArtist, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpTrack, type SpotifyList } from '../lib/engine'
+import { addRecent } from '../lib/recents'
 import { errMsg, fmtTime } from '../lib/format'
 import { shareSpotify } from '../lib/share'
 import { artistOf } from '../lib/media'
@@ -15,7 +16,9 @@ import { useStore, type Page } from '../store'
 export function CatalogPage({ page }: { page: Page }) {
   const store = useStore()
   useBackHandler(store.closePage)
-  return page.kind === 'artist' ? <ArtistPage key={page.uri} uri={page.uri} /> : <AlbumPage key={page.uri} uri={page.uri} />
+  if (page.kind === 'artist') return <ArtistPage key={page.uri} uri={page.uri} />
+  if (page.kind === 'playlist') return <PlaylistPage key={page.uri} uri={page.uri} />
+  return <AlbumPage key={page.uri} uri={page.uri} />
 }
 
 /** "Vai all'artista" from a song of the library: its Spotify artist, or a search by name */
@@ -121,7 +124,11 @@ function TrackRow({ t, i, onPlay, busy, showArt }: { t: SpTrack; i: number; onPl
   )
 }
 
-function Shelf({ title, items, round }: { title: string; items: Array<SpRelease | SpArtistRef>; round?: boolean }) {
+type Tile = SpRelease | SpArtistRef | SpPlaylistRef
+const kindOf = (uri: string) => (uri.startsWith('spotify:artist') ? 'artist' : uri.startsWith('spotify:playlist') ? 'playlist' : 'album')
+
+/** a row of cards to scroll sideways: artists (round), albums and playlists */
+export function Shelf({ title, items, round, showArtist, recent }: { title: string; items: Tile[]; round?: boolean; showArtist?: boolean; recent?: boolean }) {
   const store = useStore()
   if (!items.length) return null
   return (
@@ -129,16 +136,26 @@ function Shelf({ title, items, round }: { title: string; items: Array<SpRelease 
       <h3>{title}</h3>
       <div className="shelf-row">
         {items.map((x) => {
+          const kind = kindOf(x.uri)
           const rel = 'type' in x ? x : null
+          const pl = kind === 'playlist' ? (x as SpPlaylistRef) : null
+          const sub = rel
+            ? [showArtist ? rel.artists[0] : rel.year, kindLabel(rel.type)].filter(Boolean).join(' · ')
+            : pl
+              ? pl.owner === 'Spotify' ? pl.description || 'Playlist' : `Playlist${pl.owner ? ` · ${pl.owner}` : ''}`
+              : 'Artista'
           return (
             <button
               key={x.uri}
-              className={`card-tile ${round ? 'round' : ''}`}
-              onClick={() => store.openPage(rel ? { kind: 'album', uri: x.uri, name: x.name } : { kind: 'artist', uri: x.uri, name: x.name })}
+              className={`card-tile ${round || kind === 'artist' ? 'round' : ''}`}
+              onClick={() => {
+                if (recent) addRecent({ kind, id: x.uri, title: x.name, sub, image: x.image })
+                store.openPage({ kind, uri: x.uri, name: x.name })
+              }}
             >
               {x.image ? <img src={x.image} alt="" loading="lazy" /> : <span className="tile-ph" />}
               <span className="tile-title">{x.name}</span>
-              {rel && <span className="tile-sub">{[rel.year, kindLabel(rel.type)].filter(Boolean).join(' · ')}</span>}
+              <span className="tile-sub">{sub}</span>
             </button>
           )
         })}
@@ -249,26 +266,8 @@ function AlbumPage({ uri }: { uri: string }) {
   const tracks = useMemo(() => al?.tracks ?? [], [al])
   const tp = useTrackPlayer(tracks, al?.name ?? 'Album')
 
-  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
-  // the playlist appears at once and fills song by song (on mobile data the lookups take a while)
-  const save = async (andDownload: boolean) => {
-    if (!al || saving) return
-    const pid = store.createPlaylist(al.name, [], al.uri)
-    setSaving({ done: 0, total: tracks.length })
-    let found = 0
-    for (let i = 0; i < tracks.length; i++) {
-      const [song] = await songsFor([tracks[i]], store.getSong)
-      if (song) {
-        found++
-        store.addToLibrary(song, true)
-        store.addToPlaylist(pid, [song.id])
-        if (andDownload) store.download([song.id])
-      }
-      setSaving({ done: i + 1, total: tracks.length })
-    }
-    setSaving(null)
-    store.showToast(found ? `“${al.name}”: ${found} brani nella playlist` : 'Nessun brano trovato su YouTube')
-  }
+  const { saving, save: saveAs } = useSaver()
+  const save = (andDownload: boolean) => al && void saveAs(al.name, al.uri, tracks, andDownload)
 
   if (err) return <Failed title="Album" err={err} />
   if (!al) return <Loading title="Album" />
@@ -343,7 +342,7 @@ function Failed({ title, err }: { title: string; err: string }) {
 
 /** artists and albums found on Spotify, above the song results */
 export function CatalogResults({ query }: { query: string }) {
-  const [r, setR] = useState<{ artists: SpArtistRef[]; albums: SpRelease[] } | null>(null)
+  const [r, setR] = useState<{ artists: SpArtistRef[]; albums: SpRelease[]; playlists?: SpPlaylistRef[] } | null>(null)
   useEffect(() => {
     let alive = true
     setR(null)
@@ -359,8 +358,101 @@ export function CatalogResults({ query }: { query: string }) {
   if (!r) return null
   return (
     <>
-      <Shelf title="Artisti" items={r.artists.slice(0, 6)} round />
-      <Shelf title="Album" items={r.albums.slice(0, 8)} />
+      <Shelf title="Artisti" items={r.artists.slice(0, 6)} round recent />
+      <Shelf title="Album" items={r.albums.slice(0, 8)} recent />
+      <Shelf title="Playlist" items={(r.playlists ?? []).slice(0, 8)} recent />
     </>
+  )
+}
+
+/** "Salva" / "Scarica": the tracks become a playlist of the library, filled song by song */
+function useSaver() {
+  const store = useStore()
+  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
+  const save = async (name: string, source: string, tracks: SpTrack[], andDownload: boolean) => {
+    if (saving) return
+    const pid = store.createPlaylist(name, [], source)
+    setSaving({ done: 0, total: tracks.length })
+    let found = 0
+    for (let i = 0; i < tracks.length; i++) {
+      const [song] = await songsFor([tracks[i]], store.getSong)
+      if (song) {
+        found++
+        store.addToLibrary(song, true)
+        store.addToPlaylist(pid, [song.id])
+        if (andDownload) store.download([song.id])
+      }
+      setSaving({ done: i + 1, total: tracks.length })
+    }
+    setSaving(null)
+    store.showToast(found ? `“${name}”: ${found} brani nella playlist` : 'Nessun brano trovato su YouTube')
+  }
+  return { saving, save }
+}
+
+/* ------------------------------------------------------------- Spotify playlist */
+
+function PlaylistPage({ uri }: { uri: string }) {
+  const [pl, setPl] = useState<SpotifyList | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const { saving, save } = useSaver()
+  useEffect(() => {
+    engine
+      .spPlaylist(uri)
+      .then(setPl)
+      .catch((e) => setErr(errMsg(e)))
+  }, [uri])
+  const tracks = useMemo<SpTrack[]>(
+    () =>
+      (pl?.tracks ?? []).map((t) => ({
+        uri: t.uri || `x:${t.artist}|${t.title}`,
+        title: t.title,
+        artists: t.artist.split(', ').filter(Boolean),
+        artistUris: t.artistUri ? [t.artistUri] : [],
+        duration: t.duration,
+        image: t.image || pl?.image
+      })),
+    [pl]
+  )
+  const tp = useTrackPlayer(tracks, pl?.name ?? 'Playlist')
+  if (err) return <Failed title="Playlist" err={err} />
+  if (!pl) return <Loading title="Playlist" />
+  return (
+    <div className="lib catalog">
+      <PageTop title="" />
+      <div className="album-hero">
+        {pl.image ? <img src={pl.image} alt="" /> : <span className="tile-ph" />}
+        <h1>{pl.name}</h1>
+        <span className="muted small">{[pl.owner, `${tracks.length} brani`].filter(Boolean).join(' · ')}</span>
+      </div>
+      <div className="list-actions">
+        <button className="primary" disabled={!tracks.length || !!tp.busy} onClick={() => void tp.play(0)}>
+          {tp.busy ? <Spinner /> : <Play fill="currentColor" />} Riproduci
+        </button>
+        <button disabled={tracks.length < 2 || !!tp.busy} onClick={() => void tp.play(Math.floor(Math.random() * tracks.length), true)} aria-label="Casuale">
+          <Shuffle />
+        </button>
+        {saving ? (
+          <button disabled className="saving">
+            <Spinner /> {saving.done}/{saving.total}
+          </button>
+        ) : (
+          <>
+            <button onClick={() => void save(pl.name, uri, tracks, false)}>
+              <Plus /> Salva
+            </button>
+            <button onClick={() => void save(pl.name, uri, tracks, true)} aria-label="Salva e scarica">
+              <Download />
+            </button>
+          </>
+        )}
+        <button className="share-btn" onClick={() => void shareSpotify(pl.name, uri)} aria-label="Condividi">
+          <Share2 />
+        </button>
+      </div>
+      {tracks.map((t, i) => (
+        <TrackRow key={`${t.uri}:${i}`} t={t} i={i} showArt busy={tp.busy === t.uri} onPlay={() => void tp.play(i)} />
+      ))}
+    </div>
   )
 }

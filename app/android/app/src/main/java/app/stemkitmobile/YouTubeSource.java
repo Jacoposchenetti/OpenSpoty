@@ -111,6 +111,17 @@ final class YouTubeSource {
      * Songs first (YouTube Music: proper artist names, and it is not filtered on
      * words like "erotico"), then ordinary videos (live versions, covers...).
      */
+    /** what YouTube suggests while typing */
+    static JSONArray suggest(String query) throws Exception {
+        init();
+        JSONArray out = new JSONArray();
+        for (String s : ServiceList.YouTube.getSuggestionExtractor().suggestionList(query)) {
+            out.put(s);
+            if (out.length() >= 6) break;
+        }
+        return out;
+    }
+
     static JSONArray search(String query) throws Exception {
         init();
         StreamingService yt = ServiceList.YouTube;
@@ -278,6 +289,7 @@ final class YouTubeSource {
         for (int i = 0; i < list.length(); i++) {
             JSONObject t = list.getJSONObject(i);
             JSONObject o = new JSONObject();
+            o.put("uri", t.optString("uri"));
             o.put("title", t.optString("title"));
             o.put("artist", t.optString("subtitle").replace(' ', ' '));
             o.put("duration", Math.round(t.optLong("duration", 0) / 1000.0));
@@ -297,6 +309,10 @@ final class YouTubeSource {
         }
         JSONObject r = new JSONObject();
         r.put("name", entity.optString("name", entity.optString("title", "Playlist Spotify")));
+        JSONObject cover = entity.optJSONObject("coverArt");
+        JSONArray src = cover != null ? cover.optJSONArray("sources") : null;
+        if (src != null && src.length() > 0) r.put("image", src.getJSONObject(src.length() - 1).optString("url"));
+        r.put("owner", entity.optString("subtitle"));
         r.put("tracks", tracks);
         return r;
     }
@@ -333,6 +349,12 @@ final class YouTubeSource {
                 }
                 JSONObject dur = d.optJSONObject("trackDuration");
                 JSONObject o = new JSONObject();
+                o.put("uri", d.optString("uri"));
+                JSONObject album = d.optJSONObject("albumOfTrack");
+                JSONObject cover = album != null ? album.optJSONObject("coverArt") : null;
+                org.json.JSONArray src = cover != null ? cover.optJSONArray("sources") : null;
+                if (src != null && src.length() > 0) o.put("image", src.getJSONObject(0).optString("url"));
+                if (artists != null && artists.length() > 0) o.put("artistUri", artists.getJSONObject(0).optString("uri"));
                 o.put("title", d.optString("name"));
                 o.put("artist", String.join(", ", names));
                 o.put("duration", Math.round((dur != null ? dur.optLong("totalMilliseconds", 0) : 0) / 1000.0));

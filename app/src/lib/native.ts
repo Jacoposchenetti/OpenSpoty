@@ -45,6 +45,8 @@ export interface StemKitNativePlugin {
   download(opts: { id: string; url: string; pin: string; path: string }): Promise<{ path: string; size: number }>
   /** looks up the YouTube streams of songs likely to be played next (faster start) */
   warmStreams(opts: { videoIds: string[]; prefetch?: number }): Promise<void>
+  /** downloads a release APK and opens Android's installer */
+  installUpdate(opts: { url: string }): Promise<{ needsPermission: boolean }>
   /** every file under songs/ with its size */
   listFiles(): Promise<{ files: Record<string, number> }>
   /** sends a file of the data folder to the PC, keeping it */
@@ -65,10 +67,11 @@ export interface StemKitNativePlugin {
   deleteStems(opts: { songId: string }): Promise<void>
   ytSearch(opts: { query: string }): Promise<{ results: YtResult[] }>
   spotifyQuery(opts: { url: string }): Promise<{ query: string }>
+  suggest(opts: { query: string }): Promise<{ suggestions: string[] }>
   spSearch(opts: { query: string }): Promise<import('./engine').SpSearch>
   spArtist(opts: { uri: string }): Promise<import('./engine').SpArtist>
   spAlbum(opts: { uri: string }): Promise<import('./engine').SpAlbum>
-  spotifyList(opts: { url: string }): Promise<{ name: string; tracks: Array<{ title: string; artist: string; duration: number }> }>
+  spotifyList(opts: { url: string }): Promise<import('./engine').SpotifyList>
   matchSong(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; title: string; channel: string; duration: number; score: number }>
   separationStatus(): Promise<SeparationEvent | { state: 'idle' }>
   addListener(event: 'separation', cb: (e: SeparationEvent) => void): Promise<PluginListenerHandle>

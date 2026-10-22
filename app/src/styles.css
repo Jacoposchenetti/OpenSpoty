@@ -2132,3 +2132,154 @@ button.saving {
   flex: 0 0 auto;
   min-width: 48px;
 }
+
+/* Cerca, like Spotify: recommendations, recent searches, suggestions */
+.search {
+  align-items: center;
+}
+.search-field {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.search-field input {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 10px;
+  padding-left: 14px;
+  padding-right: 40px;
+  font-size: 16px;
+}
+.search:not(.focused) .search-field input {
+  background: #f2f2f2;
+  color: #111;
+  padding-left: 42px;
+  font-weight: 600;
+}
+.search:not(.focused) .search-field input::placeholder {
+  color: #444;
+}
+.search-ico {
+  position: absolute;
+  left: 12px;
+  color: #222;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  pointer-events: none;
+}
+.search-field .clear {
+  position: absolute;
+  right: 4px;
+  min-height: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+.search-field .clear .lucide {
+  margin: 0;
+}
+.recent-row,
+.sugg-row {
+  display: flex;
+  align-items: center;
+}
+.recent-main,
+.sugg-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  padding: 6px 4px;
+  text-align: left;
+  font-size: 16px;
+}
+.recent-main img {
+  width: 52px;
+  height: 52px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex: none;
+}
+.recent-main img.round {
+  border-radius: 50%;
+}
+.recent-ico {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--muted);
+}
+.recent-ico .lucide,
+.sugg-main .lucide {
+  margin: 0;
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+}
+.sugg-main {
+  gap: 16px;
+  min-height: 52px;
+}
+.clear-recents {
+  align-self: center;
+  margin: 14px auto 4px;
+  display: block;
+  border-radius: 999px;
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid var(--muted);
+  font-weight: 700;
+}
+.suggestions {
+  margin-bottom: 4px;
+}
+.home-shelves .shelf h3 {
+  font-size: 20px;
+}
+
+/* "Aggiornamento disponibile" */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 12px 0;
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  border: 1px solid var(--accent);
+}
+.update-banner > .lucide {
+  color: var(--accent);
+  margin: 0;
+  width: 24px;
+  height: 24px;
+}
+.update-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.update-banner button.primary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tile-sub {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
