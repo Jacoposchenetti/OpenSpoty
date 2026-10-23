@@ -1,9 +1,10 @@
-import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease } from './engine'
+import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpTrack } from './engine'
 import { artistOf } from './media'
 import type { Song } from './types'
 
 /* The shelves of "Cerca", built from the artists you listen to most: their
-   similar artists, the playlists they are in, their newest releases. */
+   similar artists (none you already have), the playlists they are in, their
+   newest releases, and the best songs of those new artists. */
 
 export interface Home {
   artists: SpArtistRef[]
@@ -13,12 +14,25 @@ export interface Home {
 
 const fold = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 
+const mainArtist = (s: Song) => artistOf(s.title).split(/,| feat\.| ft\.| & /i)[0].trim()
+
+/** every artist with at least one song in your library (folded names) */
+const knownArtists = (songs: Song[]) =>
+  new Set(
+    songs.flatMap((s) =>
+      artistOf(s.title)
+        .split(/,| feat\.| ft\.| & | x /i)
+        .map((a) => fold(a))
+        .filter(Boolean)
+    )
+  )
+
 /** your artists, most listened first: songs count, liked ones and recent plays weigh more */
 export function topArtists(songs: Song[], n = 8): string[] {
   const score = new Map<string, { name: string; s: number }>()
   const now = Date.now()
   for (const s of songs) {
-    const name = artistOf(s.title).split(/,| feat\.| ft\.| & /i)[0].trim()
+    const name = mainArtist(s)
     if (!name) continue
     const k = fold(name)
     const recent = s.playedAt ? Math.max(0, 1 - (now - s.playedAt) / (30 * 86400_000)) * 3 : 0
@@ -42,9 +56,9 @@ let memo: { key: string; home: Home } | null = null
 
 export async function buildHome(songs: Song[]): Promise<Home> {
   const names = topArtists(songs)
-  const key = names.join('|')
+  const key = `${names.join('|')}#${songs.length}`
   if (memo?.key === key) return memo.home
-  const mine = new Set(names.map(fold))
+  const mine = knownArtists(songs)
   const pages = (
     await Promise.all(
       names.map(async (n) => {
@@ -92,4 +106,32 @@ export async function buildHome(songs: Song[]): Promise<Home> {
   const home = { artists, playlists: playlists.slice(0, 15), releases }
   memo = { key, home }
   return home
+}
+
+let trackMemo: { key: string; tracks: SpTrack[] } | null = null
+
+/** "Brani che potrebbero piacerti": the most played songs of the suggested
+   artists (the best-voted first), a couple each, none already in your library */
+export async function buildTracks(home: Home, songs: Song[]): Promise<SpTrack[]> {
+  const picks = home.artists.slice(0, 8)
+  const key = picks.map((a) => a.uri).join('|')
+  if (trackMemo?.key === key) return trackMemo.tracks
+  const known = knownArtists(songs)
+  const titles = new Set(songs.map((s) => fold(s.title)))
+  const pages = await Promise.all(picks.map((a) => engine.spArtist(a.uri).catch(() => null)))
+  const out: SpTrack[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < 3; i++) {
+    for (const p of pages) {
+      const t = p?.topTracks[i]
+      if (!t || seen.has(t.uri)) continue
+      if (t.artists.some((a) => known.has(fold(a)))) continue
+      if (titles.has(fold(`${t.artists[0]} - ${t.title}`))) continue
+      seen.add(t.uri)
+      out.push(t)
+    }
+  }
+  const tracks = out.slice(0, 20)
+  trackMemo = { key, tracks }
+  return tracks
 }

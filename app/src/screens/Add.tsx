@@ -7,9 +7,10 @@ import { useImports, type Import } from '../imports'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { Spinner } from '../components/ui'
-import { CatalogResults, Shelf } from './Catalog'
+import { CatalogResults, Shelf, TrackShelf } from './Catalog'
 import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
-import { buildHome, type Home } from '../lib/home'
+import { buildHome, buildTracks, type Home } from '../lib/home'
+import type { SpTrack } from '../lib/engine'
 import type { Song } from '../lib/types'
 
 const isLink = (q: string) => /^https?:\/\/|^spotify:/i.test(q)
@@ -490,11 +491,17 @@ function SplitJob() {
 function HomeShelves() {
   const store = useStore()
   const [home, setHome] = useState<Home | null>(null)
+  const [tracks, setTracks] = useState<SpTrack[]>([])
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     let alive = true
     buildHome(store.songs)
-      .then((h) => alive && setHome(h))
+      .then((h) => {
+        if (!alive) return
+        setHome(h)
+        // the songs need one more page per artist: they come in after the rest
+        void buildTracks(h, store.songs).then((t) => alive && setTracks(t), () => undefined)
+      })
       .catch(() => alive && setFailed(true))
     return () => {
       alive = false
@@ -511,6 +518,7 @@ function HomeShelves() {
   return (
     <div className="home-shelves">
       <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
+      <TrackShelf title="Brani che potrebbero piacerti" tracks={tracks} />
       <Shelf title="Playlist da ascoltare" items={home.playlists} />
       <Shelf title="Ultime uscite dei tuoi artisti" items={home.releases} showArtist />
     </div>

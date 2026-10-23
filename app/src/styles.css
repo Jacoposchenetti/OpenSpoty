@@ -2825,3 +2825,7 @@ input.with-ico {
     opacity: 0.25;
   }
 }
+
+.track-shelf > button.ghost {
+  margin: 4px 16px 0;
+}

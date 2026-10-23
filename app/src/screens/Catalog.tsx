@@ -153,6 +153,27 @@ function TrackRow({ t, i, onPlay, busy, showArt }: { t: SpTrack; i: number; onPl
   )
 }
 
+/** a short list of songs to play, with a title (the shelves of "Cerca") */
+export function TrackShelf({ title, tracks, max = 10 }: { title: string; tracks: SpTrack[]; max?: number }) {
+  const [all, setAll] = useState(false)
+  const shown = all ? tracks : tracks.slice(0, max)
+  const tp = useTrackPlayer(tracks, title)
+  if (!tracks.length) return null
+  return (
+    <section className="shelf track-shelf">
+      <h3>{title}</h3>
+      {shown.map((t, i) => (
+        <TrackRow key={t.uri} t={t} i={i} showArt busy={tp.busy === t.uri} onPlay={() => void tp.play(i)} />
+      ))}
+      {tracks.length > max && (
+        <button className="ghost small" onClick={() => setAll(!all)}>
+          {all ? 'Mostra meno' : 'Mostra altri'}
+        </button>
+      )}
+    </section>
+  )
+}
+
 type Tile = SpRelease | SpArtistRef | SpPlaylistRef
 const kindOf = (uri: string) => (uri.startsWith('spotify:artist') ? 'artist' : uri.startsWith('spotify:playlist') ? 'playlist' : 'album')
 
