@@ -115,7 +115,8 @@ interface BackendEvents {
 }
 
 interface Backend {
-  load(song: Song, mix: MixState, autoplay: boolean, startAt: number): void
+  /** countIn: the click before a song you start yourself (not when the same song is reloaded) */
+  load(song: Song, mix: MixState, autoplay: boolean, startAt: number, countIn?: boolean): void
   preload(song: Song | null): void
   play(): void
   pause(): void
@@ -196,12 +197,12 @@ function nativeBackend(ev: BackendEvents): Backend {
     }
   })
   return {
-    load(song, mix, autoplay, startAt) {
+    load(song, mix, autoplay, startAt, countIn = true) {
       current = song.id
       preloadedId = null
       last = { pos: startAt, at: performance.now(), playing: false }
       // a song you start yourself gets the count-in (songs that follow on their own don't)
-      void StemPlayer.load({ ...nativeSpec(song, mix, startAt, autoplay), countIn: true }).catch((e) => ev.state({ error: errMsg(e), loading: false }))
+      void StemPlayer.load({ ...nativeSpec(song, mix, startAt, autoplay), countIn }).catch((e) => ev.state({ error: errMsg(e), loading: false }))
     },
     preload(song) {
       if (!song || song.id === preloadedId || song.id === current) return
@@ -438,10 +439,19 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     )
   }, [backend])
 
+  /** the tracks the engine has for the song playing ("stems:files"): when they change, it reloads */
+  const loadedTracks = useRef('')
+  const loadedFor = useRef('') // the song those tracks belong to
+  const tracksOf = (song: Song) => song.stems.map((id) => `${id}=${song.files[id] ?? ''}`).join(',') + `|${originalRef(song) ?? ''}`
+
   /** show a song as current without (re)loading it: the engine already plays it */
   const adopt = (np: NowPlaying) => {
     storeRef.current.updateSong(np.songId, { playedAt: Date.now() })
     const song = storeRef.current.getSong(np.songId)
+    if (song) {
+      loadedTracks.current = tracksOf(song)
+      loadedFor.current = song.id
+    }
     if (song) logListen(song.title)
     nowRef.current = np
     setNow(np)
@@ -470,6 +480,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setSource(sourceFor(song, m))
       setError(null)
       setLoading(true)
+      loadedTracks.current = tracksOf(song)
+      loadedFor.current = song.id
       backend.load(song, m, autoplay, startAt)
       // the next one starts instantly when it comes (scaletta, coda)
       if (backend.native) syncUpcoming()
@@ -585,6 +597,21 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setPlaying(true)
     }
   }, [backend, loading, playing])
+
+  // the song playing got its tracks (split while it played, or downloaded): the engine takes them
+  // at the same point, so voice and instruments can be switched off at once
+  const nowSong = now ? store.getSong(now.songId) : undefined
+  const nowTracks = nowSong ? tracksOf(nowSong) : ''
+  useEffect(() => {
+    if (!backend.native || !nowSong || !nowTracks || nowTracks === loadedTracks.current) return
+    const known = loadedFor.current === nowSong.id
+    loadedTracks.current = nowTracks
+    loadedFor.current = nowSong.id
+    if (!known) return // a song taken over as it was (the app reopened while it played)
+    if (!nowSong.stems.length) return
+    backend.load(nowSong, mix, playing, backend.position(), false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowTracks])
 
   const setMix = useCallback(
     (m: MixState) => {
