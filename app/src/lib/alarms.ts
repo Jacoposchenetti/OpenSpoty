@@ -18,6 +18,7 @@ export interface Alarm {
   hour: number
   minute: number
   days: number[] // 1 = Monday … 7 = Sunday; empty = once
+  date?: string // YYYY-MM-DD: rings on that day only (the days are ignored)
   enabled: boolean
   label: string
   content: AlarmContent
@@ -73,6 +74,33 @@ export function daysLabel(days: number[]): string {
 }
 
 export const pad = (n: number) => String(n).padStart(2, '0')
+
+export const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
+const WEEKDAYS = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato']
+
+export const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const fromIso = (s: string) => {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+/** "venerdì 30 ottobre" (with the year when it isn't this one) */
+export function dateLabel(iso: string): string {
+  const d = fromIso(iso)
+  const year = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : ''
+  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${year}`
+}
+
+/** when an alarm rings, in words */
+export const whenLabel = (a: Alarm) => (a.date ? dateLabel(a.date) : daysLabel(a.days))
+
+/** a dated alarm whose moment is gone */
+export const isPast = (a: Alarm) => {
+  if (!a.date) return false
+  const d = fromIso(a.date)
+  d.setHours(a.hour, a.minute)
+  return d.getTime() <= Date.now()
+}
 
 /** "tra 7 ore e 12 minuti" */
 export function inWords(at: number): string {

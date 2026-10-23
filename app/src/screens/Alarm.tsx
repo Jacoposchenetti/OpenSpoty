@@ -1,8 +1,8 @@
 import { App as CapApp } from '@capacitor/app'
-import { AlarmClock, BellRing, Heart, ListMusic, Music, Plus, Search as SearchIcon, Shuffle, Timer, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { AlarmClock, BellRing, Heart, ListMusic, Music, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
-import { Alarms, DAY_NAMES, daysLabel, inWords, loadAlarms, newAlarm, pad, saveAlarmList, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
+import { Alarms, DAY_NAMES, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, MONTHS, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
 import { songsFor } from '../lib/catalog'
 import { engine } from '../lib/engine'
 import { errMsg } from '../lib/format'
@@ -108,9 +108,10 @@ export function AlarmPage() {
                 {pad(a.hour)}:{pad(a.minute)}
               </span>
               <span className="alarm-info">
-                <span>{a.label || daysLabel(a.days)}</span>
+                <span>{a.label || whenLabel(a)}</span>
                 <span className="muted small">
-                  {a.label ? `${daysLabel(a.days)} · ` : ''}
+                  {isPast(a) ? 'passata · ' : ''}
+                  {a.label ? `${whenLabel(a)} · ` : ''}
                   {a.content.name}
                 </span>
               </span>
@@ -142,37 +143,92 @@ export function AlarmPage() {
 function SleepTimer() {
   const pb = usePlayback()
   const [, tick] = useState(0)
+  const [dur, setDur] = useState(() => {
+    try {
+      return Number(localStorage.getItem('stemkit:sleep-last')) || 20 * 60
+    } catch {
+      return 20 * 60
+    }
+  })
+  const running = pb.sleep.at > Date.now() || pb.sleep.atEnd
   useEffect(() => {
-    const t = setInterval(() => tick((x) => x + 1), 15000)
+    if (!running) return
+    const t = setInterval(() => tick((x) => x + 1), 1000)
     return () => clearInterval(t)
-  }, [])
-  const active = pb.sleep.at || pb.sleep.atEnd
+  }, [running])
+  const start = () => {
+    if (dur <= 0) return
+    try {
+      localStorage.setItem('stemkit:sleep-last', String(dur))
+    } catch {
+      /* private mode */
+    }
+    pb.setSleep(dur / 60)
+  }
+  const left = Math.max(0, Math.round((pb.sleep.at - Date.now()) / 1000))
+  const h = Math.floor(dur / 3600), m = Math.floor((dur % 3600) / 60), sec = dur % 60
   return (
-    <section className="card">
+    <section className="card sleep-card">
       <h2>
         <Timer className="inline-ico" /> Timer di spegnimento
       </h2>
-      <p className="muted small">
-        {pb.sleep.atEnd
-          ? 'La musica si ferma alla fine di questo brano.'
-          : pb.sleep.at
-            ? `La musica si ferma tra ${Math.max(1, Math.round((pb.sleep.at - Date.now()) / 60000))} minuti.`
-            : 'Ferma la musica dopo un po’, per addormentarti ascoltando.'}
-      </p>
-      <div className="chips wrap">
-        {[5, 15, 30, 45, 60, 90].map((m) => (
-          <button key={m} onClick={() => pb.setSleep(m)}>
-            {m} min
-          </button>
-        ))}
-        <button onClick={() => pb.setSleep(-1)}>Fine brano</button>
-        {active ? (
-          <button className="danger" onClick={() => pb.setSleep(0)}>
-            Annulla
-          </button>
-        ) : null}
-      </div>
+      {running ? (
+        <div className="timer-count">
+          {pb.sleep.atEnd ? 'Fine brano' : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
+        </div>
+      ) : (
+        <div className="wheels">
+          <Wheel max={23} value={h} onChange={(v) => setDur(v * 3600 + m * 60 + sec)} label="ore" />
+          <span className="wheel-sep">:</span>
+          <Wheel max={59} value={m} onChange={(v) => setDur(h * 3600 + v * 60 + sec)} label="minuti" />
+          <span className="wheel-sep">:</span>
+          <Wheel max={59} value={sec} onChange={(v) => setDur(h * 3600 + m * 60 + v)} label="secondi" />
+        </div>
+      )}
+      <p className="muted small center">{running ? 'Poi la musica si ferma.' : 'La musica si ferma dopo questo tempo.'}</p>
+      {running ? (
+        <button className="danger" onClick={() => pb.setSleep(0)}>
+          Annulla
+        </button>
+      ) : (
+        <button className="primary" disabled={dur <= 0} onClick={start}>
+          Avvia
+        </button>
+      )}
     </section>
+  )
+}
+
+const ROW = 56
+
+/** a column to scroll, like a clock's timer: the number in the middle is the value */
+function Wheel({ max, value, onChange, label }: { max: number; value: number; onChange: (v: number) => void; label: string }) {
+  const box = useRef<HTMLDivElement>(null)
+  const settle = useRef<number | null>(null)
+  useEffect(() => {
+    const el = box.current
+    if (el && Math.round(el.scrollTop / ROW) !== value) el.scrollTop = value * ROW
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const onScroll = () => {
+    if (settle.current) clearTimeout(settle.current)
+    settle.current = window.setTimeout(() => {
+      const el = box.current
+      if (!el) return
+      const v = Math.max(0, Math.min(max, Math.round(el.scrollTop / ROW)))
+      if (v !== value) onChange(v)
+    }, 80)
+  }
+  return (
+    <div className="wheel" ref={box} onScroll={onScroll} aria-label={label} role="listbox">
+      <div className="wheel-pad" />
+      {Array.from({ length: max + 1 }, (_, i) => (
+        <div key={i} className={`wheel-item ${i === value ? 'on' : ''}`} onClick={() => box.current?.scrollTo({ top: i * ROW, behavior: 'smooth' })}>
+          {pad(i)}
+        </div>
+      ))}
+      <div className="wheel-pad" />
+    </div>
   )
 }
 
@@ -194,18 +250,35 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
           if (!Number.isNaN(h)) set({ hour: h, minute: m || 0 })
         }}
       />
-      <div className="day-chips">
-        {DAY_NAMES.map((d, i) => (
-          <button
-            key={i}
-            className={a.days.includes(i + 1) ? 'active' : ''}
-            onClick={() => set({ days: a.days.includes(i + 1) ? a.days.filter((x) => x !== i + 1) : [...a.days, i + 1] })}
-          >
-            {d}
-          </button>
-        ))}
+      <div className="seg">
+        <button className={!a.date ? 'active' : ''} onClick={() => set({ date: undefined })}>
+          Ogni settimana
+        </button>
+        <button className={a.date ? 'active' : ''} onClick={() => set({ date: a.date ?? nextDay(a) })}>
+          Una data
+        </button>
       </div>
-      <p className="muted small center">{daysLabel(a.days)}</p>
+      {a.date ? (
+        <>
+          <Calendar value={a.date} hour={a.hour} minute={a.minute} onPick={(date) => set({ date })} />
+          <p className="muted small center">{dateLabel(a.date)}</p>
+        </>
+      ) : (
+        <>
+          <div className="day-chips">
+            {DAY_NAMES.map((d, i) => (
+              <button
+                key={i}
+                className={a.days.includes(i + 1) ? 'active' : ''}
+                onClick={() => set({ days: a.days.includes(i + 1) ? a.days.filter((x) => x !== i + 1) : [...a.days, i + 1] })}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <p className="muted small center">{daysLabel(a.days)}</p>
+        </>
+      )}
       <button className="content-pick" onClick={() => setPicking(true)}>
         {a.content.image ? <img src={a.content.image} alt="" /> : <span className="recent-ico">{a.content.kind === 'liked' ? <Heart /> : <Music />}</span>}
         <span className="lib-text">
@@ -241,6 +314,64 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
         </button>
       )}
     </Sheet>
+  )
+}
+
+/** the first day the alarm can still ring at its time: today, or tomorrow if that time is gone */
+function nextDay(a: Alarm): string {
+  const d = new Date()
+  if (d.getHours() * 60 + d.getMinutes() >= a.hour * 60 + a.minute) d.setDate(d.getDate() + 1)
+  return isoDate(d)
+}
+
+/** a month to pick a day from (Monday first); the days already gone can't be picked */
+function Calendar({ value, hour, minute, onPick }: { value: string; hour: number; minute: number; onPick: (iso: string) => void }) {
+  const [month, setMonth] = useState(() => {
+    const d = fromIso(value)
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+  const now = new Date()
+  const first = (month.getDay() + 6) % 7 // blanks before the 1st (Monday = 0)
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate()
+  const cells: Array<number | null> = [...Array<null>(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)]
+  const gone = (day: number) => new Date(month.getFullYear(), month.getMonth(), day, hour, minute).getTime() <= now.getTime()
+  const canBack = month.getFullYear() > now.getFullYear() || month.getMonth() > now.getMonth()
+  const move = (n: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + n, 1))
+  return (
+    <div className="calendar">
+      <div className="cal-head">
+        <button className="icon-btn" disabled={!canBack} onClick={() => move(-1)} aria-label="Mese prima">
+          <ChevronLeft />
+        </button>
+        <span>
+          {MONTHS[month.getMonth()]} {month.getFullYear()}
+        </span>
+        <button className="icon-btn" onClick={() => move(1)} aria-label="Mese dopo">
+          <ChevronRight />
+        </button>
+      </div>
+      <div className="cal-grid">
+        {DAY_NAMES.map((d, i) => (
+          <span key={`h${i}`} className="cal-dow">
+            {d}
+          </span>
+        ))}
+        {cells.map((day, i) => {
+          if (day === null) return <span key={i} />
+          const iso = isoDate(new Date(month.getFullYear(), month.getMonth(), day))
+          return (
+            <button
+              key={i}
+              className={`cal-day ${iso === value ? 'active' : ''} ${iso === isoDate(now) ? 'today' : ''}`}
+              disabled={gone(day)}
+              onClick={() => onPick(iso)}
+            >
+              {day}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 

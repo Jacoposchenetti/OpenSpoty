@@ -17,7 +17,7 @@ import java.util.Calendar;
  * status bar and wakes the phone. Each alarm carries the songs it plays as
  * PlayerSpec JSON: AlarmService plays them with the app closed.
  *
- * alarm = {id, hour, minute, days: [1..7 = Mon..Sun] (empty = once), enabled,
+ * alarm = {id, hour, minute, days: [1..7 = Mon..Sun] (empty = once), date: "YYYY-MM-DD" (a given day), enabled,
  *          label, shuffle, volume 0..1, fadeSec, specs: [PlayerSpec]}
  */
 final class AlarmClock {
@@ -82,6 +82,12 @@ final class AlarmClock {
         cal.set(Calendar.MILLISECOND, 0);
         cal.set(Calendar.HOUR_OF_DAY, a.optInt("hour"));
         cal.set(Calendar.MINUTE, a.optInt("minute"));
+        String date = a.optString("date", "");
+        if (date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            // a given day: rings once, then never again
+            cal.set(Integer.parseInt(date.substring(0, 4)), Integer.parseInt(date.substring(5, 7)) - 1, Integer.parseInt(date.substring(8, 10)));
+            return cal.getTimeInMillis() > now ? cal.getTimeInMillis() : -1;
+        }
         for (int i = 0; i < 8; i++) {
             if (cal.getTimeInMillis() > now) {
                 if (days == null || days.length() == 0) return cal.getTimeInMillis();

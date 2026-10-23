@@ -2683,3 +2683,118 @@ input.with-ico {
   padding-left: 0;
   padding-right: 0;
 }
+
+/* Sveglia: calendar */
+.calendar {
+  background: var(--panel-2);
+  border-radius: 14px;
+  padding: 8px;
+}
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+.cal-dow {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 0;
+}
+.cal-day {
+  min-height: 0;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  font-size: 15px;
+}
+.cal-day.today {
+  border: 1px solid var(--accent);
+}
+.cal-day.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
+.cal-day:disabled {
+  opacity: 0.25;
+}
+
+/* Sveglia: timer wheels */
+.wheels {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 168px;
+}
+.wheels::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  pointer-events: none;
+}
+.wheel {
+  position: relative;
+  height: 168px;
+  width: 84px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+}
+.wheel::-webkit-scrollbar {
+  display: none;
+}
+.wheel-pad {
+  height: 56px;
+}
+.wheel-item {
+  height: 56px;
+  display: grid;
+  place-items: center;
+  scroll-snap-align: center;
+  font-size: 34px;
+  font-weight: 300;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.wheel-item.on {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 40px;
+}
+.wheel-sep {
+  position: relative;
+  font-size: 34px;
+  font-weight: 600;
+}
+.timer-count {
+  text-align: center;
+  font-size: 54px;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  padding: 26px 0 8px;
+}
+.sleep-card > button {
+  align-self: center;
+  min-width: 180px;
+  border-radius: 999px;
+}
