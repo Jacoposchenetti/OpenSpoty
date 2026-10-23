@@ -2798,3 +2798,30 @@ input.with-ico {
   min-width: 180px;
   border-radius: 999px;
 }
+
+.sleep-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.sleep-actions button {
+  min-width: 130px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.sleep-actions svg {
+  width: 18px;
+  height: 18px;
+}
+.timer-count.paused {
+  opacity: 0.5;
+  animation: timer-blink 1.6s ease-in-out infinite;
+}
+@keyframes timer-blink {
+  50% {
+    opacity: 0.25;
+  }
+}

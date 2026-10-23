@@ -1,5 +1,5 @@
 import { App as CapApp } from '@capacitor/app'
-import { AlarmClock, BellRing, Heart, ListMusic, Music, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlarmClock, BellRing, Heart, ListMusic, Music, Pause, Play, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
 import { Alarms, DAY_NAMES, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, MONTHS, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
@@ -150,6 +150,23 @@ function SleepTimer() {
       return 20 * 60
     }
   })
+  // a paused timer keeps its seconds left here (also across tabs and restarts)
+  const [paused, setPausedState] = useState<number | null>(() => {
+    try {
+      return Number(localStorage.getItem('stemkit:sleep-paused')) || null
+    } catch {
+      return null
+    }
+  })
+  const setPaused = (v: number | null) => {
+    setPausedState(v)
+    try {
+      if (v) localStorage.setItem('stemkit:sleep-paused', String(v))
+      else localStorage.removeItem('stemkit:sleep-paused')
+    } catch {
+      /* private mode */
+    }
+  }
   const running = pb.sleep.at > Date.now() || pb.sleep.atEnd
   useEffect(() => {
     if (!running) return
@@ -163,18 +180,32 @@ function SleepTimer() {
     } catch {
       /* private mode */
     }
+    setPaused(null)
     pb.setSleep(dur / 60)
   }
-  const left = Math.max(0, Math.round((pb.sleep.at - Date.now()) / 1000))
+  const left = paused ?? Math.max(0, Math.round((pb.sleep.at - Date.now()) / 1000))
+  const pause = () => {
+    setPaused(Math.max(1, left))
+    pb.setSleep(0)
+  }
+  const resume = () => {
+    if (paused) pb.setSleep(paused / 60)
+    setPaused(null)
+  }
+  const cancel = () => {
+    setPaused(null)
+    pb.setSleep(0)
+  }
+  const active = running || paused !== null
   const h = Math.floor(dur / 3600), m = Math.floor((dur % 3600) / 60), sec = dur % 60
   return (
     <section className="card sleep-card">
       <h2>
         <Timer className="inline-ico" /> Timer di spegnimento
       </h2>
-      {running ? (
-        <div className="timer-count">
-          {pb.sleep.atEnd ? 'Fine brano' : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
+      {active ? (
+        <div className={`timer-count ${paused ? 'paused' : ''}`}>
+          {pb.sleep.atEnd && !paused ? 'Fine brano' : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
         </div>
       ) : (
         <div className="wheels">
@@ -185,11 +216,24 @@ function SleepTimer() {
           <Wheel max={59} value={sec} onChange={(v) => setDur(h * 3600 + m * 60 + v)} label="secondi" />
         </div>
       )}
-      <p className="muted small center">{running ? 'Poi la musica si ferma.' : 'La musica si ferma dopo questo tempo.'}</p>
-      {running ? (
-        <button className="danger" onClick={() => pb.setSleep(0)}>
-          Annulla
-        </button>
+      <p className="muted small center">{paused ? 'In pausa.' : running ? 'Poi la musica si ferma.' : 'La musica si ferma dopo questo tempo.'}</p>
+      {active ? (
+        <div className="sleep-actions">
+          {paused ? (
+            <button className="primary" onClick={resume}>
+              <Play /> Riprendi
+            </button>
+          ) : (
+            !pb.sleep.atEnd && (
+              <button onClick={pause}>
+                <Pause /> Pausa
+              </button>
+            )
+          )}
+          <button className="danger" onClick={cancel}>
+            Annulla
+          </button>
+        </div>
       ) : (
         <button className="primary" disabled={dur <= 0} onClick={start}>
           Avvia
