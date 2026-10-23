@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Download, Play, Plus, Shuffle, Share2 } from 'lucide-react'
+import { Check, ChevronLeft, RefreshCw, Download, Play, Plus, Shuffle, Share2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Spinner, useBackHandler } from '../components/ui'
 import { isMatched, matchTrack, songsFor } from '../lib/catalog'
@@ -7,7 +7,8 @@ import { addRecent } from '../lib/recents'
 import { errMsg, fmtTime } from '../lib/format'
 import { shareSpotify } from '../lib/share'
 import { artistOf, nameParts } from '../lib/media'
-import type { Song } from '../lib/types'
+import type { Playlist, Song } from '../lib/types'
+import { libraryKeys, playlistPool, trackKey } from '../lib/home'
 import { usePlayback } from '../playback'
 import { useStore, type Page } from '../store'
 
@@ -109,7 +110,7 @@ function useTrackPlayer(tracks: SpTrack[], name: string) {
   return { play, busy }
 }
 
-function TrackRow({ t, i, onPlay, busy, showArt }: { t: SpTrack; i: number; onPlay: () => void; busy: boolean; showArt?: boolean }) {
+function TrackRow({ t, i, onPlay, busy, showArt, onAdd }: { t: SpTrack; i: number; onPlay: () => void; busy: boolean; showArt?: boolean; onAdd?: (song: Song) => void }) {
   const store = useStore()
   const pb = usePlayback()
   const [vid, setVid] = useState<string | null>(null)
@@ -124,7 +125,9 @@ function TrackRow({ t, i, onPlay, busy, showArt }: { t: SpTrack; i: number; onPl
     if (!v) return store.showToast('Non trovata su YouTube')
     setVid(v)
     const [song] = await songsFor([t], store.getSong)
-    if (song) store.addToLibrary(song)
+    if (!song) return
+    if (onAdd) onAdd(song)
+    else store.addToLibrary(song)
   }
   return (
     <div className={`song-row ${current ? 'current' : ''}`}>
@@ -150,6 +153,68 @@ function TrackRow({ t, i, onPlay, busy, showArt }: { t: SpTrack; i: number; onPl
         {inLib ? <Check /> : <Plus />}
       </button>
     </div>
+  )
+}
+
+/** "Brani consigliati" under a playlist: six songs like its own that you don't
+   have anywhere, "Aggiorna" brings six more; + adds one to the playlist */
+export function PlaylistSuggestions({ playlist }: { playlist: Playlist }) {
+  const store = useStore()
+  const [pool, setPool] = useState<SpTrack[] | null>(null)
+  const [page, setPage] = useState(0)
+  const ids = playlist.songIds.join(',')
+  const list = useMemo(() => {
+    const byId = new Map(store.songs.map((s) => [s.id, s]))
+    return playlist.songIds.flatMap((id) => byId.get(id) ?? [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids])
+  useEffect(() => {
+    let alive = true
+    setPool(null)
+    playlistPool(list)
+      .then((p) => alive && setPool(p))
+      .catch(() => alive && setPool([]))
+    return () => {
+      alive = false
+    }
+  }, [list])
+  const have = useMemo(() => libraryKeys(store.songs), [store.songs])
+  const fresh = useMemo(() => (pool ?? []).filter((t) => !have.has(trackKey(t.artists[0] ?? '', t.title))), [pool, have])
+  const pages = Math.max(1, Math.ceil(fresh.length / 6))
+  const shown = useMemo(() => fresh.slice((page % pages) * 6, (page % pages) * 6 + 6), [fresh, page, pages])
+  const tp = useTrackPlayer(shown, 'Brani consigliati')
+  if (pool && !fresh.length) return null
+  return (
+    <section className="suggestions">
+      <h3>Brani consigliati</h3>
+      <p className="muted small">In base ai brani di questa playlist</p>
+      {!pool ? (
+        <div className="page-loading">
+          <Spinner size={22} />
+        </div>
+      ) : (
+        shown.map((t, i) => (
+          <TrackRow
+            key={t.uri}
+            t={t}
+            i={i}
+            showArt
+            busy={tp.busy === t.uri}
+            onPlay={() => void tp.play(i)}
+            onAdd={(song) => {
+              store.addToLibrary(song, true)
+              store.addToPlaylist(playlist.id, [song.id])
+              store.showToast(`Aggiunta a ${playlist.name}`)
+            }}
+          />
+        ))
+      )}
+      {pool && fresh.length > 6 && (
+        <button className="refresh" onClick={() => setPage(page + 1)}>
+          <RefreshCw /> Aggiorna
+        </button>
+      )}
+    </section>
   )
 }
 

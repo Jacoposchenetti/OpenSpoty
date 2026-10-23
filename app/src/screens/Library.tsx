@@ -5,7 +5,8 @@ import { engine } from '../lib/engine'
 import { fmtTime } from '../lib/format'
 import { sharePlaylist, shareSong } from '../lib/share'
 import { artistOf, isDownloaded, nameParts, youtubeIdOf } from '../lib/media'
-import { useOpenAlbum, useOpenArtist } from './Catalog'
+import { PlaylistSuggestions, useOpenAlbum, useOpenArtist } from './Catalog'
+import { FastScroll } from '../components/FastScroll'
 import type { Playlist, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
@@ -354,6 +355,8 @@ function ListView({ viewId }: { viewId: string }) {
         </div>
       )}
       {draggable && items.length > 1 && <p className="muted hint">Tieni premuto <GripVertical /> e trascina per cambiare l'ordine.</p>}
+      {playlist && !q && <PlaylistSuggestions playlist={playlist} />}
+      <FastScroll />
 
       {songMenu && <SongMenu song={songMenu.song} index={songMenu.index} playlist={playlist} onClose={() => setSongMenu(null)} />}
       {adding && playlist && <AddSongs playlist={playlist} onClose={() => setAdding(false)} />}

@@ -2829,3 +2829,56 @@ input.with-ico {
 .track-shelf > button.ghost {
   margin: 4px 16px 0;
 }
+
+/* playlists: the bar to run through the list */
+.fast-scroll {
+  position: fixed;
+  z-index: 30;
+  width: 28px;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  touch-action: none;
+}
+.fast-scroll.on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.fs-bar {
+  width: 5px;
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  transition: width 0.15s, background 0.15s;
+}
+.fast-scroll.drag .fs-bar {
+  width: 9px;
+  background: #38bdf8;
+}
+
+/* playlists: suggested songs at the bottom */
+.suggestions {
+  margin-top: 28px;
+}
+.suggestions h3 {
+  margin: 0 4px;
+  font-size: 18px;
+}
+.suggestions > p {
+  margin: 2px 4px 8px;
+}
+.suggestions .refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px auto 0;
+  border-radius: 999px;
+  padding: 8px 18px;
+}
+.suggestions .refresh svg {
+  width: 16px;
+  height: 16px;
+}

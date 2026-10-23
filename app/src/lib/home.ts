@@ -135,3 +135,67 @@ export async function buildTracks(home: Home, songs: Song[]): Promise<SpTrack[]>
   trackMemo = { key, tracks }
   return tracks
 }
+
+/* ------------------------------------------------------------- playlist suggestions */
+
+/** "Titolo (Remastered 2011) - Live" → "titolo" */
+const bare = (t: string) => fold(t.replace(/\s+[-–]\s+.*$/, '').replace(/\s*[([].*?[)\]]/g, ''))
+
+/** a key for "the same song", whatever the source spelled it like */
+export const trackKey = (artist: string, title: string) => `${fold(artist.split(/,| feat\.| ft\.| & /i)[0])}|${bare(title)}`
+
+/** the songs already somewhere in your library, as trackKeys */
+export const libraryKeys = (songs: Song[]) =>
+  new Set(
+    songs.map((s) => {
+      const m = s.title.match(/^(.+?)\s+[–-]\s+(.+)$/)
+      return m ? trackKey(m[1], m[2]) : `|${bare(s.title)}`
+    })
+  )
+
+const poolMemo = new Map<string, SpTrack[]>()
+
+/** songs like the ones of a playlist: the hits of its artists and of their
+   similar artists, in a random order (the caller leaves out what you have) */
+export async function playlistPool(list: Song[]): Promise<SpTrack[]> {
+  const names = topArtists(list, 5)
+  const key = names.join('|')
+  if (!names.length) return []
+  const hit = poolMemo.get(key)
+  if (hit) return hit
+  const seeds = (
+    await Promise.all(
+      names.map(async (n) => {
+        const uri = await artistUri(n)
+        return uri ? engine.spArtist(uri).catch(() => null) : null
+      })
+    )
+  ).filter((a): a is NonNullable<typeof a> => !!a)
+  const mine = new Set(names.map(fold))
+  const votes = new Map<string, { a: SpArtistRef; n: number }>()
+  seeds.forEach((p, rank) =>
+    p.related.forEach((a, i) => {
+      if (mine.has(fold(a.name))) return
+      const v = votes.get(a.uri) ?? { a, n: 0 }
+      v.n += 1 / (1 + i / 5) / (1 + rank / 4)
+      votes.set(a.uri, v)
+    })
+  )
+  const near = [...votes.values()].sort((x, y) => y.n - x.n).slice(0, 10)
+  const rel = (await Promise.all(near.map((v) => engine.spArtist(v.a.uri).catch(() => null)))).filter((a): a is NonNullable<typeof a> => !!a)
+  const seen = new Set<string>()
+  const pool: SpTrack[] = []
+  for (const t of [...seeds.flatMap((p) => p.topTracks.slice(0, 6)), ...rel.flatMap((p) => p.topTracks.slice(0, 5))]) {
+    const k = trackKey(t.artists[0] ?? '', t.title)
+    if (seen.has(t.uri) || seen.has(k)) continue
+    seen.add(t.uri)
+    seen.add(k)
+    pool.push(t)
+  }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  poolMemo.set(key, pool)
+  return pool
+}
