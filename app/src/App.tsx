@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
 import { SyncButton, SyncSheet } from './components/SyncSheet'
 import { UpdateBanner } from './components/UpdateBanner'
-import { popBack } from './components/ui'
+import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
 import { Add } from './screens/Add'
 import { Library } from './screens/Library'
@@ -28,6 +28,7 @@ export function App() {
   const storeRef = useRef(store)
   storeRef.current = store
   const [syncOpen, setSyncOpen] = useState(false)
+  const typing = useKeyboardOpen() // the tabs make room for the keyboard, like Spotify
 
   // Android back: close sheets / player / playlist first, never quit by accident
   useEffect(() => {
@@ -76,7 +77,7 @@ export function App() {
             </div>
           </main>
           <MiniPlayer />
-          <nav className="tabs">
+          <nav className="tabs" hidden={typing}>
             {TABS.map((t) => (
               <button
                 key={t.id}

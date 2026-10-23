@@ -3074,3 +3074,8 @@ input.with-ico {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* typing: the tabs step aside for the keyboard (display: grid would beat [hidden]) */
+.tabs[hidden] {
+  display: none !important;
+}
