@@ -107,7 +107,7 @@ def _update(url: str) -> None:
         subprocess.Popen(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(script),
              "-New", str(new), "-Install", str(install), "-Bridge", str(os.getpid())],
-            creationflags=0x00000008 | 0x00000200,  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: outlives us
+            creationflags=0x08000000 | 0x00000200,  # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP (DETACHED_PROCESS stops PowerShell)
         )
         update.update(state="restarting", pct=100)
     except Exception as e:
@@ -119,6 +119,8 @@ UPDATER = r"""
 param([string]$New, [string]$Install, [int]$Bridge)
 Start-Sleep -Seconds 2
 $app = Join-Path $Install 'app'
+# the launcher first: it would close the bridge's whole process tree (this script too) once the window is gone
+Get-Process OpenSpoty -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Install\*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 # the app's own window (its Edge profile), the launcher, the bridge and its Java engine
 Get-CimInstance Win32_Process | Where-Object {
   ($_.CommandLine -like '*OpenSpoty\edge*') -or ($_.ExecutablePath -like "$Install\*")

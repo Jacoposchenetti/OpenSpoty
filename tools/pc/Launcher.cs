@@ -103,11 +103,12 @@ static class Launcher
             return 0;
         }
 
-        // the first time: a shortcut on the Desktop
+        // the first time: a shortcut on the Desktop (never over one already there)
         string mark = Path.Combine(local, "shortcut-done");
+        string lnk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "OpenSpoty.lnk");
         if (!File.Exists(mark))
         {
-            Shortcut(exe, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "OpenSpoty.lnk"));
+            if (!File.Exists(lnk)) Shortcut(exe, lnk);
             try { File.WriteAllText(mark, "1"); } catch { }
         }
 
