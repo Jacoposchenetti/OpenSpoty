@@ -1,7 +1,7 @@
 import { CircleArrowUp, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errMsg } from '../lib/format'
-import { StemKitNative } from '../lib/native'
+import { isNative, StemKitNative } from '../lib/native'
 import { checkUpdate, type Update } from '../lib/update'
 import { Spinner } from './ui'
 
@@ -16,7 +16,30 @@ export function UpdateBanner() {
     return () => clearTimeout(t)
   }, [])
   if (!up || hidden) return null
+  /** Windows: the bridge downloads the new package, then swaps it and restarts the app */
+  const installPc = async () => {
+    setMsg(null)
+    setPct(0)
+    try {
+      const res = await fetch('/api/pc/update', { method: 'POST', body: JSON.stringify({ url: up.url }) })
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error || `Errore ${res.status}`)
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 700))
+        const s = (await (await fetch('/api/pc/update')).json()) as { state: string; pct: number; error: string }
+        if (s.state === 'failed') throw new Error(s.error)
+        setPct(s.pct)
+        if (s.state === 'restarting') {
+          setMsg('Riavvio OpenSpoty…')
+          return
+        }
+      }
+    } catch (e) {
+      setMsg(errMsg(e))
+      setPct(null)
+    }
+  }
   const install = async () => {
+    if (!isNative) return installPc()
     setMsg(null)
     setPct(0)
     const h = StemKitNative.addListener('transfer', (e) => e.id === 'update' && setPct(e.pct))

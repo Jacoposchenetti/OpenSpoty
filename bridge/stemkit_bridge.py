@@ -808,7 +808,8 @@ def parse_stems(raw) -> list[str]:
 
 
 def main():
-    missing = [str(p) for p in (VENV_PY, SEPARATE_PY) if not p.exists()]
+    # OpenSpoty for Windows installs its separator when first needed (portable.py)
+    missing = [] if os.environ.get("OPENSPOTY_HOME") else [str(p) for p in (VENV_PY, SEPARATE_PY) if not p.exists()]
     if missing:
         print("StemKit non sembra installato o configurato. Mancano:\n  " + "\n  ".join(missing))
         print("Apri StemKit sul PC almeno una volta e completa la configurazione.")

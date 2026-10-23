@@ -1,0 +1,21 @@
+OpenSpoty per Windows
+=====================
+
+1. Estrai tutto lo zip in una cartella (per esempio Documenti\OpenSpoty).
+   Non avviarlo da dentro lo zip.
+2. Apri OpenSpoty.exe.
+   - Se compare "PC protetto da Windows": "Altre informazioni" -> "Esegui comunque".
+   - Se Windows chiede l'accesso alla rete: consentilo sulle reti private
+     (serve per sincronizzare con OpenSpoty sul telefono).
+3. Al primo avvio trovi anche un collegamento "OpenSpoty" sul Desktop.
+
+La libreria sta in %APPDATA%\OpenSpoty.
+La prima volta che separi un brano in tracce, OpenSpoty scarica il separatore
+(circa 1,5 GB, una volta sola).
+
+Aggiornamenti: quando ne esce uno nuovo compare "Aggiornamento disponibile"
+in alto nell'app; tocca Aggiorna e si riavvia da solo.
+
+Telefono: installa OpenSpoty.apk da
+https://github.com/Jacoposchenetti/OpenSpoty/releases/latest
+e collegalo al PC con il pulsante in alto a destra.

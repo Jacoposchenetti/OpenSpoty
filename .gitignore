@@ -28,3 +28,7 @@ model-export/**/*.onnx
 model-export/**/*.npy
 model-export/jvm-test/*.jar
 model-export/jvm-test/build/
+
+# OpenSpoty for Windows (tools/pc/package.sh)
+dist-win/
+tools/pc/cache/

@@ -21,12 +21,14 @@ import traceback
 import urllib.request
 from pathlib import Path
 
+import portable
 import stemkit_bridge as sb
 
 ROOT = Path(__file__).resolve().parent.parent
-APP_DIST = ROOT / "app" / "dist"
-ENGINE_LIB = ROOT / "pc-engine" / "build" / "install" / "pc-engine" / "lib"
-CHORD_MODEL = ROOT / "app" / "android" / "app" / "src" / "main" / "assets" / "models" / "btc_voca.onnx"
+HOME = portable.HOME  # OpenSpoty for Windows: everything is in the package
+APP_DIST = HOME / "dist" if HOME else ROOT / "app" / "dist"
+ENGINE_LIB = HOME / "engine" / "lib" if HOME else ROOT / "pc-engine" / "build" / "install" / "pc-engine" / "lib"
+CHORD_MODEL = (HOME / "models" if HOME else ROOT / "app" / "android" / "app" / "src" / "main" / "assets" / "models") / "btc_voca.onnx"
 LIB = Path(os.environ.get("STEMKIT_MOBILE_DIR", "").strip()
            or Path(os.environ.get("APPDATA", Path.home())) / "StemKitMobile")
 SONGS = LIB / "songs"
@@ -163,7 +165,7 @@ class Engine:
         self.waiting: dict[int, dict] = {}
 
     def _start(self):
-        java = shutil.which("java")
+        java = str(HOME / "java" / "bin" / "java.exe") if HOME else shutil.which("java")
         if not java:
             raise RuntimeError("Java non trovato sul PC")
         if not ENGINE_LIB.is_dir():
@@ -440,6 +442,7 @@ def run_split(s: Split) -> None:
                         "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", str(mix)], check=True, capture_output=True, **sb.no_window())
         if s.cancelled:
             raise RuntimeError("Annullata")
+        portable.ensure_separator(lambda m: setattr(s, "message", m))
         s.message = "Separo le tracce"
         out = tmpd / "stems"
         out.mkdir()
@@ -567,7 +570,8 @@ def serve_app(h, path: str) -> None:
         return h.error(503, "App non compilata: esegui tools/deploy.sh")
     data = f.read_bytes()
     if f.name == "index.html":
-        data = data.replace(b"<head>", b"<head><script>window.__STEMKIT_DESKTOP__=1</script>", 1)
+        flags = b"window.__STEMKIT_DESKTOP__=1" + (b";window.__OPENSPOTY_PORTABLE__=1" if HOME else b"")
+        data = data.replace(b"<head>", b"<head><script>" + flags + b"</script>", 1)
     h.send_response(200)
     h.send_header("Content-Type", CONTENT_TYPES.get(f.suffix, "application/octet-stream"))
     h.send_header("Content-Length", str(len(data)))
@@ -666,6 +670,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             h.send_json(split_status())
         elif method == "GET" and op == "progress":
             h.send_json(progress)
+        elif method == "GET" and op == "update":
+            h.send_json(portable.update)
         elif method == "GET" and op == "pairing":
             if not h.is_local():
                 h.error(403, "solo da questo PC")
@@ -709,6 +715,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             elif op == "stop-engine" and h.is_local():
                 engine.stop()
                 h.send_json({"ok": True})
+            elif op == "update" and h.is_local():
+                h.send_json(portable.start_update(str(b.get("url") or "")))
             elif op == "cover":
                 h.send_json({"path": fetch_cover(str(b.get("songId") or ""), str(b.get("videoId") or ""))})
             else:

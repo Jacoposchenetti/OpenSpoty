@@ -11,6 +11,7 @@ basso, chitarra, piano, altro). È basata su [StemKit](https://github.com/daniel
 | App sul telefono | `OpenSpoty.apk` sul Desktop (già installata sul OnePlus 13) |
 | App sul PC | icona **OpenSpoty** sul Desktop: la stessa app, in una finestra |
 | Server del PC (Bridge) | parte da solo all'accensione, nascosto (Esecuzione automatica → "OpenSpoty Bridge") |
+| OpenSpoty per Windows (da dare ad altri) | `OpenSpoty-Windows.zip` nella release di GitHub: si estrae e si apre `OpenSpoty.exe` |
 | Collegare il telefono | icona di sincronizzazione in alto → indirizzo + PIN (sul PC li mostra la stessa icona) |
 
 - **Stessa app, stessa versione**: il PC usa la stessa app del telefono, servita dal Bridge. `tools/deploy.sh` aggiorna entrambi insieme. Sul PC cerca, scarica e separa il PC stesso; sul telefono il telefono (YouTube e Spotify con lo stesso codice).
@@ -46,6 +47,13 @@ basso, chitarra, piano, altro). È basata su [StemKit](https://github.com/daniel
 - `bridge/stemkit_bridge.py` + `bridge/pc_app.py`: server del PC (app, libreria in `%APPDATA%\StemKitMobile`, sincronizzazione, separazione con il Python/Demucs/ffmpeg di StemKit desktop). Le canzoni già separate con StemKit desktop entrano da sole nella libreria.
 - `pc-engine/`: il codice YouTube/Spotify del telefono (`YouTubeSource.java`) compilato per il PC.
 - `tools/pc/OpenSpoty.vbs`: avvia il Bridge nascosto e apre l'app (`/background` = solo Bridge).
+- `tools/pc/package.sh`: crea **OpenSpoty per Windows** (`dist-win/OpenSpoty-Windows.zip`, circa 190 MB) per chi non ha
+  niente installato: Python 3.12 e una Java 21 ridotta (jlink) dentro il pacchetto, ffmpeg, il motore, l'app.
+  `OpenSpoty.exe` (`tools/pc/Launcher.cs`) avvia il Bridge nascosto, apre l'app in una finestra di Edge tutta sua e
+  chiude il Bridge quando la finestra si chiude. Libreria in `%APPDATA%\OpenSpoty`. Il separatore (PyTorch + Demucs,
+  circa 1,5 GB, `tools/pc/separate.py`) si installa da solo la prima volta che si separa un brano (`bridge/portable.py`).
+  Gli aggiornamenti: l'app trova `OpenSpoty-Windows.zip` nell'ultima release e mostra "Aggiornamento disponibile";
+  il Bridge lo scarica, sostituisce la cartella e riapre l'app. A ogni release va allegato insieme all'APK.
 - `model-export/`: conversione ONNX del modello e verifiche
   (core ONNX vs Demucs: SNR circa 80 dB; codice Java vs riferimento: SNR circa 136 dB).
 - `tools/deploy.sh`: ricompila l'app per il PC e la reinstalla sul telefono collegato via USB.
@@ -56,7 +64,7 @@ basso, chitarra, piano, altro). È basata su [StemKit](https://github.com/daniel
 bash ~/Desktop/stemkit-mobile/tools/deploy.sh
 ```
 
-Serve il telefono collegato con il Debug USB attivo. Android SDK: `C:\Users\jsche\Android\Sdk`.
+Serve il telefono collegato con il Debug USB attivo. Per OpenSpoty per Windows: `bash tools/pc/package.sh`. Android SDK: `C:\Users\jsche\Android\Sdk`.
 
 ## Licenza
 
