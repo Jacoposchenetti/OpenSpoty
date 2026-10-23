@@ -32,3 +32,4 @@ model-export/jvm-test/build/
 # OpenSpoty for Windows (tools/pc/package.sh)
 dist-win/
 tools/pc/cache/
+model-export/lyrics/out/

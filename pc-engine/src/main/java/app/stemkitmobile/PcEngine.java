@@ -62,6 +62,8 @@ public final class PcEngine {
                 return shazam(r.getString("path"), r.optString("ffmpeg", "ffmpeg"), r.optBoolean("send", true), r.optBoolean("middle", false));
             case "chords":
                 return chords(id, r.getString("path"), r.getString("ffmpeg"), r.getString("model"));
+            case "alignLyrics":
+                return alignLyrics(id, r.getString("path"), r.getString("ffmpeg"), r.getString("models"), r.getJSONArray("lines"));
             case "spotifyQuery":
                 return YouTubeSource.spotifyQuery(r.getString("url"));
             case "download": {
@@ -108,6 +110,33 @@ public final class PcEngine {
             });
         }
         return segmentsJson(segs, mono.length / (double) app.stemkitmobile.core.ChordRecognizer.SR);
+    }
+
+    /** when each line of unsynced lyrics is sung (core/LyricsAligner): 16 kHz mono via ffmpeg, Whisper downloaded once */
+    private static JSONObject alignLyrics(long id, String path, String ffmpeg, String models, org.json.JSONArray lines) throws Exception {
+        long[] last = {-1};
+        java.util.function.DoubleConsumer pct = f -> {
+            long p = Math.round(f * 100);
+            if (p != last[0]) {
+                last[0] = p;
+                send(new JSONObject().put("id", id).put("progress", p));
+            }
+        };
+        File dir = app.stemkitmobile.core.ModelStore.whisper(new File(models), f -> pct.accept(f * 0.3));
+        Process p = new ProcessBuilder(ffmpeg, "-v", "error", "-i", path, "-ac", "1", "-ar", "16000", "-f", "f32le", "-")
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        byte[] raw = p.getInputStream().readAllBytes();
+        p.waitFor();
+        java.nio.FloatBuffer fb = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        float[] y = new float[fb.remaining()];
+        fb.get(y);
+        if (y.length == 0) throw new IllegalStateException("audio non leggibile");
+        java.util.List<String> ls = new java.util.ArrayList<>();
+        for (int i = 0; i < lines.length(); i++) ls.add(lines.getString(i));
+        double[] t = app.stemkitmobile.core.LyricsAligner.align(y, ls, dir, f -> pct.accept(0.3 + 0.7 * f));
+        org.json.JSONArray a = new org.json.JSONArray();
+        for (double x : t) a.put(Math.round(x * 100) / 100.0);
+        return new JSONObject().put("times", a);
     }
 
     /** "Cattura" on the PC: 16 kHz mono via ffmpeg, Shazam signature, recognition */

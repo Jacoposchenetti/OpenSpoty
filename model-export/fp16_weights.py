@@ -5,7 +5,9 @@ Cast back to float32, so all the math still runs in fp32; ONNX Runtime
 folds the casts once when the session is created.
 
 usage: python fp16_weights.py in.onnx out.onnx mix.npy spec.npy out.npy
+(FP32_KEEP=name,part: initializers whose name contains one of these stay fp32)
 """
+import os
 import sys
 
 import numpy as np
@@ -19,7 +21,8 @@ def main():
     g = model.graph
     new_inits, casts = [], []
     for init in g.initializer:
-        if init.data_type == onnx.TensorProto.FLOAT and np.prod(init.dims) >= 1024:
+        keep = any(k and k in init.name for k in os.environ.get("FP32_KEEP", "").split(","))
+        if init.data_type == onnx.TensorProto.FLOAT and np.prod(init.dims) >= 1024 and not keep:
             arr = numpy_helper.to_array(init).astype(np.float16)
             half = numpy_helper.from_array(arr, init.name + "__fp16")
             new_inits.append(half)

@@ -59,6 +59,8 @@ export interface StemPlayerPlugin {
   detectBpm(opts: { path: string }): Promise<{ bpm: number | null }>
   measureLoudness(opts: { paths: string[] }): Promise<{ lufs: number | null }>
   chords(opts: { songId: string; paths: string[] }): Promise<import('./chords').ChordData>
+  alignLyrics(opts: { songId: string; path: string; lines: string[] }): Promise<{ times: number[] }>
+  addListener(event: 'align', cb: (e: { songId: string; pct: number; downloading: boolean }) => void): Promise<PluginListenerHandle>
   addListener(event: 'chords', cb: (e: { songId: string; pct: number }) => void): Promise<PluginListenerHandle>
   state(): Promise<PlayerEvent>
   addListener(event: 'player', cb: (e: PlayerEvent) => void): Promise<PluginListenerHandle>

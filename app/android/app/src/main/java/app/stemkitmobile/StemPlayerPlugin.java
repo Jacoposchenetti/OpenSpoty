@@ -190,6 +190,48 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         }
     }
 
+    /** When each line of unsynced lyrics is sung (core/LyricsAligner): the vocal track (or the song) through Whisper. */
+    @PluginMethod
+    public void alignLyrics(PluginCall call) {
+        String songId = call.getString("songId", "");
+        String ref = call.getString("path", "");
+        try {
+            if (ref.contains("..")) throw new IllegalArgumentException("percorso non valido");
+            org.json.JSONArray a = call.getArray("lines", new com.getcapacitor.JSArray());
+            List<String> lines = new ArrayList<>();
+            for (int i = 0; i < a.length(); i++) lines.add(a.getString(i));
+            meter.execute(() -> {
+                try {
+                    File models = app.stemkitmobile.core.ModelStore.whisper(new File(getContext().getFilesDir(), "models"),
+                        f -> alignProgress(songId, Math.round(f * 25), true));
+                    String path = ref.startsWith("stream:") ? StreamProxy.ensureCached(ref.substring(7)).getAbsolutePath()
+                        : new File(getContext().getFilesDir(), ref).getAbsolutePath();
+                    alignProgress(songId, 27, false);
+                    float[] y = app.stemkitmobile.core.Whisper.to16k(Engine.decodeMono22k(new String[] {path}));
+                    double[] t = app.stemkitmobile.core.LyricsAligner.align(y, lines, models,
+                        f -> alignProgress(songId, 30 + Math.round(f * 70), false));
+                    JSObject r = new JSObject();
+                    org.json.JSONArray out = new org.json.JSONArray();
+                    for (double x : t) out.put(Math.round(x * 100) / 100.0);
+                    r.put("times", new com.getcapacitor.JSArray(out.toString()));
+                    call.resolve(r);
+                } catch (Throwable e) {
+                    call.reject("Allineamento del testo non riuscito: " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    private void alignProgress(String songId, int pct, boolean downloading) {
+        JSObject e = new JSObject();
+        e.put("songId", songId);
+        e.put("pct", pct);
+        e.put("downloading", downloading);
+        notifyListeners("align", e);
+    }
+
     private int lastPct = -1;
 
     private void progress(String songId, int pct) {

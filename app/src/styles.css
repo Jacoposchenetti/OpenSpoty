@@ -3061,3 +3061,16 @@ input.with-ico {
     bottom: 100px;
   }
 }
+
+/* Suona: lyrics being put in time */
+.align-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 14px;
+}

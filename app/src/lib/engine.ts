@@ -231,6 +231,17 @@ export const engine = {
     }
   },
 
+  /** when each line of unsynced lyrics is sung (core/LyricsAligner.java); progress in percent */
+  async alignLyrics(songId: string, path: string, lines: string[], onProgress: (pct: number, downloading: boolean) => void): Promise<number[]> {
+    if (!isNative) return (await pc<{ times: number[] }>('alignLyrics', { path, lines })).times
+    const h = StemPlayer.addListener('align', (e) => e.songId === songId && onProgress(e.pct, e.downloading))
+    try {
+      return (await StemPlayer.alignLyrics({ songId, path, lines })).times
+    } finally {
+      void h.then((x) => x.remove())
+    }
+  },
+
   /** saves the YouTube artwork next to the song, for offline use */
   async fetchCover(songId: string, videoId: string): Promise<string> {
     if (isNative) {

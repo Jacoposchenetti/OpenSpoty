@@ -320,6 +320,15 @@ def chords(paths: list[str]) -> dict:
         return engine.call("chords", timeout=600, path=str(mix), ffmpeg=sb.find_ffmpeg(), model=str(CHORD_MODEL))
 
 
+def align_lyrics(path: str, lines: list[str]) -> dict:
+    """When each line of unsynced lyrics is sung (core/LyricsAligner.java); Whisper is downloaded once into the library."""
+    f = stream_file(path[7:]) if path.startswith("stream:") else lib_path(path)
+    if not f.is_file():
+        raise ValueError("audio non trovato")
+    return engine.call("alignLyrics", timeout=1800, path=str(f), ffmpeg=sb.find_ffmpeg(), models=str(LIB / "models"),
+                       lines=lines)
+
+
 def _quiet(fn, *args) -> None:
     try:
         fn(*args)
@@ -689,6 +698,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
                 h.send_json(engine.call("spotifyList", timeout=120, url=str(b.get("url") or "")))
             elif op == "chords":
                 h.send_json(chords([str(x) for x in (b.get("paths") or [])]))
+            elif op == "alignLyrics":
+                h.send_json(align_lyrics(str(b.get("path") or ""), [str(x) for x in (b.get("lines") or [])]))
             elif op == "warm":
                 # songs likely to be played next: fetched into the stream cache in the background
                 ids = [str(x) for x in (b.get("videoIds") or [])][: max(0, min(3, int(b.get("prefetch") or 0)))]

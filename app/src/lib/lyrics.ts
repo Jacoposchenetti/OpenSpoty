@@ -1,9 +1,13 @@
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
+import { engine } from './engine'
+import { isLocalPath, originalRef } from './media'
 import { isNative } from './native'
 import type { Song } from './types'
 
 /* Lyrics from LRCLIB (lrclib.net: free, no key, line-synced when available),
-   cached on the phone so they also work offline. */
+   cached on the phone so they also work offline. Lyrics with only the words
+   get their times from the song itself (alignLyrics: Whisper on the vocal
+   track, core/LyricsAligner.java), and any line can be moved by hand. */
 
 export interface LyricLine {
   t: number // seconds
@@ -13,6 +17,8 @@ export interface LyricLine {
 export interface Lyrics {
   synced?: LyricLine[]
   plain?: string
+  /** times worked out from the audio, for lyrics that had none */
+  aligned?: LyricLine[]
   instrumental?: boolean
   found: boolean
   at: number // when it was looked up
@@ -74,7 +80,14 @@ async function lookup(song: Song): Promise<LrcRecord | null> {
     const exact = await getJson<LrcRecord>(
       `${API}/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(track)}${dur ? `&duration=${dur}` : ''}`
     )
-    if (exact && (exact.syncedLyrics || exact.plainLyrics || exact.instrumental)) return exact
+    if (exact && (exact.syncedLyrics || exact.instrumental)) return exact
+    if (exact?.plainLyrics) {
+      // only the words: another upload of the same song may have the times
+      const other = ((await getJson<LrcRecord[]>(`${API}/search?track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}`)) ?? []).find(
+        (r) => r.syncedLyrics && (!dur || Math.abs(r.duration - dur) <= 3)
+      )
+      return other ?? exact
+    }
   }
   const q = artist ? `track_name=${encodeURIComponent(track)}&artist_name=${encodeURIComponent(artist)}` : `q=${encodeURIComponent(track)}`
   const list = (await getJson<LrcRecord[]>(`${API}/search?${q}`)) ?? []
@@ -115,7 +128,16 @@ async function writeCache(id: string, l: Lyrics): Promise<void> {
 /** Cached lyrics, or a fresh lookup (a "not found" is retried after a week). */
 export async function getLyrics(song: Song, force = false): Promise<Lyrics> {
   const cached = force ? null : await readCache(song.id)
-  if (cached && (cached.found || Date.now() - cached.at < 7 * 86400_000)) return cached
+  // found with times: for good; found without (or not found): looked up again after a week
+  if (cached && (cached.synced || cached.instrumental || Date.now() - cached.at < 7 * 86400_000)) return cached
+  if (cached?.found && !cached.synced) {
+    const rec = await lookup(song).catch(() => null)
+    if (!rec?.syncedLyrics) {
+      const kept = { ...cached, at: Date.now() }
+      await writeCache(song.id, kept)
+      return kept
+    }
+  }
   const rec = await lookup(song)
   const l: Lyrics = rec
     ? {
@@ -128,6 +150,44 @@ export async function getLyrics(song: Song, force = false): Promise<Lyrics> {
     : { found: false, at: Date.now() }
   await writeCache(song.id, l)
   return l
+}
+
+/** the lines that are sung: no empty lines, no "[Ritornello]" headings */
+export function plainLines(plain: string): string[] {
+  return plain
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !/^[[(].*[\])]$/.test(l))
+}
+
+/** the audio to listen to: the vocal track when the song is split, else the song */
+function voiceSource(song: Song): string | null {
+  const v = song.files.vocals
+  if (song.stems.includes('vocals') && v && isLocalPath(v)) return v
+  return originalRef(song) ?? null
+}
+
+/** times for lyrics that have only the words: worked out once, then saved with the lyrics */
+export async function alignLyrics(song: Song, l: Lyrics, onProgress: (pct: number, downloading: boolean) => void): Promise<Lyrics> {
+  if (!l.plain) return l
+  const lines = plainLines(l.plain)
+  const src = voiceSource(song)
+  if (!lines.length || !src) return l
+  const times = await engine.alignLyrics(song.id, src, lines, onProgress)
+  const next: Lyrics = { ...l, aligned: lines.map((text, i) => ({ t: times[i] ?? 0, text })) }
+  await writeCache(song.id, next)
+  return next
+}
+
+/** a line moved by hand (long press while the song plays): saved with the lyrics */
+export async function moveLine(songId: string, l: Lyrics, index: number, t: number): Promise<Lyrics> {
+  const key = l.synced ? 'synced' : 'aligned'
+  const lines = [...(l[key] ?? [])]
+  if (!lines[index]) return l
+  lines[index] = { ...lines[index], t: Math.max(0, Math.round(t * 100) / 100) }
+  const next: Lyrics = { ...l, [key]: lines.sort((a, b) => a.t - b.t) }
+  await writeCache(songId, next)
+  return next
 }
 
 export async function deleteLyrics(id: string): Promise<void> {

@@ -17,7 +17,7 @@ import {
   type Display
 } from '../lib/chords'
 import { errMsg } from '../lib/format'
-import { getLyrics, type Lyrics } from '../lib/lyrics'
+import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
@@ -58,6 +58,8 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const [editing, setEditing] = useState<ChordSeg | null>(null)
   const [showTempo, setShowTempo] = useState(false)
   const [cur, setCur] = useState({ line: -1, chord: -1 })
+  const [aligning, setAligning] = useState<{ pct: number; downloading: boolean } | null>(null)
+  const [alignErr, setAlignErr] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useBackHandler(onClose)
 
@@ -66,6 +68,29 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     void getLyrics(song, force).then(setLyrics)
   }
   useEffect(() => load(), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // lyrics with only the words: their times come from the song (once, then saved)
+  const align = (l: Lyrics) => {
+    setAlignErr(null)
+    setAligning({ pct: 0, downloading: false })
+    alignLyrics(song, l, (pct, downloading) => setAligning({ pct, downloading }))
+      .then(setLyrics)
+      .catch((e) => setAlignErr(errMsg(e)))
+      .finally(() => setAligning(null))
+  }
+  useEffect(() => {
+    if (lyrics && !lyrics.synced && lyrics.plain && !lyrics.aligned && !aligning && !alignErr) align(lyrics)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lyrics])
+  /** long press on a line while the song plays: it starts here */
+  const moveHere = (index: number) => {
+    if (!lyrics) return
+    const t = pb.position()
+    void moveLine(song.id, lyrics, index, t).then((l) => {
+      setLyrics(l)
+      store.showToast(`Riga spostata a ${fmtTime(t)}`)
+    })
+  }
 
   const analyse = (force = false) => {
     setChordErr(null)
@@ -84,7 +109,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const key = useMemo(() => (chords ? detectKey(segs, chords.duration) : null), [segs, chords])
   const pitch = Math.round(pb.mix.pitch ?? 0)
   const d: Display = { shift: pitch - capo, flats: prefersFlats(key, pitch), simple }
-  const lines = lyrics?.synced
+  const lines = lyrics?.synced ?? lyrics?.aligned
   const blocks = useMemo(() => (showChords && chords && lines?.length ? layout(lines, segs, chords.duration) : null), [showChords, chords, lines, segs])
 
   // follow the song: the line being sung and the chord being played
@@ -242,6 +267,10 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
                   data-i={b.index}
                   className={`lyric chorded ${b.index === cur.line ? 'now' : b.index < cur.line ? 'past' : ''}`}
                   onClick={() => pb.seek(b.t)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    moveHere(b.index)
+                  }}
                 >
                   {b.parts.map((p, j) => (
                     <span key={j} className="cp">
@@ -267,13 +296,50 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
 
         {!blocks &&
           lines?.map((l, i) => (
-            <button key={i} data-i={i} className={`lyric ${i === cur.line ? 'now' : i < cur.line ? 'past' : ''}`} onClick={() => pb.seek(l.t)}>
+            <button
+              key={i}
+              data-i={i}
+              className={`lyric ${i === cur.line ? 'now' : i < cur.line ? 'past' : ''}`}
+              onClick={() => pb.seek(l.t)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                moveHere(i)
+              }}
+            >
               {l.text || '♪'}
             </button>
           ))}
+        {aligning && (
+          <div className="align-note">
+            <Spinner size={16} />
+            {aligning.downloading
+              ? `Scarico il riconoscimento del canto (57 MB, una volta sola) · ${aligning.pct}%`
+              : `Metto il testo a tempo con la musica · ${aligning.pct}%`}
+          </div>
+        )}
+        {alignErr && (
+          <div className="align-note">
+            {alignErr}
+            <button className="link-btn small" onClick={() => lyrics && align(lyrics)}>
+              Riprova
+            </button>
+          </div>
+        )}
         {lyrics && !lines && lyrics.plain && <pre className="lyrics-plain">{lyrics.plain}</pre>}
         {lyrics?.instrumental && !lines && !lyrics.plain && !showChords && <p className="muted">Brano strumentale.</p>}
-        {lyrics?.found && <p className="credits">Testi da LRCLIB{showChords && chords ? ' · accordi riconosciuti dall’audio: toccane uno per correggerlo' : ''}</p>}
+        {lyrics?.found && (
+          <p className="credits">
+            Testi da LRCLIB
+            {lyrics.aligned && !lyrics.synced ? ' · tempi ricavati dalla voce' : ''}
+            {showChords && chords ? ' · accordi riconosciuti dall’audio: toccane uno per correggerlo' : ''}
+            {lines?.length ? ' · una riga fuori tempo? Tienila premuta quando inizia e si sposta lì' : ''}
+          </p>
+        )}
+        {lyrics?.aligned && !lyrics.synced && !aligning && (
+          <button className="link-btn small" onClick={() => align({ ...lyrics, aligned: undefined })}>
+            <RotateCcw /> Ricalcola i tempi del testo
+          </button>
+        )}
         {showChords && chords && (
           <button className="link-btn small" onClick={() => analyse(true)}>
             <RotateCcw /> Rianalizza
