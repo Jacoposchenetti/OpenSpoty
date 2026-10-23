@@ -138,6 +138,7 @@ code {
 .content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2856,7 +2857,7 @@ input.with-ico {
 }
 .fast-scroll.drag .fs-bar {
   width: 9px;
-  background: #38bdf8;
+  background: var(--accent);
 }
 
 /* playlists: suggested songs at the bottom */
@@ -2881,4 +2882,15 @@ input.with-ico {
 .suggestions .refresh svg {
   width: 16px;
   height: 16px;
+}
+
+/* the row of buttons on top of a list never gets wider than the screen */
+.list-actions button {
+  min-width: 0;
+  overflow: hidden;
+}
+.list-actions .icon-only,
+.list-actions .dl-toggle {
+  flex: 0 0 auto;
+  min-width: 48px;
 }

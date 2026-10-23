@@ -329,7 +329,7 @@ function ListView({ viewId }: { viewId: string }) {
         <button disabled={items.length < 2} onClick={shuffle}>
           <Shuffle /> Casuale
         </button>
-        {playlist && <button onClick={() => setAdding(true)}><Plus /> Aggiungi</button>}
+        {playlist && <button className="icon-only" onClick={() => setAdding(true)} aria-label="Aggiungi brani"><Plus /></button>}
         <DownloadToggle songs={items} />
       </div>
 
