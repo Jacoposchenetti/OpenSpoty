@@ -1,10 +1,12 @@
 import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpTrack } from './engine'
+import { recentArtists } from './listens'
 import { artistOf } from './media'
 import type { Song } from './types'
 
-/* The shelves of "Cerca", built from the artists you listen to most: their
-   similar artists (none you already have), the playlists they are in, their
-   newest releases, and the best songs of those new artists. */
+/* The shelves of "Cerca", built from the artists you listen to most (90% what
+   you played in the last 7 days, 10% your library): their similar artists
+   (none you already know), the playlists they are in, their newest releases,
+   and the best songs of those new artists. Built once a day. */
 
 export interface Home {
   artists: SpArtistRef[]
@@ -43,6 +45,52 @@ export function topArtists(songs: Song[], n = 8): string[] {
   return [...score.values()].sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.name)
 }
 
+/** the artists that make your taste right now: 90% the plays of the last 7
+   days, 10% your library (all library when you played nothing this week) */
+export function tasteArtists(songs: Song[], n = 8): string[] {
+  const lib = new Map<string, { name: string; s: number }>()
+  for (const s of songs) {
+    const name = mainArtist(s)
+    if (!name) continue
+    const cur = lib.get(fold(name)) ?? { name, s: 0 }
+    cur.s += 1 + (s.liked ? 3 : 0)
+    lib.set(fold(name), cur)
+  }
+  const recent = recentArtists(7)
+  const libTotal = [...lib.values()].reduce((t, x) => t + x.s, 0) || 1
+  const recTotal = [...recent.values()].reduce((t, x) => t + x, 0)
+  const wRec = recTotal ? 0.9 : 0
+  const score = new Map<string, { name: string; s: number }>()
+  for (const [k, v] of lib) score.set(k, { name: v.name, s: ((1 - wRec) * v.s) / libTotal })
+  for (const [name, plays] of recent) {
+    const cur = score.get(fold(name)) ?? { name, s: 0 }
+    cur.s += (wRec * plays) / recTotal
+    score.set(fold(name), cur)
+  }
+  return [...score.values()].sort((a, b) => b.s - a.s).slice(0, n).map((x) => x.name)
+}
+
+/* what was built today: the shelves stay the same until tomorrow */
+const DAY_KEY = 'stemkit:home-day'
+const today = () => new Date().toDateString()
+
+export function cachedHome(): { home: Home; tracks: SpTrack[] } | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(DAY_KEY) ?? 'null') as { day: string; home: Home; tracks: SpTrack[] } | null
+    return c && c.day === today() ? c : null
+  } catch {
+    return null
+  }
+}
+
+export function saveHome(home: Home, tracks: SpTrack[]) {
+  try {
+    localStorage.setItem(DAY_KEY, JSON.stringify({ day: today(), home, tracks }))
+  } catch {
+    /* rebuilt next time */
+  }
+}
+
 async function artistUri(name: string): Promise<string | null> {
   try {
     const r = await engine.spSearch(name)
@@ -55,10 +103,12 @@ async function artistUri(name: string): Promise<string | null> {
 let memo: { key: string; home: Home } | null = null
 
 export async function buildHome(songs: Song[]): Promise<Home> {
-  const names = topArtists(songs)
+  const names = tasteArtists(songs)
   const key = `${names.join('|')}#${songs.length}`
   if (memo?.key === key) return memo.home
+  // "might like": nobody you have in the library or played this week
   const mine = knownArtists(songs)
+  for (const a of recentArtists(7).keys()) mine.add(fold(a))
   const pages = (
     await Promise.all(
       names.map(async (n) => {
@@ -117,6 +167,7 @@ export async function buildTracks(home: Home, songs: Song[]): Promise<SpTrack[]>
   const key = picks.map((a) => a.uri).join('|')
   if (trackMemo?.key === key) return trackMemo.tracks
   const known = knownArtists(songs)
+  for (const a of recentArtists(7).keys()) known.add(fold(a))
   const titles = new Set(songs.map((s) => fold(s.title)))
   const pages = await Promise.all(picks.map((a) => engine.spArtist(a.uri).catch(() => null)))
   const out: SpTrack[] = []

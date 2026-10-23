@@ -9,6 +9,7 @@ import { shareSpotify } from '../lib/share'
 import { artistOf, nameParts } from '../lib/media'
 import type { Playlist, Song } from '../lib/types'
 import { libraryKeys, playlistPool, trackKey } from '../lib/home'
+import { PlaylistPicker } from './Library'
 import { usePlayback } from '../playback'
 import { useStore, type Page } from '../store'
 
@@ -218,22 +219,52 @@ export function PlaylistSuggestions({ playlist }: { playlist: Playlist }) {
   )
 }
 
-/** a short list of songs to play, with a title (the shelves of "Cerca") */
-export function TrackShelf({ title, tracks, max = 10 }: { title: string; tracks: SpTrack[]; max?: number }) {
-  const [all, setAll] = useState(false)
-  const shown = all ? tracks : tracks.slice(0, max)
-  const tp = useTrackPlayer(tracks, title)
-  if (!tracks.length) return null
+/** a row of songs with their covers to scroll sideways (the shelves of
+   "Cerca"): tap = listen, + = pick a playlist to save it in */
+export function TrackTiles({ title, tracks }: { title: string; tracks: SpTrack[] }) {
+  const store = useStore()
+  const have = useMemo(() => libraryKeys(store.songs), [store.songs])
+  const shown = useMemo(() => tracks.filter((t) => !have.has(trackKey(t.artists[0] ?? '', t.title))), [tracks, have])
+  const tp = useTrackPlayer(shown, title)
+  const [picking, setPicking] = useState<SpTrack | null>(null)
+  const save = async (t: SpTrack, pid: string, pname: string) => {
+    const vid = await matchTrack(t)
+    if (!vid) return store.showToast('Non trovata su YouTube')
+    const [song] = await songsFor([t], store.getSong)
+    if (!song) return
+    store.addToLibrary(song, true)
+    const n = store.addToPlaylist(pid, [song.id])
+    store.showToast(n ? `Aggiunta a “${pname}”` : `È già in “${pname}”`)
+  }
+  if (!shown.length) return null
   return (
-    <section className="shelf track-shelf">
+    <section className="shelf">
       <h3>{title}</h3>
-      {shown.map((t, i) => (
-        <TrackRow key={t.uri} t={t} i={i} showArt busy={tp.busy === t.uri} onPlay={() => void tp.play(i)} />
-      ))}
-      {tracks.length > max && (
-        <button className="ghost small" onClick={() => setAll(!all)}>
-          {all ? 'Mostra meno' : 'Mostra altri'}
-        </button>
+      <div className="shelf-row">
+        {shown.map((t, i) => (
+          <div key={t.uri} className="track-tile">
+            <button className="card-tile" onClick={() => void tp.play(i)}>
+              {t.image ? <img src={t.image} alt="" loading="lazy" /> : <span className="tile-ph" />}
+              {tp.busy === t.uri && (
+                <span className="tile-busy">
+                  <Spinner size={26} />
+                </span>
+              )}
+              <span className="tile-title">{t.title}</span>
+              <span className="tile-sub">{t.artists.join(', ')}</span>
+            </button>
+            <button className="tile-add" onClick={() => setPicking(t)} aria-label={`Aggiungi ${t.title} a una playlist`}>
+              <Plus />
+            </button>
+          </div>
+        ))}
+      </div>
+      {picking && (
+        <PlaylistPicker
+          title="Aggiungi a playlist"
+          onClose={() => setPicking(null)}
+          onPick={(pid, pname) => void save(picking, pid, pname)}
+        />
       )}
     </section>
   )

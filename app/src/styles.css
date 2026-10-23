@@ -2827,10 +2827,6 @@ input.with-ico {
   }
 }
 
-.track-shelf > button.ghost {
-  margin: 4px 16px 0;
-}
-
 /* playlists: the bar to run through the list */
 .fast-scroll {
   position: fixed;
@@ -2893,4 +2889,43 @@ input.with-ico {
 .list-actions .dl-toggle {
   flex: 0 0 auto;
   min-width: 48px;
+}
+
+/* Cerca: songs as tiles, + to save one in a playlist */
+.track-tile {
+  position: relative;
+  flex: none;
+}
+.track-tile .card-tile {
+  position: relative;
+}
+.tile-busy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.tile-add {
+  position: absolute;
+  top: 96px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+.tile-add svg {
+  width: 18px;
+  height: 18px;
 }

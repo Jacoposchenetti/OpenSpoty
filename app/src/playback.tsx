@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { errMsg } from './lib/format'
 import { Mixer } from './lib/mixer'
 import { engine } from './lib/engine'
+import { logListen } from './lib/listens'
 import { isLocalPath, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
 import { StemPlayer, type PlayerSpec } from './lib/player'
@@ -441,6 +442,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const adopt = (np: NowPlaying) => {
     storeRef.current.updateSong(np.songId, { playedAt: Date.now() })
     const song = storeRef.current.getSong(np.songId)
+    if (song) logListen(song.title)
     nowRef.current = np
     setNow(np)
     if (song) {
@@ -461,6 +463,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       nowRef.current = np
       setNow(np)
       storeRef.current.updateSong(song.id, { playedAt: Date.now() })
+      logListen(song.title)
       setMixState(m)
       setLoopState(null)
       setDuration(song.duration || 0)

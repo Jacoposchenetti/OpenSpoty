@@ -7,9 +7,9 @@ import { useImports, type Import } from '../imports'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { Spinner } from '../components/ui'
-import { CatalogResults, Shelf, TrackShelf } from './Catalog'
+import { CatalogResults, Shelf, TrackTiles } from './Catalog'
 import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
-import { buildHome, buildTracks, type Home } from '../lib/home'
+import { buildHome, buildTracks, cachedHome, saveHome, type Home } from '../lib/home'
 import type { SpTrack } from '../lib/engine'
 import type { Song } from '../lib/types'
 
@@ -490,24 +490,34 @@ function SplitJob() {
 
 function HomeShelves() {
   const store = useStore()
-  const [home, setHome] = useState<Home | null>(null)
-  const [tracks, setTracks] = useState<SpTrack[]>([])
+  // built once a day: until tomorrow the same shelves come back at once
+  const [day] = useState(cachedHome)
+  const [home, setHome] = useState<Home | null>(day?.home ?? null)
+  const [tracks, setTracks] = useState<SpTrack[]>(day?.tracks ?? [])
   const [failed, setFailed] = useState(false)
+  const empty = !store.songs.length
   useEffect(() => {
+    if (day) return
     let alive = true
     buildHome(store.songs)
       .then((h) => {
         if (!alive) return
         setHome(h)
         // the songs need one more page per artist: they come in after the rest
-        void buildTracks(h, store.songs).then((t) => alive && setTracks(t), () => undefined)
+        void buildTracks(h, store.songs).then(
+          (t) => {
+            if (alive) setTracks(t)
+            if (h.artists.length) saveHome(h, t)
+          },
+          () => undefined
+        )
       })
       .catch(() => alive && setFailed(true))
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.songs.length])
+  }, [empty])
   if (failed) return null
   if (!home)
     return (
@@ -518,7 +528,7 @@ function HomeShelves() {
   return (
     <div className="home-shelves">
       <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
-      <TrackShelf title="Brani che potrebbero piacerti" tracks={tracks} />
+      <TrackTiles title="Brani che potrebbero piacerti" tracks={tracks} />
       <Shelf title="Playlist da ascoltare" items={home.playlists} />
       <Shelf title="Ultime uscite dei tuoi artisti" items={home.releases} showArtist />
     </div>
