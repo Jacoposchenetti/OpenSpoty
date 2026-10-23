@@ -9,6 +9,42 @@ import { STEM_META, type Song } from '../lib/types'
 
 const backStack: Array<() => void> = []
 
+/** the on-screen keyboard is up: someone is typing in a field and the window got shorter for it */
+export function useKeyboardOpen(): boolean {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let full = 0 // the height without the keyboard (for this orientation)
+    const check = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight
+      if (h > full) full = h
+      const el = document.activeElement
+      const typing =
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLInputElement && !['range', 'checkbox', 'radio', 'button', 'submit'].includes(el.type))
+      setOpen(typing && full - h > 120)
+    }
+    const later = () => setTimeout(check, 250) // the keyboard animates in and out
+    const rotated = () => {
+      full = 0
+      later()
+    }
+    check()
+    window.addEventListener('resize', check)
+    window.visualViewport?.addEventListener('resize', check)
+    window.addEventListener('orientationchange', rotated)
+    document.addEventListener('focusin', later)
+    document.addEventListener('focusout', later)
+    return () => {
+      window.removeEventListener('resize', check)
+      window.visualViewport?.removeEventListener('resize', check)
+      window.removeEventListener('orientationchange', rotated)
+      document.removeEventListener('focusin', later)
+      document.removeEventListener('focusout', later)
+    }
+  }, [])
+  return open
+}
+
 export function useBackHandler(onBack: (() => void) | null) {
   const ref = useRef(onBack)
   ref.current = onBack

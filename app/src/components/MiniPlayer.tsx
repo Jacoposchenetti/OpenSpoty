@@ -3,15 +3,17 @@ import { useEffect, useRef } from 'react'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { nameParts } from '../lib/media'
-import { SongThumb, Spinner } from './ui'
+import { SongThumb, Spinner, useKeyboardOpen } from './ui'
 
 /* Spotify-style bar above the tabs: what is playing, play/pause, next.
-   Tapping it opens the full player with the stem mixer. */
+   Tapping it opens the full player with the stem mixer. Hidden while typing
+   (the keyboard is up), like Spotify. */
 export function MiniPlayer() {
   const store = useStore()
   const pb = usePlayback()
   const bar = useRef<HTMLDivElement>(null)
   const song = pb.now ? store.getSong(pb.now.songId) : null
+  const typing = useKeyboardOpen()
 
   useEffect(() => {
     let raf = 0
@@ -23,7 +25,7 @@ export function MiniPlayer() {
     return () => cancelAnimationFrame(raf)
   }, [pb])
 
-  if (!song) return null
+  if (!song || typing) return null
   const sub = pb.error
     ? pb.error
     : pb.loading
