@@ -5,7 +5,7 @@ import { engine } from '../lib/engine'
 import { fmtTime } from '../lib/format'
 import { sharePlaylist, shareSong } from '../lib/share'
 import { artistOf, isDownloaded, nameParts, youtubeIdOf } from '../lib/media'
-import { PlaylistSuggestions, useOpenAlbum, useOpenArtist } from './Catalog'
+import { artistsOf, PlaylistSuggestions, useOpenAlbum, useOpenArtist } from './Catalog'
 import { FastScroll } from '../components/FastScroll'
 import type { Playlist, Song } from '../lib/types'
 import { usePlayback } from '../playback'
@@ -403,7 +403,8 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
   const openArtist = useOpenArtist()
   const openAlbum = useOpenAlbum()
   const playback = usePlayback()
-  const [mode, setMode] = useState<null | 'add' | 'move' | 'rename' | 'delete'>(null)
+  const [mode, setMode] = useState<null | 'add' | 'move' | 'rename' | 'delete' | 'artists'>(null)
+  const artists = artistsOf(song)
   // a song only heard (search, artist pages, autoplay): saved first when you keep it somewhere
   const inLib = store.songs.some((s) => s.id === song.id)
   const keep = () => {
@@ -427,6 +428,17 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
           }
         }}
       />
+    )
+  }
+  if (mode === 'artists') {
+    return (
+      <Sheet title="Vai agli artisti" onClose={onClose}>
+        {artists.map((a) => (
+          <button key={a.name} onClick={() => (void openArtist(song, a), onClose())}>
+            <MicVocal /> {a.name}
+          </button>
+        ))}
+      </Sheet>
     )
   }
   if (mode === 'rename') {
@@ -481,9 +493,15 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
       {playlist && (
         <button onClick={() => (store.removeFromPlaylist(playlist.id, index), onClose())}><X /> Rimuovi da “{playlist.name}”</button>
       )}
-      <button onClick={() => (void openArtist(song), onClose())}>
-        <MicVocal /> Vai all'artista
-      </button>
+      {artists.length > 1 ? (
+        <button onClick={() => setMode('artists')}>
+          <MicVocal /> Vai agli artisti
+        </button>
+      ) : (
+        <button onClick={() => (void openArtist(song), onClose())}>
+          <MicVocal /> Vai all'artista
+        </button>
+      )}
       <button onClick={() => (void openAlbum(song), onClose())}>
         <Disc3 /> Vai all'album
       </button>

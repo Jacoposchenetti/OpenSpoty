@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpLeft, Check, Clock, Play, Plus, Search as SearchIcon, SlidersVertical, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, MicVocal, Play, Plus, Search as SearchIcon, Share2, SlidersVertical, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpSearch } from '../lib/engine'
 import { isMatched, matchTrack, songFor, songsFor } from '../lib/catalog'
@@ -7,8 +7,10 @@ import type { YtResult } from '../lib/native'
 import { useImports, type Import } from '../imports'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
-import { Spinner } from '../components/ui'
-import { Shelf, TrackTiles } from './Catalog'
+import { Sheet, Spinner } from '../components/ui'
+import { Shelf, TrackTiles, useOpenArtist, useSaver } from './Catalog'
+import { SongMenu } from './Library'
+import { shareSpotify } from '../lib/share'
 import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
 import { buildHome, buildTracks, cachedHome, saveHome, type Home } from '../lib/home'
 import type { SpTrack } from '../lib/engine'
@@ -71,30 +73,6 @@ function Search() {
       playback.playList([s.id], 0, 'Link YouTube')
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, playback]
-  )
-
-  const splitHit = useCallback(
-    async (hit: Hit) => {
-      setErr(null)
-      try {
-        const songId = `yt-${hit.videoId}`
-        const have = store.songs.find((s) => s.id === songId)
-        if (have?.stems.length) {
-          playback.playSong(songId)
-          return
-        }
-        if (have) {
-          await store.splitLater(have) // already downloaded: no second download
-          return
-        }
-        const title = titleOf(hit)
-        await engine.separate({ youtubeId: hit.videoId, songId, title })
-        store.showToast(store.deviceJob?.state === 'running' ? `In coda: “${title}”` : `Preparo “${title}”…`)
-      } catch (e) {
-        setErr(errMsg(e))
-      }
-    },
     [store, playback]
   )
 
@@ -289,7 +267,7 @@ function Search() {
       )}
 
       {(results || searching) && (typing || !focused) && (
-        <MixedResults q={results?.q ?? ''} yt={results?.items ?? null} searching={searching} songOf={songOf} split={splitHit} status={status} />
+        <MixedResults q={results?.q ?? ''} yt={results?.items ?? null} searching={searching} songOf={songOf} status={status} />
       )}
       {err && <div className="notice error">{err}</div>}
     </section>
@@ -351,14 +329,12 @@ function MixedResults({
   yt,
   searching,
   songOf,
-  split,
   status
 }: {
   q: string
   yt: Hit[] | null
   searching: boolean
   songOf: (hit: Hit) => Song
-  split: (hit: Hit) => Promise<void>
   status: (videoId: string) => string | null
 }) {
   const store = useStore()
@@ -418,17 +394,21 @@ function MixedResults({
       setBusy(null)
     }
   }
-  const add = async (m: Mixed) => {
-    const s = await resolve(m)
-    if (!s) return store.showToast('Non trovata su YouTube')
-    store.addToLibrary(s)
-  }
-  const splitIt = async (m: Mixed) => {
-    if (m.kind === 'yt') return split(m.hit)
-    if (m.kind !== 'track') return
-    const vid = await matchTrack(m.t)
-    if (!vid) return store.showToast('Non trovata su YouTube')
-    return split({ videoId: vid, title: m.t.title, channel: m.t.artists[0], kind: 'song' })
+  // ⋮ of a song: the same menu as everywhere (the song is looked up on YouTube first)
+  const [menuSong, setMenuSong] = useState<Song | null>(null)
+  const [menuOf, setMenuOf] = useState<Mixed | null>(null)
+  const openMenu = async (m: Mixed) => {
+    if (!isSongItem(m)) return setMenuOf(m)
+    const k = keyOf(m)
+    setBusy(k)
+    try {
+      const s = await resolve(m)
+      if (!s) return store.showToast('Non trovata su YouTube')
+      store.addTemp([s])
+      setMenuSong(s)
+    } finally {
+      setBusy(null)
+    }
   }
 
   if (!items.length)
@@ -481,6 +461,11 @@ function MixedResults({
                   <small>{store.isFollowing(x.uri) ? 'Segui già' : 'Segui'}</small>
                 </button>
               )}
+              {m.kind !== 'artist' && (
+                <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`Opzioni ${x.name}`}>
+                  <EllipsisVertical />
+                </button>
+              )}
             </div>
           )
         }
@@ -513,20 +498,100 @@ function MixedResults({
                 </span>
               </span>
             </button>
-            <button className="r-act" disabled={!!song} onClick={() => void add(m)} aria-label="Aggiungi alla libreria">
-              {song ? <Check /> : <Plus />}
-              <small>{song ? 'In libreria' : 'Aggiungi'}</small>
+            {song && <Check className="in-lib-mark" aria-label="In libreria" />}
+            <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`Opzioni ${title}`}>
+              <EllipsisVertical />
             </button>
-            {!song?.stems.length && (
-              <button className="r-act" onClick={() => void splitIt(m)} aria-label="Separa le tracce">
-                <SlidersVertical />
-                <small>Separa</small>
-              </button>
-            )}
           </div>
         )
       })}
+      {menuSong && <SongMenu song={store.getSong(menuSong.id) ?? menuSong} index={0} playlist={null} onClose={() => setMenuSong(null)} />}
+      {menuOf && !isSongItem(menuOf) && <CollectionMenu m={menuOf} onClose={() => setMenuOf(null)} />}
     </div>
+  )
+}
+
+/** ⋮ of an album or a playlist in the results: share, save in the library, its artists */
+function CollectionMenu({ m, onClose }: { m: Exclude<Mixed, SongItem>; onClose: () => void }) {
+  const store = useStore()
+  const openArtist = useOpenArtist()
+  const { save } = useSaver()
+  const x = m.x
+  const [tracks, setTracks] = useState<SpTrack[] | null>(null)
+  const [picking, setPicking] = useState(false)
+  useEffect(() => {
+    let alive = true
+    const load =
+      m.kind === 'album'
+        ? engine.spAlbum(x.uri).then((a) => a.tracks)
+        : engine.spPlaylist(x.uri).then((p) =>
+            p.tracks.map((t) => ({
+              uri: t.uri || `x:${t.artist}|${t.title}`,
+              title: t.title,
+              artists: t.artist.split(', ').filter(Boolean),
+              artistUris: t.artistUri ? [t.artistUri] : [],
+              duration: t.duration,
+              image: t.image || p.image
+            }))
+          )
+    load.then((t) => alive && setTracks(t)).catch(() => alive && setTracks([]))
+    return () => {
+      alive = false
+    }
+  }, [m.kind, x.uri])
+  // its artists, the most present first (an album: its own; a playlist: the ones it has most)
+  const artists = (() => {
+    const count = new Map<string, { name: string; uri?: string; n: number }>()
+    for (const t of tracks ?? []) {
+      t.artists.forEach((name, i) => {
+        const c = count.get(name) ?? { name, uri: t.artistUris[i], n: 0 }
+        c.n++
+        c.uri ??= t.artistUris[i]
+        count.set(name, c)
+      })
+    }
+    return [...count.values()].sort((a, b) => b.n - a.n).slice(0, 8)
+  })()
+  const saved = store.playlists.some((p) => p.source === x.uri)
+  if (picking)
+    return (
+      <Sheet title="Vai agli artisti" onClose={onClose}>
+        {artists.map((a) => (
+          <button key={a.name} onClick={() => (void openArtist({ title: '' }, a), onClose())}>
+            <MicVocal /> {a.name}
+          </button>
+        ))}
+      </Sheet>
+    )
+  return (
+    <Sheet title={x.name} onClose={onClose}>
+      <button onClick={() => (onClose(), void shareSpotify(x.name, x.uri).then((r) => r === 'copied' && store.showToast('Link copiato')))}>
+        <Share2 /> Condividi
+      </button>
+      <button
+        disabled={saved || !tracks?.length}
+        onClick={() => {
+          if (tracks) void save(x.name, x.uri, tracks, false)
+          store.showToast(`Aggiungo “${x.name}” alla libreria…`)
+          onClose()
+        }}
+      >
+        {saved ? <Check /> : <Plus />} {saved ? 'Già in libreria' : 'Aggiungi alla libreria'}
+      </button>
+      {!tracks ? (
+        <button disabled>
+          <Spinner size={14} /> Artisti…
+        </button>
+      ) : artists.length > 1 ? (
+        <button onClick={() => setPicking(true)}>
+          <MicVocal /> Vai agli artisti
+        </button>
+      ) : artists.length === 1 ? (
+        <button onClick={() => (void openArtist({ title: '' }, artists[0]), onClose())}>
+          <MicVocal /> Vai all'artista
+        </button>
+      ) : null}
+    </Sheet>
   )
 }
 

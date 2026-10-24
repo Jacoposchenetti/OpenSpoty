@@ -24,12 +24,23 @@ export function CatalogPage({ page }: { page: Page }) {
   return <AlbumPage key={page.uri} uri={page.uri} />
 }
 
-/** "Vai all'artista" from a song of the library: its Spotify artist, or a search by name */
+/** the artists of a song: the ones Spotify gave, else the names in its title ("A, B feat. C") */
+export function artistsOf(song: { title: string; artistUri?: string; artists?: Array<{ name: string; uri?: string }> }) {
+  if (song.artists?.length) return song.artists
+  const names = artistOf(song.title)
+    .split(/\s*(?:,|&| feat\.?| ft\.?| x | e )\s*/i)
+    .map((n) => n.trim())
+    .filter(Boolean)
+  return names.map((name, i) => ({ name, uri: i === 0 ? song.artistUri : undefined }))
+}
+
+/** "Vai all'artista" from a song of the library: its Spotify artist, or a search by name (pick: one of several) */
 export function useOpenArtist() {
   const store = useStore()
-  return async (song: { title: string; artistUri?: string }) => {
-    if (song.artistUri) return store.openPage({ kind: 'artist', uri: song.artistUri })
-    const name = artistOf(song.title)
+  return async (song: { title: string; artistUri?: string }, pick?: { name: string; uri?: string }) => {
+    if (pick?.uri) return store.openPage({ kind: 'artist', uri: pick.uri, name: pick.name })
+    if (!pick && song.artistUri) return store.openPage({ kind: 'artist', uri: song.artistUri })
+    const name = pick?.name ?? artistOf(song.title)
     if (!name) return store.showToast('Artista sconosciuto')
     try {
       const r = await engine.spSearch(name)
@@ -530,7 +541,7 @@ export function CatalogResults({ query }: { query: string }) {
 }
 
 /** "Salva" / "Scarica": the tracks become a playlist of the library, filled song by song */
-function useSaver() {
+export function useSaver() {
   const store = useStore()
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null)
   const save = async (name: string, source: string, tracks: SpTrack[], andDownload: boolean) => {

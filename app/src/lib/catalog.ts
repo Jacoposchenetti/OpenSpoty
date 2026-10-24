@@ -22,7 +22,7 @@ function save() {
   }
 }
 
-export const songTitle = (t: SpTrack) => (t.artists[0] ? `${t.artists[0]} – ${t.title}` : t.title)
+export const songTitle = (t: SpTrack) => (t.artists.length ? `${t.artists.join(', ')} – ${t.title}` : t.title)
 
 export function songFor(t: SpTrack, videoId: string): Song {
   return {
@@ -35,6 +35,7 @@ export function songFor(t: SpTrack, videoId: string): Song {
     addedAt: Date.now(),
     art: t.image || undefined,
     artistUri: t.artistUris[0],
+    artists: t.artists.map((name, i) => ({ name, uri: t.artistUris[i] })),
     albumUri: t.albumUri,
     spotifyUri: t.uri
   }

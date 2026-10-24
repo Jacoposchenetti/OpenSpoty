@@ -3121,3 +3121,11 @@ input.with-ico {
 .r-act.on {
   color: var(--accent);
 }
+
+/* Cerca: a song already in the library */
+.in-lib-mark {
+  color: var(--ok);
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
