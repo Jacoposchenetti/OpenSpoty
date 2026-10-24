@@ -75,11 +75,19 @@ export interface SpAlbum extends SpRelease {
   tracks: SpTrack[]
 }
 
+export type SpTop =
+  | (SpTrack & { kind: 'track' })
+  | (SpArtistRef & { kind: 'artist' })
+  | (SpRelease & { kind: 'album' })
+  | (SpPlaylistRef & { kind: 'playlist' })
+
 export interface SpSearch {
   artists: SpArtistRef[]
   albums: SpRelease[]
   tracks: SpTrack[]
   playlists?: SpPlaylistRef[]
+  /** Spotify's "top results": every kind together, most relevant first */
+  top?: SpTop[]
 }
 
 /* searches and pages already seen come back at once (kept in memory, and on
@@ -216,7 +224,7 @@ export const engine = {
     }),
 
   spSearch: (query: string): Promise<SpSearch> =>
-    remember(`sp:${query.toLowerCase()}`, 86400_000, () => (isNative ? StemKitNative.spSearch({ query }) : pc('spSearch', { query }))),
+    remember(`sp2:${query.toLowerCase()}`, 86400_000, () => (isNative ? StemKitNative.spSearch({ query }) : pc('spSearch', { query }))),
   spArtist: (uri: string): Promise<SpArtist> => remember(uri, 86400_000, () => (isNative ? StemKitNative.spArtist({ uri }) : pc('spArtist', { uri }))),
   spAlbum: (uri: string): Promise<SpAlbum> => remember(uri, 7 * 86400_000, () => (isNative ? StemKitNative.spAlbum({ uri }) : pc('spAlbum', { uri }))),
 

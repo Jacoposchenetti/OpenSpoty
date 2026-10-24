@@ -23,6 +23,8 @@ export interface Alarm {
   label: string
   content: AlarmContent
   shuffle: boolean
+  /** when its songs are over: again from the first, similar songs, or silence (old alarms: again) */
+  after?: 'repeat' | 'similar' | 'stop'
   volume: number // 0..1 of the media volume
   fadeSec: number // from silence to full volume
   snooze: number // minutes
@@ -35,7 +37,7 @@ export interface AlarmState {
 }
 
 interface AlarmsPlugin {
-  save(o: { alarms: Array<Alarm & { specs: PlayerSpec[] }> }): Promise<AlarmState>
+  save(o: { alarms: Array<Alarm & { specs: PlayerSpec[]; more: PlayerSpec[] }> }): Promise<AlarmState>
   state(): Promise<AlarmState>
   stop(): Promise<void>
   snooze(): Promise<void>
@@ -56,6 +58,7 @@ export const newAlarm = (): Alarm => ({
   label: '',
   content: { kind: 'liked', id: '', name: 'Brani che ti piacciono' },
   shuffle: true,
+  after: 'repeat',
   volume: 0.6,
   fadeSec: 45,
   snooze: 9

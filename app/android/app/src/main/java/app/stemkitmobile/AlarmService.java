@@ -116,6 +116,20 @@ public class AlarmService extends Service {
             if (s != null) specs.add(StemPlayerPlugin.specOf(getFilesDir(), s));
         }
         if (alarm.optBoolean("shuffle")) Collections.shuffle(specs);
+        // when they are over: similar songs (streamed), the same again, or silence
+        String after = alarm.optString("after", "repeat");
+        JSONArray more = alarm.optJSONArray("more");
+        if ("similar".equals(after)) {
+            for (int i = 0; more != null && i < more.length(); i++) {
+                JSONObject s = more.optJSONObject(i);
+                if (s != null) specs.add(StemPlayerPlugin.specOf(getFilesDir(), s));
+            }
+        }
+        boolean repeatOne = "repeat".equals(after) && specs.size() == 1;
+        if ("repeat".equals(after) && specs.size() > 1) {
+            List<Engine.Spec> once = new ArrayList<>(specs);
+            while (specs.size() < 60) specs.addAll(once); // longer than the 30 minutes it rings at most
+        }
         if (specs.isEmpty()) {
             playFallback();
         } else {
@@ -130,6 +144,7 @@ public class AlarmService extends Service {
             engine.load(first, true);
             engine.setUpcoming(specs.subList(1, specs.size()), null);
             engine.setAutoAdvance(true);
+            engine.setRepeatOne(repeatOne);
             fadeIn(mix, Math.max(1, alarm.optInt("fadeSec", 45)));
             // nothing playing after a while (offline, broken file): ring the phone's alarm sound
             handler.postDelayed(() -> {
@@ -191,6 +206,7 @@ public class AlarmService extends Service {
     private void finish() {
         handler.removeCallbacksAndMessages(null);
         if (engine != null) {
+            engine.setRepeatOne(false); // the alarm's own setting, not the player's
             engine.pause();
             engine = null;
         }

@@ -3079,3 +3079,19 @@ input.with-ico {
 .tabs[hidden] {
   display: none !important;
 }
+
+/* Sveglia: what follows the alarm's songs */
+.after-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Cerca: artists in the mixed results have round pictures */
+.results.mixed .result-main img {
+  width: 52px;
+  height: 52px;
+}
+.result-thumb.round img {
+  border-radius: 50%;
+}

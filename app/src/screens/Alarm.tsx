@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
 import { Alarms, DAY_NAMES, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, MONTHS, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
 import { songsFor } from '../lib/catalog'
+import { similarSongs } from '../lib/radio'
 import { engine } from '../lib/engine'
 import { errMsg } from '../lib/format'
 import { isDownloaded, nameParts } from '../lib/media'
@@ -26,11 +27,19 @@ async function songsOf(c: AlarmContent, store: Store): Promise<Song[]> {
   return list.slice(0, 40)
 }
 
-/** hands Android the alarms with their songs (also on every start: the library changes) */
+/** hands Android the alarms with their songs (also on every start: the library changes);
+   "Brani simili": songs like the alarm's ones, streamed after them */
 async function pushAlarms(alarms: Alarm[], store: Store): Promise<AlarmState | null> {
   if (!isNative) return null
   const withSpecs = await Promise.all(
-    alarms.map(async (a) => ({ ...a, specs: a.enabled ? (await songsOf(a.content, store).catch(() => [])).map(alarmSpec) : [] }))
+    alarms.map(async (a) => {
+      const songs = a.enabled ? await songsOf(a.content, store).catch(() => []) : []
+      const more =
+        a.enabled && a.after === 'similar' && songs.length
+          ? await similarSongs(songs.slice(0, 5), new Set(songs.map((s) => s.id)), store.getSong, 15).catch(() => [])
+          : []
+      return { ...a, after: a.after ?? 'repeat', specs: songs.map(alarmSpec), more: more.map(alarmSpec) }
+    })
   )
   return Alarms.save({ alarms: withSpecs })
 }
@@ -336,6 +345,23 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
           <Shuffle className="inline-ico" /> In ordine casuale
         </span>
       </label>
+      <div className="after-pick">
+        <span className="muted small">Quando le canzoni finiscono</span>
+        <div className="seg">
+          {(
+            [
+              ['repeat', 'Ripeti'],
+              ['similar', 'Brani simili'],
+              ['stop', 'Fermati']
+            ] as const
+          ).map(([v, label]) => (
+            <button key={v} className={(a.after ?? 'repeat') === v ? 'active' : ''} onClick={() => set({ after: v })}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {(a.after ?? 'repeat') === 'similar' && <p className="muted small">I brani simili arrivano da internet: servirà la connessione.</p>}
+      </div>
       <label className="slider-row">
         <span>Volume {Math.round(a.volume * 100)}%</span>
         <input type="range" min={0.1} max={1} step={0.05} value={a.volume} onChange={(e) => set({ volume: Number(e.target.value) })} />

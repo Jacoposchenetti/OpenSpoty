@@ -69,7 +69,31 @@ final class SpotifyCatalog {
             JSONObject d = item != null ? item.optJSONObject("data") : null;
             if (d != null && "Track".equals(d.optString("__typename"))) tracks.put(track(d, null));
         }
-        return out.put("artists", artists).put("albums", albums).put("tracks", tracks);
+        // Spotify's own "top results": songs, artists, albums and playlists together, most relevant first
+        JSONArray top = new JSONArray();
+        JSONObject tr = s.optJSONObject("topResultsV2");
+        JSONArray ti = tr != null ? tr.optJSONArray("itemsV2") : null;
+        for (int i = 0; ti != null && i < ti.length(); i++) {
+            JSONObject item = ti.optJSONObject(i) != null ? ti.optJSONObject(i).optJSONObject("item") : null;
+            JSONObject d = item != null ? item.optJSONObject("data") : null;
+            if (d == null) continue;
+            switch (d.optString("__typename")) {
+                case "Track":
+                    top.put(track(d, null).put("kind", "track"));
+                    break;
+                case "Artist":
+                    if (d.has("profile")) top.put(artistRef(d).put("kind", "artist"));
+                    break;
+                case "Album":
+                    top.put(release(d).put("kind", "album"));
+                    break;
+                case "Playlist":
+                    top.put(playlistRef(d).put("kind", "playlist"));
+                    break;
+                default:
+            }
+        }
+        return out.put("artists", artists).put("albums", albums).put("tracks", tracks).put("top", top);
     }
 
     /** Artist page: profile, popular tracks, discography, similar artists. */

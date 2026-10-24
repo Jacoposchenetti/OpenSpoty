@@ -4,6 +4,7 @@ import { errMsg } from './lib/format'
 import { Mixer } from './lib/mixer'
 import { engine } from './lib/engine'
 import { logListen } from './lib/listens'
+import { similarSongs } from './lib/radio'
 import { isLocalPath, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
 import { StemPlayer, type PlayerSpec } from './lib/player'
@@ -28,6 +29,8 @@ export interface NowPlaying {
   contextName: string
   index: number // position in contextIds (for a queued song: the list song played before it)
   fromQueue: boolean
+  /** where the songs added by "Riproduzione automatica" start in contextIds */
+  autoFrom?: number
 }
 
 export type Source = 'original' | 'stems'
@@ -60,6 +63,9 @@ interface Playback {
   mix: MixState
   queue: string[]
   stopAtEnd: boolean
+  /** "Riproduzione automatica": when the list ends, similar songs follow */
+  autoplay: boolean
+  setAutoplay(on: boolean): void
   loop: { a: number; b: number } | null
   position(): number
   playList(ids: string[], index: number, name: string): void
@@ -85,6 +91,14 @@ export function usePlayback(): Playback {
   const p = useContext(Ctx)
   if (!p) throw new Error('playback missing')
   return p
+}
+
+function loadAutoplay(): boolean {
+  try {
+    return localStorage.getItem('stemkit:autoplay') !== '0'
+  } catch {
+    return true
+  }
 }
 
 function loadStopAtEnd(): boolean {
@@ -361,6 +375,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const queueRef = useRef<string[]>([])
   const [stopAtEnd, setStopAtEndState] = useState(loadStopAtEnd)
   const stopAtEndRef = useRef(stopAtEnd)
+  const [autoplay, setAutoplayState] = useState(loadAutoplay)
+  const autoplayRef = useRef(autoplay)
   const [loop, setLoopState] = useState<{ a: number; b: number } | null>(null)
   const [sleep, setSleepState] = useState({ at: 0, atEnd: false })
   const [countingIn, setCountingIn] = useState(false)
@@ -439,6 +455,33 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     )
   }, [backend])
 
+  /** the list is about to end (last song, nothing queued, no repeat): similar songs are added after it */
+  const extending = useRef('')
+  const maybeExtend = () => {
+    const cur = nowRef.current
+    if (!cur || !autoplayRef.current || stopAtEndRef.current || repeatRef.current !== 'off') return
+    if (queueRef.current.length || cur.index + 1 < cur.contextIds.length) return
+    const key = cur.contextIds.join(',')
+    if (extending.current === key) return
+    extending.current = key
+    const get = (id: string) => storeRef.current.getSong(id)
+    const seeds = cur.contextIds.slice(-5).flatMap((id) => get(id) ?? [])
+    similarSongs(seeds, new Set(cur.contextIds), get, 10)
+      .then((songs) => {
+        const now = nowRef.current
+        if (!songs.length || !now || now.contextIds.join(',') !== key) return
+        storeRef.current.addTemp(songs)
+        const ctx = { ...now, contextIds: [...now.contextIds, ...songs.map((s) => s.id)], autoFrom: now.autoFrom ?? now.contextIds.length }
+        nowRef.current = ctx
+        setNow(ctx)
+        syncUpcoming()
+        if (!backend.native) backend.preload(upcoming())
+      })
+      .catch(() => {
+        extending.current = '' // offline: try again at the next song
+      })
+  }
+
   /** the tracks the engine has for the song playing ("stems:files"): when they change, it reloads */
   const loadedTracks = useRef('')
   const loadedFor = useRef('') // the song those tracks belong to
@@ -463,6 +506,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     }
     setLoopState(null)
     syncUpcoming()
+    maybeExtend()
   }
 
   const start = useCallback(
@@ -483,6 +527,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       loadedTracks.current = tracksOf(song)
       loadedFor.current = song.id
       backend.load(song, m, autoplay, startAt)
+      maybeExtend()
       // the next one starts instantly when it comes (scaletta, coda)
       if (backend.native) syncUpcoming()
       else setTimeout(() => backend.preload(upcoming()), 1500)
@@ -760,6 +805,17 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     dequeue: (i) => {
       setQueueBoth(queueRef.current.filter((_, k) => k !== i))
       syncUpcoming()
+    },
+    autoplay,
+    setAutoplay: (on) => {
+      autoplayRef.current = on
+      setAutoplayState(on)
+      try {
+        localStorage.setItem('stemkit:autoplay', on ? '1' : '0')
+      } catch {
+        /* private mode */
+      }
+      if (on) maybeExtend()
     },
     setStopAtEnd: (v) => {
       stopAtEndRef.current = v

@@ -1,13 +1,14 @@
 import { ArrowLeft, ArrowUpLeft, Check, Clock, Play, Plus, Search as SearchIcon, SlidersVertical, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { engine } from '../lib/engine'
+import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpSearch } from '../lib/engine'
+import { isMatched, matchTrack, songFor, songsFor } from '../lib/catalog'
 import { errMsg, fmtTime } from '../lib/format'
 import type { YtResult } from '../lib/native'
 import { useImports, type Import } from '../imports'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { Spinner } from '../components/ui'
-import { CatalogResults, Shelf, TrackTiles } from './Catalog'
+import { Shelf, TrackTiles } from './Catalog'
 import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
 import { buildHome, buildTracks, cachedHome, saveHome, type Home } from '../lib/home'
 import type { SpTrack } from '../lib/engine'
@@ -62,23 +63,6 @@ function Search() {
       addedAt: Date.now()
     }
 
-  // tap = listen right away (streamed, nothing saved); the list plays on
-  const playHit = useCallback(
-    (hit: Hit) => {
-      if (!results) return
-      const songs = results.items.map(songOf)
-      store.addTemp(songs)
-      const hitSong = songs.find((x) => x.id === `yt-${hit.videoId}`)
-      if (hitSong) addRecent({ kind: 'song', id: hitSong.id, title: hitSong.title, sub: 'Brano', image: hit.thumbnail })
-      playback.playList(
-        songs.map((s) => s.id),
-        Math.max(0, songs.findIndex((s) => s.id === `yt-${hit.videoId}`)),
-        `Ricerca “${results.q}”`
-      )
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [results, store, playback]
-  )
   // a YouTube link: play it
   const playLink = useCallback(
     (hit: Hit) => {
@@ -304,58 +288,231 @@ function Search() {
         </div>
       )}
 
-      {results && (typing || !focused) && <CatalogResults query={results.q} />}
       {(results || searching) && (typing || !focused) && (
-        <div className="results">
-          {results && <h3 className="sec">Brani</h3>}
-          {searching && !results && (
-            <div className="page-loading">
-              <Spinner size={26} />
-            </div>
-          )}
-          {results?.items.map((r) => {
-            const st = status(r.videoId)
-            const song = store.songs.find((s) => s.id === `yt-${r.videoId}`)
-            const current = playback.now?.songId === `yt-${r.videoId}`
-            const opening = current && playback.loading
-            return (
-              <div key={r.videoId} className={`result ${current ? 'current' : ''}`}>
-                <button className="result-main" onClick={() => playHit(r)}>
-                  <span className="result-thumb">
-                    <img src={r.thumbnail || `https://i.ytimg.com/vi/${r.videoId}/mqdefault.jpg`} alt="" loading="lazy" />
-                    {opening && (
-                      <span className="thumb-busy">
-                        <Spinner size={22} />
-                      </span>
-                    )}
-                  </span>
-                  <span className="result-text">
-                    <span className="result-title">{r.title}</span>
-                    <span className="row-sub">
-                      {r.channel ?? ''}
-                      {r.duration ? ` · ${fmtTime(r.duration)}` : ''}
-                      {st && <span className="tag">{st}</span>}
-                    </span>
-                  </span>
-                </button>
-                <button className="r-act" disabled={!!song} onClick={() => store.addToLibrary(songOf(r))} aria-label="Aggiungi alla libreria">
-                  {song ? <Check /> : <Plus />}
-                  <small>{song ? 'In libreria' : 'Aggiungi'}</small>
-                </button>
-                {!song?.stems.length && (
-                  <button className="r-act" onClick={() => void splitHit(r)} aria-label="Separa le tracce">
-                    <SlidersVertical />
-                    <small>Separa</small>
-                  </button>
-                )}
-              </div>
-            )
-          })}
-          {results && !results.items.length && !searching && <p className="muted pad">Nessun risultato.</p>}
-        </div>
+        <MixedResults q={results?.q ?? ''} yt={results?.items ?? null} searching={searching} songOf={songOf} split={splitHit} status={status} />
       )}
       {err && <div className="notice error">{err}</div>}
     </section>
+  )
+}
+
+/* ------------------------------------------------------------- results, like Spotify */
+
+type Mixed =
+  | { kind: 'track'; t: SpTrack }
+  | { kind: 'yt'; hit: Hit }
+  | { kind: 'artist' | 'album' | 'playlist'; x: SpArtistRef | SpRelease | SpPlaylistRef }
+
+type SongItem = Extract<Mixed, { kind: 'track' | 'yt' }>
+const isSongItem = (m: Mixed): m is SongItem => m.kind === 'track' || m.kind === 'yt'
+const keyOf = (m: Mixed) => (m.kind === 'yt' ? `yt:${m.hit.videoId}` : m.kind === 'track' ? m.t.uri : m.x.uri)
+const bare = (t: string) =>
+  t
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?]|official|video|audio|lyrics?|testo/g, '')
+    .replace(/[^a-z0-9]+/g, '')
+
+/** one list in order of relevance, like Spotify: its top results (any kind), then mostly songs
+   with an artist, an album or a playlist every few, then what only YouTube has */
+function mixResults(sp: SpSearch | null, yt: Hit[]): Mixed[] {
+  const out: Mixed[] = []
+  const seen = new Set<string>()
+  const push = (m: Mixed) => {
+    const k = keyOf(m)
+    if (seen.has(k)) return
+    seen.add(k)
+    out.push(m)
+  }
+  for (const x of sp?.top ?? []) push(x.kind === 'track' ? { kind: 'track', t: x } : ({ kind: x.kind, x } as Mixed))
+  if (sp) {
+    const queues = {
+      track: [...sp.tracks],
+      artist: sp.artists.slice(0, 4),
+      album: sp.albums.slice(0, 5),
+      playlist: (sp.playlists ?? []).slice(0, 4)
+    }
+    const pattern = ['track', 'track', 'artist', 'track', 'album', 'track', 'playlist'] as const
+    while (Object.values(queues).some((q) => q.length)) {
+      for (const k of pattern) {
+        const v = queues[k].shift()
+        if (v) push(k === 'track' ? { kind: 'track', t: v as SpTrack } : { kind: k, x: v as SpArtistRef })
+      }
+    }
+  }
+  const titles = new Set(out.flatMap((m) => (m.kind === 'track' ? [bare(m.t.title)] : [])))
+  for (const h of yt) if (!titles.has(bare(h.title))) push({ kind: 'yt', hit: h })
+  return out
+}
+
+function MixedResults({
+  q,
+  yt,
+  searching,
+  songOf,
+  split,
+  status
+}: {
+  q: string
+  yt: Hit[] | null
+  searching: boolean
+  songOf: (hit: Hit) => Song
+  split: (hit: Hit) => Promise<void>
+  status: (videoId: string) => string | null
+}) {
+  const store = useStore()
+  const playback = usePlayback()
+  const [sp, setSp] = useState<SpSearch | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    setSp(null)
+    if (q.trim().length < 2) return
+    engine
+      .spSearch(q)
+      .then((x) => {
+        if (!alive) return
+        setSp(x)
+        // the songs are looked up on YouTube in the background: tapping is then instant
+        void songsFor([...(x.top ?? []).filter((t) => t.kind === 'track'), ...x.tracks].slice(0, 12) as SpTrack[], store.getSong)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q])
+  const items = mixResults(sp, yt ?? [])
+
+  /** a song of the results as a song of the app (its YouTube match); null if it has none */
+  const resolve = async (m: Mixed): Promise<Song | null> => {
+    if (m.kind === 'yt') return songOf(m.hit)
+    if (m.kind !== 'track') return null
+    const vid = await matchTrack(m.t)
+    return vid ? store.getSong(`yt-${vid}`) ?? songFor(m.t, vid) : null
+  }
+  /** tap on a song: it plays, then the other songs of the results (those already found) */
+  const play = async (m: Mixed) => {
+    const k = keyOf(m)
+    setBusy(k)
+    try {
+      const songItems = items.filter(isSongItem)
+      const list = await Promise.all(songItems.map((x) => (x === m || x.kind === 'yt' || (x.kind === 'track' && isMatched(x.t)) ? resolve(x) : null)))
+      const at = songItems.indexOf(m as SongItem)
+      const mine = list[at]
+      if (!mine) return store.showToast('Non trovata su YouTube')
+      const songs = list.filter((s): s is Song => !!s)
+      store.addTemp(songs)
+      addRecent(
+        m.kind === 'track'
+          ? { kind: 'song', id: mine.id, title: mine.title, sub: 'Brano', image: m.t.image }
+          : { kind: 'song', id: mine.id, title: mine.title, sub: 'Brano', image: m.kind === 'yt' ? m.hit.thumbnail : undefined }
+      )
+      playback.playList(
+        songs.map((s) => s.id),
+        Math.max(0, songs.indexOf(mine)),
+        `Ricerca “${q}”`
+      )
+    } finally {
+      setBusy(null)
+    }
+  }
+  const add = async (m: Mixed) => {
+    const s = await resolve(m)
+    if (!s) return store.showToast('Non trovata su YouTube')
+    store.addToLibrary(s)
+  }
+  const splitIt = async (m: Mixed) => {
+    if (m.kind === 'yt') return split(m.hit)
+    if (m.kind !== 'track') return
+    const vid = await matchTrack(m.t)
+    if (!vid) return store.showToast('Non trovata su YouTube')
+    return split({ videoId: vid, title: m.t.title, channel: m.t.artists[0], kind: 'song' })
+  }
+
+  if (!items.length)
+    return searching ? (
+      <div className="page-loading">
+        <Spinner size={26} />
+      </div>
+    ) : yt ? (
+      <p className="muted pad">Nessun risultato.</p>
+    ) : null
+
+  return (
+    <div className="results mixed">
+      {items.map((m) => {
+        const k = keyOf(m)
+        if (!isSongItem(m)) {
+          const x = m.x
+          const sub =
+            m.kind === 'artist'
+              ? 'Artista'
+              : m.kind === 'album'
+                ? `Album · ${(x as SpRelease).artists.join(', ')}`
+                : `Playlist${(x as SpPlaylistRef).owner ? ` · ${(x as SpPlaylistRef).owner}` : ''}`
+          return (
+            <div key={k} className="result">
+              <button
+                className="result-main"
+                onClick={() => {
+                  addRecent({ kind: m.kind, id: x.uri, title: x.name, sub, image: x.image })
+                  store.openPage({ kind: m.kind, uri: x.uri, name: x.name })
+                }}
+              >
+                <span className={`result-thumb ${m.kind === 'artist' ? 'round' : ''}`}>{x.image ? <img src={x.image} alt="" loading="lazy" /> : null}</span>
+                <span className="result-text">
+                  <span className="result-title">{x.name}</span>
+                  <span className="row-sub">{sub}</span>
+                </span>
+              </button>
+            </div>
+          )
+        }
+        const vid = m.kind === 'yt' ? m.hit.videoId : null
+        const song = vid ? store.songs.find((s) => s.id === `yt-${vid}`) : m.kind === 'track' ? store.songs.find((s) => s.spotifyUri === m.t.uri) : undefined
+        const current = !!song && playback.now?.songId === song.id
+        const st = vid ? status(vid) : null
+        const title = m.kind === 'yt' ? m.hit.title : m.t.title
+        const sub =
+          m.kind === 'yt'
+            ? `Video · ${m.hit.channel ?? ''}${m.hit.duration ? ` · ${fmtTime(m.hit.duration)}` : ''}`
+            : `Brano · ${m.t.artists.join(', ')}`
+        const image = m.kind === 'yt' ? m.hit.thumbnail || `https://i.ytimg.com/vi/${m.hit.videoId}/mqdefault.jpg` : m.t.image
+        return (
+          <div key={k} className={`result ${current ? 'current' : ''}`}>
+            <button className="result-main" onClick={() => void play(m)}>
+              <span className="result-thumb">
+                {image ? <img src={image} alt="" loading="lazy" /> : null}
+                {(busy === k || (current && playback.loading)) && (
+                  <span className="thumb-busy">
+                    <Spinner size={22} />
+                  </span>
+                )}
+              </span>
+              <span className="result-text">
+                <span className="result-title">{title}</span>
+                <span className="row-sub">
+                  {sub}
+                  {st && <span className="tag">{st}</span>}
+                </span>
+              </span>
+            </button>
+            <button className="r-act" disabled={!!song} onClick={() => void add(m)} aria-label="Aggiungi alla libreria">
+              {song ? <Check /> : <Plus />}
+              <small>{song ? 'In libreria' : 'Aggiungi'}</small>
+            </button>
+            {!song?.stems.length && (
+              <button className="r-act" onClick={() => void splitIt(m)} aria-label="Separa le tracce">
+                <SlidersVertical />
+                <small>Separa</small>
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

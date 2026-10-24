@@ -300,7 +300,10 @@ function QueueSheet({ onClose }: { onClose: () => void }) {
   const pb = usePlayback()
   const byId = new Map(store.allSongs.map((s) => [s.id, s]))
   const ctx = pb.now!
-  const rest = ctx.contextIds.slice(ctx.index + 1).map((id) => byId.get(id)).filter((s) => !!s)
+  const auto = ctx.autoFrom ?? ctx.contextIds.length
+  const restIds = ctx.contextIds.slice(ctx.index + 1)
+  const rest = restIds.map((id, i) => ({ s: byId.get(id), at: ctx.index + 1 + i })).filter((x) => !!x.s && x.at < auto)
+  const recs = restIds.map((id, i) => ({ s: byId.get(id), at: ctx.index + 1 + i })).filter((x) => !!x.s && x.at >= auto)
   const current = byId.get(ctx.songId)
   return (
     <Sheet title="Coda" onClose={onClose}>
@@ -327,12 +330,27 @@ function QueueSheet({ onClose }: { onClose: () => void }) {
         )
       })}
       {rest.length > 0 && <div className="q-head">Poi da “{ctx.contextName || 'libreria'}”</div>}
-      {rest.map((s, i) => (
-        <button key={`${s.id}:${i}`} className="q-row" onClick={() => (pb.playList(ctx.contextIds, ctx.index + 1 + i, ctx.contextName), onClose())}>
-          <SongThumb song={s} size={40} />
-          <span className="pick-title">{s.title}</span>
+      {rest.map(({ s, at }) => (
+        <button key={`${s!.id}:${at}`} className="q-row" onClick={() => (pb.playList(ctx.contextIds, at, ctx.contextName), onClose())}>
+          <SongThumb song={s!} size={40} />
+          <span className="pick-title">{s!.title}</span>
         </button>
       ))}
+      {recs.length > 0 && <div className="q-head">Riproduzione automatica: brani simili</div>}
+      {recs.map(({ s, at }) => (
+        <button key={`${s!.id}:${at}`} className="q-row" onClick={() => (pb.playList(ctx.contextIds, at, ctx.contextName), onClose())}>
+          <SongThumb song={s!} size={40} />
+          <span className="pick-title">{s!.title}</span>
+        </button>
+      ))}
+      <label className="switch-row">
+        <input type="checkbox" checked={pb.autoplay} onChange={(e) => pb.setAutoplay(e.target.checked)} />
+        <span>
+          <b>Riproduzione automatica</b>
+          <br />
+          <span className="muted small">Quando la lista finisce continua con brani simili, come Spotify.</span>
+        </span>
+      </label>
       <label className="switch-row">
         <input type="checkbox" checked={pb.stopAtEnd} onChange={(e) => pb.setStopAtEnd(e.target.checked)} />
         <span>
