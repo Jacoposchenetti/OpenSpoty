@@ -404,6 +404,11 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
   const openAlbum = useOpenAlbum()
   const playback = usePlayback()
   const [mode, setMode] = useState<null | 'add' | 'move' | 'rename' | 'delete'>(null)
+  // a song only heard (search, artist pages, autoplay): saved first when you keep it somewhere
+  const inLib = store.songs.some((s) => s.id === song.id)
+  const keep = () => {
+    if (!inLib) store.addToLibrary(song, true)
+  }
 
   if (mode === 'add' || mode === 'move') {
     return (
@@ -416,6 +421,7 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
             store.moveToPlaylist(playlist.id, index, pid)
             store.showToast(`Spostata in “${pname}”`)
           } else {
+            keep()
             const n = store.addToPlaylist(pid, [song.id])
             store.showToast(n ? `Aggiunta a “${pname}”` : `È già in “${pname}”`)
           }
@@ -451,12 +457,18 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
       }
       onClose={onClose}
     >
+      {!inLib && (
+        <button onClick={() => (store.addToLibrary(song), onClose())}>
+          <Plus /> Aggiungi alla libreria
+        </button>
+      )}
       <button onClick={() => (playback.enqueue(song.id), store.showToast('Aggiunta alla coda'), onClose())}><ListEnd /> Metti in coda</button>
       <button onClick={() => (onClose(), void shareSong(song).then((r) => r === 'copied' && store.showToast('Link copiato')))}>
         <Share2 /> Condividi
       </button>
       <button
         onClick={() => {
+          keep()
           store.updateSong(song.id, song.liked ? { liked: false } : { liked: true, likedAt: Date.now() })
           onClose()
         }}
@@ -494,17 +506,19 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
             </button>
           ) : (
             youtubeIdOf(song.id) && (
-              <button onClick={() => (store.download([song.id]), onClose())}>
+              <button onClick={() => (keep(), store.download([song.id]), onClose())}>
                 <Download /> Scarica sul dispositivo
               </button>
             )
           )}
         </>
       )}
-      <button onClick={() => setMode('rename')}><Pencil /> Rinomina</button>
-      <button className="danger" onClick={() => setMode('delete')}>
-        <Trash2 /> Elimina dal telefono
-      </button>
+      {inLib && <button onClick={() => setMode('rename')}><Pencil /> Rinomina</button>}
+      {inLib && (
+        <button className="danger" onClick={() => setMode('delete')}>
+          <Trash2 /> Elimina dal telefono
+        </button>
+      )}
     </Sheet>
   )
 }

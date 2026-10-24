@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, Share2 } from 'lucide-react'
+import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -9,7 +9,7 @@ import type { MixState, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useOpenArtist } from './Catalog'
 import { LyricsView } from './Lyrics'
-import { shareSong } from '../lib/share'
+import { SongMenu } from './Library'
 import { useStore } from '../store'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
@@ -23,6 +23,7 @@ export function Player() {
   const [showTempo, setShowTempo] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [showLyrics, setShowLyrics] = useState(false)
+  const [menu, setMenu] = useState(false)
   const scrubbing = useRef(false)
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
@@ -75,10 +76,11 @@ export function Player() {
             {nextUp ? `${nameParts(song.title).artist ? ' · ' : ''}poi: ${nameParts(nextUp.title).name}` : ''}
           </div>
         </div>
-        <button className="icon-btn" onClick={() => void shareSong(song).then((r) => r === 'copied' && store.showToast('Link copiato'))} aria-label="Condividi">
-          <Share2 />
+        <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Opzioni del brano">
+          <EllipsisVertical />
         </button>
       </header>
+      {menu && <SongMenu song={song} index={0} playlist={null} onClose={() => setMenu(false)} />}
 
       <div className="player-actions">
         <button className={pb.shuffle ? 'on' : ''} onClick={pb.toggleShuffle} aria-label="Casuale">

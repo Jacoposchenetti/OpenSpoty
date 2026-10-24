@@ -3116,3 +3116,8 @@ input.with-ico {
   border-radius: 50%;
   object-fit: cover;
 }
+
+/* Cerca: an artist you follow */
+.r-act.on {
+  color: var(--accent);
+}

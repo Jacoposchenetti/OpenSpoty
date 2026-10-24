@@ -467,6 +467,20 @@ function MixedResults({
                   <span className="row-sub">{sub}</span>
                 </span>
               </button>
+              {m.kind === 'artist' && (
+                <button
+                  className={`r-act ${store.isFollowing(x.uri) ? 'on' : ''}`}
+                  onClick={() => {
+                    const on = store.isFollowing(x.uri)
+                    store.toggleFollow(x)
+                    store.showToast(on ? `Non segui più ${x.name}` : `Ora segui ${x.name}`)
+                  }}
+                  aria-label={store.isFollowing(x.uri) ? `Non seguire più ${x.name}` : `Segui ${x.name}`}
+                >
+                  {store.isFollowing(x.uri) ? <Check /> : <Plus />}
+                  <small>{store.isFollowing(x.uri) ? 'Segui già' : 'Segui'}</small>
+                </button>
+              )}
             </div>
           )
         }
