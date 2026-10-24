@@ -811,6 +811,34 @@ public class StemKitNativePlugin extends Plugin {
         });
     }
 
+    /** podcasts (core/Podcasts): Apple's search */
+    @PluginMethod
+    public void podcastSearch(PluginCall call) {
+        String q = call.getString("query", "");
+        io.execute(() -> {
+            try {
+                JSObject r = new JSObject();
+                r.put("results", new com.getcapacitor.JSArray(app.stemkitmobile.core.Podcasts.search(q).toString()));
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
+    /** a podcast's feed: its episodes */
+    @PluginMethod
+    public void podcastFeed(PluginCall call) {
+        String url = call.getString("url", "");
+        io.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(app.stemkitmobile.core.Podcasts.feed(url)));
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
     @PluginMethod
     public void spArtist(PluginCall call) {
         String uri = call.getString("uri", "");

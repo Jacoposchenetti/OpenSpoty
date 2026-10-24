@@ -12,6 +12,7 @@ import { libraryKeys, playlistPool, trackKey } from '../lib/home'
 import { PlaylistPicker } from './Library'
 import { usePlayback } from '../playback'
 import { useStore, type Page } from '../store'
+import { PodcastPage } from './Podcast'
 
 /* Spotify-like artist and album pages: names and artwork from Spotify, audio
    streamed from YouTube (lib/catalog.ts finds the same recording). */
@@ -21,6 +22,7 @@ export function CatalogPage({ page }: { page: Page }) {
   useBackHandler(store.closePage)
   if (page.kind === 'artist') return <ArtistPage key={page.uri} uri={page.uri} />
   if (page.kind === 'playlist') return <PlaylistPage key={page.uri} uri={page.uri} />
+  if (page.kind === 'podcast') return <PodcastPage key={page.uri} feed={page.uri} />
   return <AlbumPage key={page.uri} uri={page.uri} />
 }
 

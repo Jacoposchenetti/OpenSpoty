@@ -13,6 +13,7 @@ sourceSets.main.java {
     include 'app/stemkitmobile/PcEngine.java', 'app/stemkitmobile/YouTubeSource.java', 'app/stemkitmobile/SpotifyCatalog.java',
         'app/stemkitmobile/core/ChordRecognizer.java', 'app/stemkitmobile/core/Fft.java',
         'app/stemkitmobile/core/ShazamSignature.java', 'app/stemkitmobile/core/Whisper.java',
-        'app/stemkitmobile/core/LyricsAligner.java', 'app/stemkitmobile/core/ModelStore.java'
+        'app/stemkitmobile/core/LyricsAligner.java', 'app/stemkitmobile/core/ModelStore.java',
+        'app/stemkitmobile/core/Podcasts.java'
 }
 application { mainClass = 'app.stemkitmobile.PcEngine' }

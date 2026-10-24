@@ -715,6 +715,13 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             elif op in ("spSearch", "spArtist", "spAlbum"):
                 key = "query" if op == "spSearch" else "uri"
                 h.send_json(engine.call(op, timeout=60, **{key: str(b.get(key) or "")}))
+            elif op == "podcastSearch":
+                h.send_json(engine.call(op, timeout=60, query=str(b.get("query") or "")))
+            elif op == "podcastFeed":
+                url = str(b.get("url") or "")
+                if not url.startswith(("https://", "http://")):
+                    raise ValueError("indirizzo non valido")
+                h.send_json(engine.call(op, timeout=90, url=url))
             elif op == "spotifyQuery":
                 h.send_json({"query": engine.call("spotifyQuery", timeout=60, url=str(b.get("url") or ""))})
             elif op == "download":

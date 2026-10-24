@@ -36,7 +36,7 @@ import type { FollowedArtist, MixState, Playlist, Song } from './lib/types'
 export type Tab = 'library' | 'add' | 'tuner' | 'alarm' | 'capture'
 
 /** pages opened on top of a tab (artist, album), like Spotify */
-export type Page = { kind: 'artist' | 'album' | 'playlist'; uri: string; name?: string }
+export type Page = { kind: 'artist' | 'album' | 'playlist' | 'podcast'; uri: string; name?: string }
 
 export interface SyncStatus {
   state: 'off' | 'syncing' | 'ok' | 'offline' | 'error'
@@ -70,6 +70,8 @@ interface Store {
   playlists: Playlist[]
   /** the artists you follow, the latest first */
   artists: FollowedArtist[]
+  /** the podcasts you follow (kept with the artists, as "podcast:<feed>") */
+  podcasts: Array<{ feed: string; name: string; image?: string }>
   isFollowing(uri: string): boolean
   /** follow / stop following (synced with the PC like the playlists) */
   toggleFollow(a: { uri: string; name: string; image?: string }): void
@@ -488,7 +490,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
 
   // ------------------------------------------------------------ followed artists
-  const artists = useMemo(() => artistsAll.filter((a) => a.followed).sort((a, b) => b.followedAt - a.followedAt), [artistsAll])
+  const followedAll = useMemo(() => artistsAll.filter((a) => a.followed).sort((a, b) => b.followedAt - a.followedAt), [artistsAll])
+  const artists = useMemo(() => followedAll.filter((a) => !a.id.startsWith('podcast:')), [followedAll])
+  const podcasts = useMemo(
+    () => followedAll.filter((a) => a.id.startsWith('podcast:')).map((a) => ({ feed: a.id.slice(8), name: a.name, image: a.image })),
+    [followedAll]
+  )
   const isFollowing = useCallback((uri: string) => artistsRef.current.some((a) => a.id === uri && a.followed), [])
   const toggleFollow = useCallback(
     (a: { uri: string; name: string; image?: string }) => {
@@ -605,6 +612,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     songs,
     playlists: orderedPlaylists,
     artists,
+    podcasts,
     isFollowing,
     toggleFollow,
     bridgeCfg,

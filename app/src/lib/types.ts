@@ -55,6 +55,8 @@ export interface Song {
   cover?: string // local copy of the artwork (path under the data folder)
   art?: string // artwork address (Spotify), until the local copy exists
   artistUri?: string // Spotify artist, for "Vai all'artista"
+  /** a podcast episode (lib/podcasts.ts): played from the podcast's server, resumed where you left it */
+  episode?: { feed: string; guid: string; podcast: string; date?: number }
   /** all its artists (songs from Spotify), for "Vai agli artisti" */
   artists?: Array<{ name: string; uri?: string }>
   albumUri?: string // Spotify album, for "Vai all'album"

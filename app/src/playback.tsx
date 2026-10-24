@@ -5,6 +5,7 @@ import { Mixer } from './lib/mixer'
 import { engine } from './lib/engine'
 import { logListen } from './lib/listens'
 import { similarSongs } from './lib/radio'
+import { resumeAt, saveProgress } from './lib/podcasts'
 import { isLocalPath, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
 import { StemPlayer, type PlayerSpec } from './lib/player'
@@ -266,7 +267,40 @@ function webBackend(ev: BackendEvents, bridge: () => import('./lib/bridge').Brid
     return p ?? readAudio(ref, bridge())
   }
 
+  // podcast episodes: an hour of audio can't be decoded into memory, the browser streams it
+  let el: HTMLAudioElement | null = null
+  let elSong: Song | null = null
+  const openEpisode = (s: Song, mix: MixState, autoplay: boolean, startAt: number) => {
+    ++token
+    mixer?.dispose()
+    mixer = null
+    song = s
+    elSong = s
+    const a = (el ??= new Audio())
+    a.preload = 'auto'
+    a.src = originalRef(s) ?? ''
+    a.playbackRate = mix.speed ?? 1
+    a.preservesPitch = true
+    a.volume = Math.min(1, mix.master ?? 1)
+    ev.state({ loading: true, playing: false, source: 'original', error: null })
+    a.onloadedmetadata = () => {
+      if (startAt) a.currentTime = startAt
+      ev.state({ loading: false, duration: a.duration })
+      if (autoplay) void a.play().then(() => ev.state({ playing: true }))
+    }
+    a.onended = () => {
+      ev.state({ playing: false })
+      ev.ended(s.id)
+    }
+    a.onerror = () => ev.state({ loading: false, error: 'Episodio non raggiungibile' })
+  }
+  const stopEpisode = () => {
+    el?.pause()
+    elSong = null
+  }
+
   const open = async (s: Song, mix: MixState, autoplay: boolean, startAt: number) => {
+    stopEpisode()
     const my = ++token
     pending = startAt
     mixer?.dispose()
@@ -311,10 +345,11 @@ function webBackend(ev: BackendEvents, bridge: () => import('./lib/bridge').Brid
   return {
     load: (s, mix, autoplay, startAt) => {
       loop = null
-      void open(s, mix, autoplay, startAt)
+      if (s.episode) openEpisode(s, mix, autoplay, startAt)
+      else void open(s, mix, autoplay, startAt)
     },
     preload(s) {
-      if (!s || sourceFor(s, s.mix ?? DEFAULT_MIX) !== 'original') return
+      if (!s || s.episode || sourceFor(s, s.mix ?? DEFAULT_MIX) !== 'original') return
       const ref = originalRef(s)
       if (!ref || ahead.has(ref)) return
       ahead.clear()
@@ -323,15 +358,25 @@ function webBackend(ev: BackendEvents, bridge: () => import('./lib/bridge').Brid
       ahead.set(ref, p)
     },
     play() {
+      if (elSong && el) return void el.play().then(() => ev.state({ playing: true }))
       void audio().resume()
       void mixer?.play().then(() => ev.state({ playing: true }))
     },
     pause() {
+      if (elSong && el) el.pause()
       mixer?.pause()
       ev.state({ playing: false })
     },
-    seek: (t) => mixer?.seek(t),
+    seek: (t) => {
+      if (elSong && el) el.currentTime = Math.max(0, t)
+      else mixer?.seek(t)
+    },
     setMix(s, mix) {
+      if (elSong && el) {
+        el.playbackRate = mix.speed ?? 1
+        el.volume = Math.min(1, mix.master ?? 1)
+        return
+      }
       // the web fallback has no lockstep engine: reload when the source changes
       if (song && sourceFor(s, mix) !== src) void open(s, mix, mixer?.isPlaying ?? false, mixer?.position ?? 0)
       else mixer?.setMix(mix)
@@ -340,13 +385,15 @@ function webBackend(ev: BackendEvents, bridge: () => import('./lib/bridge').Brid
       loop = l
       mixer?.setLoop(l)
     },
-    position: () => pending ?? mixer?.position ?? 0,
+    position: () => (elSong && el ? el.currentTime : pending ?? mixer?.position ?? 0),
     stop() {
+      stopEpisode()
       token++
       mixer?.dispose()
       mixer = null
     },
     dispose() {
+      stopEpisode()
       mixer?.dispose()
       void ctx?.close()
     },
@@ -460,6 +507,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const maybeExtend = () => {
     const cur = nowRef.current
     if (!cur || !autoplayRef.current || stopAtEndRef.current || repeatRef.current !== 'off') return
+    if (storeRef.current.getSong(cur.songId)?.episode) return // after an episode: nothing chosen for you
     if (queueRef.current.length || cur.index + 1 < cur.contextIds.length) return
     const key = cur.contextIds.join(',')
     if (extending.current === key) return
@@ -495,7 +543,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       loadedTracks.current = tracksOf(song)
       loadedFor.current = song.id
     }
-    if (song) logListen(song.title)
+    if (song && !song.episode) logListen(song.title)
     nowRef.current = np
     setNow(np)
     if (song) {
@@ -517,7 +565,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       nowRef.current = np
       setNow(np)
       storeRef.current.updateSong(song.id, { playedAt: Date.now() })
-      logListen(song.title)
+      if (!song.episode) logListen(song.title)
+      // an episode starts where you left it
+      if (song.episode && !startAt) startAt = resumeAt(song.id)
       setMixState(m)
       setLoopState(null)
       setDuration(song.duration || 0)
@@ -657,6 +707,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     backend.load(nowSong, mix, playing, backend.position(), false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowTracks])
+
+  // an episode remembers where you are (every few seconds, and when it pauses)
+  const nowEpisode = nowSong?.episode ? nowSong.id : null
+  useEffect(() => {
+    if (!nowEpisode) return
+    const save = () => saveProgress(nowEpisode, backend.position(), duration)
+    if (!playing) {
+      if (duration) save()
+      return
+    }
+    const t = setInterval(save, 5000)
+    return () => {
+      clearInterval(t)
+      save()
+    }
+  }, [nowEpisode, playing, duration, backend])
 
   const setMix = useCallback(
     (m: MixState) => {

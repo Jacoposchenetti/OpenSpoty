@@ -62,6 +62,10 @@ public final class PcEngine {
                 return shazam(r.getString("path"), r.optString("ffmpeg", "ffmpeg"), r.optBoolean("send", true), r.optBoolean("middle", false));
             case "chords":
                 return chords(id, r.getString("path"), r.getString("ffmpeg"), r.getString("model"));
+            case "podcastSearch":
+                return new JSONObject().put("results", app.stemkitmobile.core.Podcasts.search(r.getString("query")));
+            case "podcastFeed":
+                return app.stemkitmobile.core.Podcasts.feed(r.getString("url"));
             case "alignLyrics":
                 return alignLyrics(id, r.getString("path"), r.getString("ffmpeg"), r.getString("models"), r.getJSONArray("lines"));
             case "spotifyQuery":

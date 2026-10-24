@@ -211,6 +211,14 @@ export const engine = {
     else if (isDesktop && prefetch) void pc('warm', { videoIds: ids, prefetch }).catch(() => undefined)
   },
 
+  /** podcasts (core/Podcasts.java): Apple's search, then the podcast's own feed */
+  podcastSearch: (query: string): Promise<import('./podcasts').Podcast[]> =>
+    remember(`pod:${query.toLowerCase()}`, 3600_000, async () =>
+      isNative ? (await StemKitNative.podcastSearch({ query })).results : (await pc<{ results: import('./podcasts').Podcast[] }>('podcastSearch', { query })).results
+    ),
+  podcastFeed: (url: string): Promise<import('./podcasts').PodcastFeed> =>
+    remember(`feed:${url}`, 1800_000, () => (isNative ? StemKitNative.podcastFeed({ url }) : pc('podcastFeed', { url }))),
+
   /** what to suggest while typing (YouTube's autocomplete) */
   async suggest(query: string): Promise<string[]> {
     return (isNative ? await StemKitNative.suggest({ query }) : await pc<{ suggestions: string[] }>('suggest', { query })).suggestions

@@ -1,7 +1,7 @@
 /* "Recenti" under the search bar, like Spotify: searches and what was opened from them */
 
 export interface Recent {
-  kind: 'query' | 'artist' | 'album' | 'playlist' | 'song'
+  kind: 'query' | 'artist' | 'album' | 'playlist' | 'song' | 'podcast'
   id: string // the query, a Spotify uri or a song id
   title: string
   sub?: string

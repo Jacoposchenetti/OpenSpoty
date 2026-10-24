@@ -60,6 +60,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         s.title = data.optString("title", "");
         String orig = data.isNull("original") ? null : data.optString("original", null);
         if (orig != null && orig.matches("stream:[\\w-]{11}")) s.original = StreamProxy.url(orig.substring(7)); // played from YouTube
+        else if (orig != null && orig.startsWith("https://")) s.original = orig; // a podcast episode, from its own server
         else if (orig != null && !orig.isEmpty() && !orig.contains("..")) s.original = new File(base, orig).getAbsolutePath();
         JSONObject stems = data.optJSONObject("stems");
         if (stems == null) stems = new JSONObject();

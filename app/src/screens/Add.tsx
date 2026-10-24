@@ -10,6 +10,8 @@ import { useStore } from '../store'
 import { Sheet, Spinner } from '../components/ui'
 import { Shelf, TrackTiles, useOpenArtist, useSaver } from './Catalog'
 import { SongMenu } from './Library'
+import { NewEpisodes } from './Podcast'
+import { podcastKey, podcastSearch, type Podcast } from '../lib/podcasts'
 import { shareSpotify } from '../lib/share'
 import { addRecent, clearRecents, loadRecents, removeRecent, type Recent } from '../lib/recents'
 import { buildHome, buildTracks, cachedHome, saveHome, type Home } from '../lib/home'
@@ -277,13 +279,14 @@ function Search() {
 /* ------------------------------------------------------------- results, like Spotify */
 
 type Mixed =
+  | { kind: 'podcast'; p: Podcast }
   | { kind: 'track'; t: SpTrack }
   | { kind: 'yt'; hit: Hit }
   | { kind: 'artist' | 'album' | 'playlist'; x: SpArtistRef | SpRelease | SpPlaylistRef }
 
 type SongItem = Extract<Mixed, { kind: 'track' | 'yt' }>
 const isSongItem = (m: Mixed): m is SongItem => m.kind === 'track' || m.kind === 'yt'
-const keyOf = (m: Mixed) => (m.kind === 'yt' ? `yt:${m.hit.videoId}` : m.kind === 'track' ? m.t.uri : m.x.uri)
+const keyOf = (m: Mixed) => (m.kind === 'yt' ? `yt:${m.hit.videoId}` : m.kind === 'track' ? m.t.uri : m.kind === 'podcast' ? `pod:${m.p.feed}` : m.x.uri)
 const bare = (t: string) =>
   t
     .normalize('NFD')
@@ -294,7 +297,7 @@ const bare = (t: string) =>
 
 /** one list in order of relevance, like Spotify: its top results (any kind), then mostly songs
    with an artist, an album or a playlist every few, then what only YouTube has */
-function mixResults(sp: SpSearch | null, yt: Hit[]): Mixed[] {
+function mixResults(sp: SpSearch | null, yt: Hit[], pods: Podcast[], q: string): Mixed[] {
   const out: Mixed[] = []
   const seen = new Set<string>()
   const push = (m: Mixed) => {
@@ -321,6 +324,17 @@ function mixResults(sp: SpSearch | null, yt: Hit[]): Mixed[] {
   }
   const titles = new Set(out.flatMap((m) => (m.kind === 'track' ? [bare(m.t.title)] : [])))
   for (const h of yt) if (!titles.has(bare(h.title))) push({ kind: 'yt', hit: h })
+  // podcasts: right after the best result when the name says what you typed, else further down
+  const want = bare(q)
+  let strong = 1
+  pods.slice(0, 3).forEach((p, i) => {
+    const hit = want.length > 2 && (bare(p.name).includes(want) || bare(p.author).includes(want))
+    const at = hit ? Math.min(out.length, strong++) : Math.min(out.length, 8 + i * 4)
+    if (!seen.has(`pod:${p.feed}`)) {
+      seen.add(`pod:${p.feed}`)
+      out.splice(at, 0, { kind: 'podcast', p })
+    }
+  })
   return out
 }
 
@@ -340,11 +354,16 @@ function MixedResults({
   const store = useStore()
   const playback = usePlayback()
   const [sp, setSp] = useState<SpSearch | null>(null)
+  const [pods, setPods] = useState<Podcast[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
     setSp(null)
+    setPods([])
     if (q.trim().length < 2) return
+    podcastSearch(q)
+      .then((x) => alive && setPods(x))
+      .catch(() => undefined)
     engine
       .spSearch(q)
       .then((x) => {
@@ -359,7 +378,7 @@ function MixedResults({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q])
-  const items = mixResults(sp, yt ?? [])
+  const items = mixResults(sp, yt ?? [], pods, q)
 
   /** a song of the results as a song of the app (its YouTube match); null if it has none */
   const resolve = async (m: Mixed): Promise<Song | null> => {
@@ -424,6 +443,32 @@ function MixedResults({
     <div className="results mixed">
       {items.map((m) => {
         const k = keyOf(m)
+        if (m.kind === 'podcast') {
+          const p = m.p
+          const key = podcastKey(p.feed)
+          const on = store.isFollowing(key)
+          return (
+            <div key={k} className="result">
+              <button className="result-main" onClick={() => store.openPage({ kind: 'podcast', uri: p.feed, name: p.name })}>
+                <span className="result-thumb">{p.image ? <img src={p.image} alt="" loading="lazy" /> : null}</span>
+                <span className="result-text">
+                  <span className="result-title">{p.name}</span>
+                  <span className="row-sub">Podcast · {p.author}</span>
+                </span>
+              </button>
+              <button
+                className={`r-act ${on ? 'on' : ''}`}
+                onClick={() => {
+                  store.toggleFollow({ uri: key, name: p.name, image: p.image })
+                  store.showToast(on ? `Non segui più ${p.name}` : `Ora segui ${p.name}`)
+                }}
+              >
+                {on ? <Check /> : <Plus />}
+                <small>{on ? 'Segui già' : 'Segui'}</small>
+              </button>
+            </div>
+          )
+        }
         if (!isSongItem(m)) {
           const x = m.x
           const sub =
@@ -506,13 +551,13 @@ function MixedResults({
         )
       })}
       {menuSong && <SongMenu song={store.getSong(menuSong.id) ?? menuSong} index={0} playlist={null} onClose={() => setMenuSong(null)} />}
-      {menuOf && !isSongItem(menuOf) && <CollectionMenu m={menuOf} onClose={() => setMenuOf(null)} />}
+      {menuOf && !isSongItem(menuOf) && menuOf.kind !== 'podcast' && <CollectionMenu m={menuOf} onClose={() => setMenuOf(null)} />}
     </div>
   )
 }
 
 /** ⋮ of an album or a playlist in the results: share, save in the library, its artists */
-function CollectionMenu({ m, onClose }: { m: Exclude<Mixed, SongItem>; onClose: () => void }) {
+function CollectionMenu({ m, onClose }: { m: Extract<Mixed, { kind: 'album' | 'playlist' | 'artist' }>; onClose: () => void }) {
   const store = useStore()
   const openArtist = useOpenArtist()
   const { save } = useSaver()
@@ -766,6 +811,7 @@ function HomeShelves() {
     )
   return (
     <div className="home-shelves">
+      <NewEpisodes />
       <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
       <TrackTiles title="Brani che potrebbero piacerti" tracks={tracks} />
       <Shelf title="Playlist da ascoltare" items={home.playlists} />

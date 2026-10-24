@@ -136,6 +136,25 @@ function Overview() {
         </>
       )}
 
+      {store.podcasts.length > 0 && (
+        <>
+          <div className="q-head">Podcast che segui</div>
+          {store.podcasts.map((p) => (
+            <button key={p.feed} className="lib-row" onClick={() => store.openPage({ kind: 'podcast', uri: p.feed, name: p.name })}>
+              {p.image ? (
+                <img className="thumb" src={p.image} alt="" loading="lazy" style={{ width: 56, height: 56 }} />
+              ) : (
+                <span className="thumb ph" style={{ width: 56, height: 56 }} />
+              )}
+              <span className="lib-text">
+                <span className="row-title">{p.name}</span>
+                <span className="row-sub">Podcast</span>
+              </span>
+            </button>
+          ))}
+        </>
+      )}
+
       {!store.songs.length && (
         <div className="empty">
           <p className="big">Ancora nessuna canzone</p>

@@ -53,6 +53,8 @@ export interface StemKitNativePlugin {
   pickAudio(): Promise<PickedAudio>
   upload(opts: { id: string; uri: string; url: string; pin: string; filename: string }): Promise<{ status: number; body: string }>
   download(opts: { id: string; url: string; pin: string; path: string }): Promise<{ path: string; size: number }>
+  podcastSearch(opts: { query: string }): Promise<{ results: import('./podcasts').Podcast[] }>
+  podcastFeed(opts: { url: string }): Promise<import('./podcasts').PodcastFeed>
   /** looks up the YouTube streams of songs likely to be played next (faster start) */
   warmStreams(opts: { videoIds: string[]; prefetch?: number }): Promise<void>
   /** downloads a release APK and opens Android's installer */

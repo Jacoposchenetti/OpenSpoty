@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical } from 'lucide-react'
+import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Gauge, Podcast as PodcastIcon, Share2, CircleCheck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -9,6 +9,7 @@ import type { MixState, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useOpenArtist } from './Catalog'
 import { LyricsView } from './Lyrics'
+import { saveProgress } from '../lib/podcasts'
 import { SongMenu } from './Library'
 import { useStore } from '../store'
 
@@ -80,33 +81,42 @@ export function Player() {
           <EllipsisVertical />
         </button>
       </header>
-      {menu && <SongMenu song={song} index={0} playlist={null} onClose={() => setMenu(false)} />}
+      {menu && !song.episode && <SongMenu song={song} index={0} playlist={null} onClose={() => setMenu(false)} />}
+      {menu && song.episode && <EpisodeMenu song={song} onClose={() => setMenu(false)} />}
 
       <div className="player-actions">
-        <button className={pb.shuffle ? 'on' : ''} onClick={pb.toggleShuffle} aria-label="Casuale">
+        {song.episode ? (
+          <button onClick={() => update({ ...mix, speed: nextSpeed(mix.speed ?? 1) })} aria-label="Velocità">
+            <Gauge />
+            <small>{fmtSpeed(mix.speed ?? 1)}</small>
+          </button>
+        ) : null}
+        {!song.episode && <button className={pb.shuffle ? 'on' : ''} onClick={pb.toggleShuffle} aria-label="Casuale">
           <Shuffle />
           <small>Casuale</small>
-        </button>
+        </button>}
         <button className={pb.repeat !== 'off' ? 'on' : ''} onClick={pb.cycleRepeat} aria-label="Ripeti">
           {pb.repeat === 'one' ? <Repeat1 /> : <Repeat />}
           <small>{pb.repeat === 'off' ? 'Ripeti' : pb.repeat === 'all' ? 'Tutto' : 'Brano'}</small>
         </button>
-        <button
+        {!song.episode && <button
           className={song.liked ? 'on heart' : 'heart'}
           onClick={() => store.updateSong(song.id, song.liked ? { liked: false } : { liked: true, likedAt: Date.now() })}
           aria-label="Preferito"
         >
           <Heart fill={song.liked ? 'currentColor' : 'none'} />
           <small>Mi piace</small>
-        </button>
+        </button>}
         <button className={song.notes ? 'on' : ''} onClick={() => setShowNotes(true)} aria-label="Note">
           <NotebookPen />
           <small>Note</small>
         </button>
-        <button className="suona" onClick={() => setShowLyrics(true)} aria-label="Suona">
-          <Guitar />
-          <small>Suona</small>
-        </button>
+        {!song.episode && (
+          <button className="suona" onClick={() => setShowLyrics(true)} aria-label="Suona">
+            <Guitar />
+            <small>Suona</small>
+          </button>
+        )}
       </div>
       {song.notes && (
         <button className="song-notes" onClick={() => setShowNotes(true)}>
@@ -116,7 +126,7 @@ export function Player() {
 
       {pb.loading && (
         <div className="notice loading">
-          <Spinner /> Preparo la canzone…
+          <Spinner /> {song.episode ? 'Preparo l’episodio…' : 'Preparo la canzone…'}
         </div>
       )}
       {pb.error && <div className="notice error">{pb.error}</div>}
@@ -150,14 +160,14 @@ export function Player() {
         <button className="t-btn" onClick={pb.prev} aria-label="Precedente o inizio">
           <SkipBack fill="currentColor" />
         </button>
-        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos - 5)} aria-label="Indietro 5 secondi">
-          −5
+        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos - (song.episode ? 15 : 5))} aria-label="Indietro">
+          {song.episode ? '−15' : '−5'}
         </button>
         <button className="t-play" disabled={!ready} onClick={pb.toggle} aria-label={pb.playing ? 'Pausa' : 'Play'}>
           {pb.loading ? <Spinner size={34} /> : pb.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </button>
-        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos + 5)} aria-label="Avanti 5 secondi">
-          +5
+        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos + (song.episode ? 30 : 5))} aria-label="Avanti">
+          {song.episode ? '+30' : '+5'}
         </button>
         <button className="t-btn" disabled={!nextUp} onClick={pb.next} aria-label="Successiva">
           <SkipForward fill="currentColor" />
@@ -361,6 +371,38 @@ function QueueSheet({ onClose }: { onClose: () => void }) {
           <span className="muted small">Utile dal vivo: non parte da sola la canzone successiva.</span>
         </span>
       </label>
+    </Sheet>
+  )
+}
+
+const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75]
+const nextSpeed = (v: number) => SPEEDS[(SPEEDS.findIndex((x) => Math.abs(x - v) < 0.01) + 1) % SPEEDS.length]
+const fmtSpeed = (v: number) => `${String(v).replace('.', ',')}×`
+
+/** ⋮ of an episode: its podcast, share it, mark it as heard */
+function EpisodeMenu({ song, onClose }: { song: Song; onClose: () => void }) {
+  const store = useStore()
+  const pb = usePlayback()
+  const ep = song.episode!
+  const url = song.original?.startsWith('http') ? song.original : ''
+  return (
+    <Sheet title={ep.podcast} onClose={onClose}>
+      <button onClick={() => (store.setPlayerOpen(false), store.openPage({ kind: 'podcast', uri: ep.feed, name: ep.podcast }), onClose())}>
+        <PodcastIcon /> Vai al podcast
+      </button>
+      {url && (
+        <button
+          onClick={() => {
+            onClose()
+            void navigator.clipboard?.writeText(url).then(() => store.showToast('Link dell’episodio copiato'))
+          }}
+        >
+          <Share2 /> Copia il link dell’episodio
+        </button>
+      )}
+      <button onClick={() => (saveProgress(song.id, pb.duration, pb.duration), store.showToast('Segnato come ascoltato'), onClose())}>
+        <CircleCheck /> Segna come ascoltato
+      </button>
     </Sheet>
   )
 }
