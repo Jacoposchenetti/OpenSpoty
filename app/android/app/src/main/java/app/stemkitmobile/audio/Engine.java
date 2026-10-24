@@ -481,6 +481,29 @@ public final class Engine {
         return app.stemkitmobile.core.ChordRecognizer.toMono22k(sum, frames);
     }
 
+    /** a stretch of a file or of a web address (a podcast episode) as 16 kHz mono, for its transcript */
+    public static float[] decodeRange16k(String path, double fromSec, double seconds) throws Exception {
+        FrameSource s = openSource(path);
+        try {
+            if (fromSec > 0) s.seek(Math.round(fromSec * RATE));
+            int frames = (int) Math.round(seconds * RATE);
+            float[] out = new float[2 * frames];
+            int got = 0;
+            long end = System.currentTimeMillis() + 90_000; // from the network
+            while (got < frames && System.currentTimeMillis() < end) {
+                int n = s.read(out, got, frames - got);
+                got += n;
+                if (n == 0) {
+                    if (s.ended()) break;
+                    Thread.sleep(5);
+                }
+            }
+            return app.stemkitmobile.core.Whisper.to16k(app.stemkitmobile.core.ChordRecognizer.toMono22k(out, got));
+        } finally {
+            s.close();
+        }
+    }
+
     public static double measureLoudness(String[] paths) throws Exception {
         List<FrameSource> src = new ArrayList<>();
         try {

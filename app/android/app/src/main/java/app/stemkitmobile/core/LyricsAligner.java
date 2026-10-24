@@ -35,6 +35,16 @@ public final class LyricsAligner {
      * track if the song is split, else the song).
      * @param models where the Whisper files are (see ModelStore)
      */
+    /** the Whisper of the app, loaded once (also for podcast transcripts) */
+    public static synchronized Whisper whisper(File models) throws Exception {
+        if (whisper == null || !models.equals(whisperDir)) {
+            if (whisper != null) whisper.close();
+            whisper = new Whisper(models, 4);
+            whisperDir = models;
+        }
+        return whisper;
+    }
+
     public static synchronized double[] align(float[] audio, List<String> lines, File models, Whisper.Progress progress) throws Exception {
         float[] db = envelope(audio);
         boolean[] act = active(db);

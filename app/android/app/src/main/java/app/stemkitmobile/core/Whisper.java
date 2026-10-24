@@ -47,6 +47,22 @@ public final class Whisper implements AutoCloseable {
         void at(float fraction);
     }
 
+    /** a stretch of speech with its text (podcast transcripts) */
+    public static final class Segment {
+        public final double a, b;
+        public final String text;
+
+        Segment(double a, double b, String text) {
+            this.a = a;
+            this.b = b;
+            this.text = text;
+        }
+    }
+
+    private interface Sink {
+        void segment(String text, double a, double b);
+    }
+
     private final OrtEnvironment env;
     private final OrtSession enc, dec;
     private final float[] mel; // [80][201]
@@ -110,11 +126,60 @@ public final class Whisper implements AutoCloseable {
             int from = (int) (pos * SR), n = Math.min(SR * CHUNK, audio.length - from);
             float[] seg = new float[n];
             System.arraycopy(audio, from, seg, 0, n);
-            double end = window(seg, language, pos, words);
+            double end = window(seg, language, pos, (text, a, b) -> addWords(text, a, b, words));
             pos += end > 1.0 ? end : CHUNK;
         }
         if (progress != null) progress.at(1f);
         return words;
+    }
+
+    /**
+     * The speech of up to 30 s (16 kHz mono) starting at {@code offset} seconds of the episode:
+     * its segments, and where the next window should start (after the last complete segment).
+     */
+    public double segments(float[] audio, String lang, double offset, List<Segment> out) throws OrtException {
+        int language = languages.getOrDefault(lang, languages.getOrDefault("it", 50274));
+        float[] seg = audio.length > SR * CHUNK ? java.util.Arrays.copyOf(audio, SR * CHUNK) : audio;
+        double end = window(seg, language, offset, (text, a, b) -> {
+            String t = text.trim();
+            if (!t.isEmpty()) out.add(new Segment(a, b, t));
+        });
+        double heard = seg.length / (double) SR;
+        return offset + (end > 1.0 && end < heard - 0.5 ? end : heard);
+    }
+
+    /** the language spoken in up to 30 s of audio (Whisper's own guess: "it", "en", ...) */
+    public String detect(float[] audio) throws OrtException {
+        float[] seg = audio.length > SR * CHUNK ? java.util.Arrays.copyOf(audio, SR * CHUNK) : audio;
+        float[] cross;
+        try (OnnxTensor m = OnnxTensor.createTensor(env, FloatBuffer.wrap(logMel(seg)), new long[] {1, MELS, FRAMES});
+             OrtSession.Result r = enc.run(java.util.Collections.singletonMap("mel", m))) {
+            FloatBuffer b = ((OnnxTensor) r.get(0)).getFloatBuffer();
+            cross = new float[b.remaining()];
+            b.get(cross);
+        }
+        Map<String, OnnxTensor> in = new HashMap<>();
+        try (OnnxTensor tk = OnnxTensor.createTensor(env, LongBuffer.wrap(new long[] {sot}), new long[] {1, 1});
+             OnnxTensor ps = OnnxTensor.createTensor(env, FloatBuffer.wrap(new float[0]), new long[] {LAYERS2, 0, D});
+             OnnxTensor cr = OnnxTensor.createTensor(env, FloatBuffer.wrap(cross), new long[] {LAYERS2, cross.length / LAYERS2 / D, D})) {
+            in.put("tokens", tk);
+            in.put("past", ps);
+            in.put("cross", cr);
+            try (OrtSession.Result r = dec.run(in)) {
+                FloatBuffer lb = ((OnnxTensor) r.get(0)).getFloatBuffer();
+                float[] lg = new float[lb.remaining()];
+                lb.get(lg);
+                String best = "it";
+                float top = Float.NEGATIVE_INFINITY;
+                for (Map.Entry<String, Integer> e : languages.entrySet()) {
+                    if (e.getValue() < lg.length && lg[e.getValue()] > top) {
+                        top = lg[e.getValue()];
+                        best = e.getKey();
+                    }
+                }
+                return best;
+            }
+        }
     }
 
     private static double share(boolean[] voiced, double a, double b) {
@@ -126,7 +191,7 @@ public final class Whisper implements AutoCloseable {
     }
 
     /** one 30 s window: its segments' words go into out; returns where the last complete segment ended */
-    private double window(float[] seg, int language, double offset, List<Word> out) throws OrtException {
+    private double window(float[] seg, int language, double offset, Sink out) throws OrtException {
         float[] cross;
         try (OnnxTensor m = OnnxTensor.createTensor(env, FloatBuffer.wrap(logMel(seg)), new long[] {1, MELS, FRAMES});
              OrtSession.Result r = enc.run(java.util.Collections.singletonMap("mel", m))) {
@@ -175,7 +240,7 @@ public final class Whisper implements AutoCloseable {
                     start = sec;
                 } else {
                     if (!text.isEmpty()) {
-                        addWords(decode(text), offset + start, offset + sec, out);
+                        out.segment(decode(text), offset + start, offset + sec);
                         end = sec;
                     }
                     start = null;

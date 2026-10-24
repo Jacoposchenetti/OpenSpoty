@@ -66,6 +66,14 @@ public final class PcEngine {
                 return new JSONObject().put("results", app.stemkitmobile.core.Podcasts.search(r.getString("query")));
             case "podcastFeed":
                 return app.stemkitmobile.core.Podcasts.feed(r.getString("url"));
+            case "transcribe":
+                return transcribe(r.getString("path"), r.getString("ffmpeg"), r.getString("models"), r.optDouble("from", 0), r.optString("lang", ""));
+            case "translate": {
+                java.util.List<String> in = new java.util.ArrayList<>();
+                org.json.JSONArray t = r.getJSONArray("texts");
+                for (int i = 0; i < t.length(); i++) in.add(t.getString(i));
+                return new JSONObject().put("texts", new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, r.optString("to", "en"))));
+            }
             case "alignLyrics":
                 return alignLyrics(id, r.getString("path"), r.getString("ffmpeg"), r.getString("models"), r.getJSONArray("lines"));
             case "spotifyQuery":
@@ -141,6 +149,27 @@ public final class PcEngine {
         org.json.JSONArray a = new org.json.JSONArray();
         for (double x : t) a.put(Math.round(x * 100) / 100.0);
         return new JSONObject().put("times", a);
+    }
+
+    /** 30 s of a podcast episode from {@code from}: decoded by ffmpeg (also straight from its web address), then Whisper */
+    private static JSONObject transcribe(String path, String ffmpeg, String models, double from, String lang) throws Exception {
+        File dir = app.stemkitmobile.core.ModelStore.whisper(new File(models), f -> {});
+        Process p = new ProcessBuilder(ffmpeg, "-v", "error", "-ss", String.valueOf(from), "-t", "30", "-i", path, "-ac", "1", "-ar", "16000", "-f", "f32le", "-")
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        byte[] raw = p.getInputStream().readAllBytes();
+        p.waitFor();
+        java.nio.FloatBuffer fb = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        float[] y = new float[fb.remaining()];
+        fb.get(y);
+        app.stemkitmobile.core.Whisper w = app.stemkitmobile.core.LyricsAligner.whisper(dir);
+        String language = lang.isEmpty() && y.length > 0 ? w.detect(y) : (lang.isEmpty() ? "it" : lang);
+        java.util.List<app.stemkitmobile.core.Whisper.Segment> segs = new java.util.ArrayList<>();
+        double next = y.length < 16000 ? from + 30 : w.segments(y, language, from, segs);
+        org.json.JSONArray out = new org.json.JSONArray();
+        for (app.stemkitmobile.core.Whisper.Segment s : segs) {
+            out.put(new JSONObject().put("a", Math.round(s.a * 100) / 100.0).put("b", Math.round(s.b * 100) / 100.0).put("text", s.text));
+        }
+        return new JSONObject().put("lang", language).put("segments", out).put("next", next).put("ended", y.length < 16000 * 29);
     }
 
     /** "Cattura" on the PC: 16 kHz mono via ffmpeg, Shazam signature, recognition */

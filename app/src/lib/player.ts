@@ -60,6 +60,13 @@ export interface StemPlayerPlugin {
   measureLoudness(opts: { paths: string[] }): Promise<{ lufs: number | null }>
   chords(opts: { songId: string; paths: string[] }): Promise<import('./chords').ChordData>
   alignLyrics(opts: { songId: string; path: string; lines: string[] }): Promise<{ times: number[] }>
+  transcribe(opts: { songId: string; path: string; from: number; lang: string }): Promise<{
+    lang: string
+    segments: Array<{ a: number; b: number; text: string }>
+    next: number
+    ended: boolean
+  }>
+  translate(opts: { texts: string[]; to: string }): Promise<{ texts: string[] }>
   addListener(event: 'align', cb: (e: { songId: string; pct: number; downloading: boolean }) => void): Promise<PluginListenerHandle>
   addListener(event: 'chords', cb: (e: { songId: string; pct: number }) => void): Promise<PluginListenerHandle>
   state(): Promise<PlayerEvent>

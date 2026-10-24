@@ -3236,3 +3236,29 @@ input.with-ico {
   object-fit: cover;
   flex: none;
 }
+
+/* podcast transcript: the languages */
+.lang-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 6px;
+  flex: none;
+}
+.lang-chips button {
+  flex: none;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+}
+.lang-chips button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+.transcript .lyric {
+  font-size: 19px;
+  line-height: 1.4;
+}

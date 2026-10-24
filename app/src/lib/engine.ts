@@ -258,6 +258,28 @@ export const engine = {
     }
   },
 
+  /** 30 s of a podcast episode's words from `from` (core/Whisper.java); lang '' = Whisper tells */
+  async transcribe(
+    songId: string,
+    path: string,
+    from: number,
+    lang: string,
+    onProgress?: (pct: number, downloading: boolean) => void
+  ): Promise<{ lang: string; segments: Array<{ a: number; b: number; text: string }>; next: number; ended: boolean }> {
+    if (!isNative) return pc('transcribe', { path, from, lang })
+    const h = StemPlayer.addListener('align', (e) => e.songId === songId && onProgress?.(e.pct, e.downloading))
+    try {
+      return await StemPlayer.transcribe({ songId, path, from, lang })
+    } finally {
+      void h.then((x) => x.remove())
+    }
+  },
+
+  /** lines in another language (core/Translate.java) */
+  async translate(texts: string[], to: string): Promise<string[]> {
+    return (isNative ? await StemPlayer.translate({ texts, to }) : await pc<{ texts: string[] }>('translate', { texts, to })).texts
+  },
+
   /** saves the YouTube artwork next to the song, for offline use */
   async fetchCover(songId: string, videoId: string): Promise<string> {
     if (isNative) {

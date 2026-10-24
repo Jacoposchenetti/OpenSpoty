@@ -474,7 +474,7 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
 }
 
 /** where the song is, the A-B loop to practise a passage, play/pause */
-function PlayBar() {
+export function PlayBar() {
   const pb = usePlayback()
   const [pos, setPos] = useState(0)
   const [a, setA] = useState<number | null>(null)

@@ -225,6 +225,70 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         }
     }
 
+    /**
+     * Podcast transcript, 30 s at a time from {@code from} (s): {lang, segments: [{a, b, text}], next}.
+     * lang empty: Whisper tells the language (and says it back).
+     */
+    @PluginMethod
+    public void transcribe(PluginCall call) {
+        String songId = call.getString("songId", "");
+        String ref = call.getString("path", "");
+        double from = call.getDouble("from", 0.0);
+        String lang = call.getString("lang", "");
+        if (ref.contains("..")) {
+            call.reject("percorso non valido");
+            return;
+        }
+        transcriber.execute(() -> {
+            try {
+                File models = app.stemkitmobile.core.ModelStore.whisper(new File(getContext().getFilesDir(), "models"),
+                    f -> alignProgress(songId, Math.round(f * 100), true));
+                String path = ref.startsWith("https://") ? ref : new File(getContext().getFilesDir(), ref).getAbsolutePath();
+                float[] y = Engine.decodeRange16k(path, from, 30);
+                app.stemkitmobile.core.Whisper w = app.stemkitmobile.core.LyricsAligner.whisper(models);
+                String language = lang.isEmpty() ? w.detect(y) : lang;
+                List<app.stemkitmobile.core.Whisper.Segment> segs = new ArrayList<>();
+                double next = y.length < 16000 ? from + 30 : w.segments(y, language, from, segs);
+                org.json.JSONArray out = new org.json.JSONArray();
+                for (app.stemkitmobile.core.Whisper.Segment s : segs) {
+                    out.put(new JSONObject().put("a", Math.round(s.a * 100) / 100.0).put("b", Math.round(s.b * 100) / 100.0).put("text", s.text));
+                }
+                JSObject r = new JSObject();
+                r.put("lang", language);
+                r.put("segments", new com.getcapacitor.JSArray(out.toString()));
+                r.put("next", next);
+                r.put("ended", y.length < 16000 * 29);
+                call.resolve(r);
+            } catch (Throwable e) {
+                call.reject("Trascrizione non riuscita: " + e.getMessage());
+            }
+        });
+    }
+
+    /** lines in another language (core/Translate) */
+    @PluginMethod
+    public void translate(PluginCall call) {
+        String to = call.getString("to", "en");
+        try {
+            org.json.JSONArray a = call.getArray("texts", new com.getcapacitor.JSArray());
+            List<String> in = new ArrayList<>();
+            for (int i = 0; i < a.length(); i++) in.add(a.getString(i));
+            transcriber.execute(() -> {
+                try {
+                    JSObject r = new JSObject();
+                    r.put("texts", new com.getcapacitor.JSArray(new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, to)).toString()));
+                    call.resolve(r);
+                } catch (Throwable e) {
+                    call.reject("Traduzione non riuscita: " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    private final java.util.concurrent.ExecutorService transcriber = java.util.concurrent.Executors.newSingleThreadExecutor();
+
     private void alignProgress(String songId, int pct, boolean downloading) {
         JSObject e = new JSObject();
         e.put("songId", songId);

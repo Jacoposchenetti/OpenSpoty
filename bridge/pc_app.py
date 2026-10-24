@@ -715,6 +715,14 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             elif op in ("spSearch", "spArtist", "spAlbum"):
                 key = "query" if op == "spSearch" else "uri"
                 h.send_json(engine.call(op, timeout=60, **{key: str(b.get(key) or "")}))
+            elif op == "transcribe":
+                path = str(b.get("path") or "")
+                src = path if path.startswith("https://") else str(lib_path(path))
+                h.send_json(engine.call("transcribe", timeout=300, path=src, ffmpeg=sb.find_ffmpeg(), models=str(LIB / "models"),
+                                        **{"from": float(b.get("from") or 0), "lang": str(b.get("lang") or "")}))
+            elif op == "translate":
+                h.send_json(engine.call("translate", timeout=120, texts=[str(x) for x in (b.get("texts") or [])],
+                                        to=str(b.get("to") or "en")))
             elif op == "podcastSearch":
                 h.send_json(engine.call(op, timeout=60, query=str(b.get("query") or "")))
             elif op == "podcastFeed":
