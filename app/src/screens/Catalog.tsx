@@ -328,6 +328,23 @@ function PageTop({ title }: { title: string }) {
 
 /* ------------------------------------------------------------- artist */
 
+/** "Segui" / "Segui già", like Spotify */
+function FollowButton({ a }: { a: SpArtistRef }) {
+  const store = useStore()
+  const on = store.isFollowing(a.uri)
+  return (
+    <button
+      className={`follow-btn ${on ? 'on' : ''}`}
+      onClick={() => {
+        store.toggleFollow(a)
+        store.showToast(on ? `Non segui più ${a.name}` : `Ora segui ${a.name}`)
+      }}
+    >
+      {on ? 'Segui già' : 'Segui'}
+    </button>
+  )
+}
+
 function ArtistPage({ uri }: { uri: string }) {
   const [a, setA] = useState<SpArtist | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -365,6 +382,7 @@ function ArtistPage({ uri }: { uri: string }) {
           <Share2 />
         </button>
       </div>
+      <FollowButton a={a} />
       <h3 className="sec">Popolari</h3>
       {(more ? top : top.slice(0, 5)).map((t, i) => (
         <TrackRow key={t.uri} t={t} i={i} showArt busy={tp.busy === t.uri} onPlay={() => void tp.play(i)} />

@@ -62,6 +62,16 @@ export interface Song {
   bpm?: number // detected (or tapped) tempo, for the count-in
 }
 
+/** an artist you follow (Spotify uri as id); unfollowing keeps the entry with followed: false, so it syncs */
+export interface FollowedArtist {
+  id: string
+  name: string
+  image?: string
+  followed: boolean
+  followedAt: number
+  updatedAt?: number
+}
+
 export interface Playlist {
   id: string
   name: string

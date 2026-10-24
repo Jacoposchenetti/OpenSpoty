@@ -102,13 +102,16 @@ async function artistUri(name: string): Promise<string | null> {
 
 let memo: { key: string; home: Home } | null = null
 
-export async function buildHome(songs: Song[]): Promise<Home> {
-  const names = tasteArtists(songs)
+export async function buildHome(songs: Song[], followed: string[] = []): Promise<Home> {
+  // the artists you follow are part of your taste too (their releases, their similar artists)
+  const taste = tasteArtists(songs)
+  const names = [...taste.slice(0, 6), ...followed.filter((f) => !taste.some((t) => fold(t) === fold(f))).slice(0, 4), ...taste.slice(6)].slice(0, 10)
   const key = `${names.join('|')}#${songs.length}`
   if (memo?.key === key) return memo.home
   // "might like": nobody you have in the library or played this week
   const mine = knownArtists(songs)
   for (const a of recentArtists(7).keys()) mine.add(fold(a))
+  for (const f of followed) mine.add(fold(f))
   const pages = (
     await Promise.all(
       names.map(async (n) => {

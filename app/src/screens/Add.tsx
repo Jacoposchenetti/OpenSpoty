@@ -656,7 +656,10 @@ function HomeShelves() {
   useEffect(() => {
     if (day) return
     let alive = true
-    buildHome(store.songs)
+    buildHome(
+      store.songs,
+      store.artists.map((a) => a.name)
+    )
       .then((h) => {
         if (!alive) return
         setHome(h)

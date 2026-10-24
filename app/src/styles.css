@@ -3095,3 +3095,24 @@ input.with-ico {
 .result-thumb.round img {
   border-radius: 50%;
 }
+
+/* artist page: Segui / Segui già */
+.follow-btn {
+  align-self: flex-start;
+  margin: 0 4px 6px;
+  min-height: 34px;
+  padding: 5px 16px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+.follow-btn.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.thumb.round {
+  border-radius: 50%;
+  object-fit: cover;
+}

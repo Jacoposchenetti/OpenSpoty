@@ -2,7 +2,7 @@ import { bridgeBase, type BridgeConfig } from './bridge'
 import { youtubeIdOf } from './media'
 import { StemKitNative } from './native'
 import { songFiles, type Deleted, type PcState } from './storage'
-import type { Playlist, Song } from './types'
+import type { FollowedArtist, Playlist, Song } from './types'
 
 /* Phone ⇄ PC: the phone sends its library to the bridge, which merges it with
    the PC's (bridge/pc_app.py merge_in: newer copy wins, deletions travel as
@@ -87,14 +87,14 @@ export async function findPc(cfg: BridgeConfig): Promise<BridgeConfig | null> {
 /** one full sync; the caller applies {state, ready} to the library */
 export async function syncWithPc(
   cfg: BridgeConfig,
-  local: { songs: Song[]; playlists: Playlist[]; deleted: Deleted },
+  local: { songs: Song[]; playlists: Playlist[]; artists: FollowedArtist[]; deleted: Deleted },
   onProgress: (p: SyncProgress) => void
 ): Promise<SyncResult> {
   const { name } = await pingPc(cfg)
   const state = await req<PcState>(
     cfg,
     '/api/sync',
-    { method: 'POST', body: JSON.stringify({ device: 'phone', songs: local.songs, playlists: local.playlists, deleted: local.deleted }) },
+    { method: 'POST', body: JSON.stringify({ device: 'phone', songs: local.songs, playlists: local.playlists, artists: local.artists, deleted: local.deleted }) },
     60000
   )
   const mine = (await StemKitNative.listFiles()).files

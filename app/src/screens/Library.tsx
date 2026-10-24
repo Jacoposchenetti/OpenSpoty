@@ -117,6 +117,25 @@ function Overview() {
         }}
       />
 
+      {store.artists.length > 0 && (
+        <>
+          <div className="q-head">Artisti che segui</div>
+          {store.artists.map((a) => (
+            <button key={a.id} className="lib-row" onClick={() => store.openPage({ kind: 'artist', uri: a.id, name: a.name })}>
+              {a.image ? (
+                <img className="thumb round" src={a.image} alt="" loading="lazy" style={{ width: 56, height: 56 }} />
+              ) : (
+                <span className="thumb ph round" style={{ width: 56, height: 56 }} />
+              )}
+              <span className="lib-text">
+                <span className="row-title">{a.name}</span>
+                <span className="row-sub">Artista</span>
+              </span>
+            </button>
+          ))}
+        </>
+      )}
+
       {!store.songs.length && (
         <div className="empty">
           <p className="big">Ancora nessuna canzone</p>

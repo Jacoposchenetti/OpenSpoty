@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
 import { bridgeBase, type BridgeConfig } from './bridge'
 import { isDesktop, isNative } from './native'
-import { sortStems, type Playlist, type Song, type StemId } from './types'
+import { sortStems, type FollowedArtist, type Playlist, type Song, type StemId } from './types'
 
 /* Phone: JSON files + stem audio in the app's private data folder.
    PC app: the same folder layout kept by the bridge (bridge/pc_app.py), which
@@ -18,6 +18,7 @@ export interface PcState {
   rev: number
   songs: Song[]
   playlists: Playlist[]
+  artists?: FollowedArtist[]
   deleted: Deleted
   files: Record<string, number>
   phoneSync?: { at?: number }
@@ -27,7 +28,7 @@ export interface PcState {
    comes back so the app sees what the phone changed meanwhile */
 const remoteListeners = new Set<(s: PcState) => void>()
 export const onRemoteState = (cb: (s: PcState) => void) => (remoteListeners.add(cb), () => void remoteListeners.delete(cb))
-export async function postPcState(part: Partial<Pick<PcState, 'songs' | 'playlists' | 'deleted'>>): Promise<PcState> {
+export async function postPcState(part: Partial<Pick<PcState, 'songs' | 'playlists' | 'artists' | 'deleted'>>): Promise<PcState> {
   const res = await fetch('/api/sync', { method: 'POST', body: JSON.stringify(part) })
   if (!res.ok) throw new Error(`Errore ${res.status} dal PC`)
   const st = (await res.json()) as PcState
@@ -77,6 +78,9 @@ export const loadSetlist = () => (isDesktop ? Promise.resolve([]) : readJson<str
 export const loadPlaylists = async () => (isDesktop ? (await getPcState()).playlists : readJson<Playlist[] | null>('playlists.json', null))
 export const savePlaylists = (p: Playlist[]) =>
   isDesktop ? postPcState({ playlists: p }).then(() => undefined) : writeJson('playlists.json', p)
+export const loadArtists = async () => (isDesktop ? (await getPcState()).artists ?? [] : readJson<FollowedArtist[]>('artists.json', []))
+export const saveArtists = (a: FollowedArtist[]) =>
+  isDesktop ? postPcState({ artists: a }).then(() => undefined) : writeJson('artists.json', a)
 export const loadDeleted = async (): Promise<Deleted> =>
   isDesktop ? (await getPcState()).deleted : readJson<Deleted>('deleted.json', { songs: {}, playlists: {} })
 export const saveDeleted = (d: Deleted) => (isDesktop ? postPcState({ deleted: d }).then(() => undefined) : writeJson('deleted.json', d))

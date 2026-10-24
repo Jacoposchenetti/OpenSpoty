@@ -11,6 +11,7 @@ import {
   deleteSongFiles,
   getPcState,
   loadBridgeConfig,
+  loadArtists,
   loadDeleted,
   loadLibrary,
   loadPlaylists,
@@ -20,6 +21,7 @@ import {
   onRemoteState,
   readDeviceMeta,
   saveBridgeConfig,
+  saveArtists,
   saveDeleted,
   saveLibrary,
   savePlaylists,
@@ -29,7 +31,7 @@ import {
 } from './lib/storage'
 import { isLocalPath, youtubeIdOf } from './lib/media'
 import { findPc, mergeDeleted, mergeItems, pingPc, syncWithPc } from './lib/sync'
-import type { MixState, Playlist, Song } from './lib/types'
+import type { FollowedArtist, MixState, Playlist, Song } from './lib/types'
 
 export type Tab = 'library' | 'add' | 'tuner' | 'alarm' | 'capture'
 
@@ -66,6 +68,11 @@ interface Store {
   /** songs being downloaded now / waiting */
   downloading: string[]
   playlists: Playlist[]
+  /** the artists you follow, the latest first */
+  artists: FollowedArtist[]
+  isFollowing(uri: string): boolean
+  /** follow / stop following (synced with the PC like the playlists) */
+  toggleFollow(a: { uri: string; name: string; image?: string }): void
   bridgeCfg: BridgeConfig | null
   bridge: Bridge | null
   tab: Tab
@@ -159,6 +166,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   })
   const songsRef = useRef<Song[]>([])
   const playlistsRef = useRef<Playlist[]>([])
+  const [artistsAll, setArtistsAll] = useState<FollowedArtist[]>([])
+  const artistsRef = useRef<FollowedArtist[]>([])
   const deletedRef = useRef<Deleted>({ songs: {}, playlists: {} })
   const toastTimer = useRef<number | null>(null)
   const changed = useRef(0) // bumped by local edits: schedules a sync
@@ -187,6 +196,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!remote || !isDesktop) void savePlaylists(next)
   }, [])
 
+  const commitArtists = useCallback((next: FollowedArtist[], remote = false) => {
+    if (!remote) {
+      next = stamp(artistsRef.current, next)
+      changed.current++
+    }
+    artistsRef.current = next
+    setArtistsAll(next)
+    if (!remote || !isDesktop) void saveArtists(next)
+  }, [])
+
   const tombstone = useCallback((kind: keyof Deleted, id: string) => {
     deletedRef.current = { ...deletedRef.current, [kind]: { ...deletedRef.current[kind], [id]: Date.now() } }
     void saveDeleted(deletedRef.current)
@@ -213,8 +232,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       if (!sameJson(songs, songsRef.current)) await commitSongs(songs, true)
       if (!sameJson(playlists, playlistsRef.current)) commitPlaylists(playlists, true)
+      const artists = mergeItems(artistsRef.current, st.artists ?? [], {})
+      if (!sameJson(artists, artistsRef.current)) commitArtists(artists, true)
     },
-    [commitSongs, commitPlaylists]
+    [commitSongs, commitPlaylists, commitArtists]
   )
 
   const showToast = useCallback((msg: string) => {
@@ -247,14 +268,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      const [lib, saved, oldSetlist, cfg, deleted] = await Promise.all([
+      const [lib, saved, oldSetlist, cfg, deleted, followed] = await Promise.all([
         loadLibrary(),
         loadPlaylists(),
         loadSetlist(),
         isDesktop ? null : loadBridgeConfig(),
         loadDeleted(),
+        loadArtists(),
         initPaths()
       ])
+      artistsRef.current = followed
+      setArtistsAll(followed)
       deletedRef.current = deleted
       songsRef.current = lib
       setSongs(lib)
@@ -345,7 +369,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSync((s) => ({ ...s, state: 'syncing', done: 0, total: 0 }))
         const r = await syncWithPc(
           cfg,
-          { songs: songsRef.current, playlists: playlistsRef.current, deleted: deletedRef.current },
+          { songs: songsRef.current, playlists: playlistsRef.current, artists: artistsRef.current, deleted: deletedRef.current },
           (p) => setSync((s) => ({ ...s, state: 'syncing', done: p.done, total: p.total }))
         )
         await applyRemote(r.state, (s) => r.ready.has(s.id))
@@ -463,6 +487,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [updatePlaylist]
   )
 
+  // ------------------------------------------------------------ followed artists
+  const artists = useMemo(() => artistsAll.filter((a) => a.followed).sort((a, b) => b.followedAt - a.followedAt), [artistsAll])
+  const isFollowing = useCallback((uri: string) => artistsRef.current.some((a) => a.id === uri && a.followed), [])
+  const toggleFollow = useCallback(
+    (a: { uri: string; name: string; image?: string }) => {
+      const cur = artistsRef.current.find((x) => x.id === a.uri)
+      const on = !cur?.followed
+      const entry: FollowedArtist = { id: a.uri, name: a.name, image: a.image || cur?.image, followed: on, followedAt: on ? Date.now() : cur?.followedAt ?? 0 }
+      commitArtists(cur ? artistsRef.current.map((x) => (x.id === a.uri ? entry : x)) : [...artistsRef.current, entry])
+    },
+    [commitArtists]
+  )
+
   // playlists in the order you gave them (pos); new ones at the end
   const byPos = (list: Playlist[]) => [...list].sort((a, b) => (a.pos ?? 1e9) - (b.pos ?? 1e9))
   const orderedPlaylists = useMemo(() => byPos(playlists), [playlists])
@@ -567,6 +604,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ready,
     songs,
     playlists: orderedPlaylists,
+    artists,
+    isFollowing,
+    toggleFollow,
     bridgeCfg,
     bridge,
     tab,

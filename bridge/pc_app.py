@@ -32,7 +32,8 @@ CHORD_MODEL = (HOME / "models" if HOME else ROOT / "app" / "android" / "app" / "
 LIB = Path(os.environ.get("STEMKIT_MOBILE_DIR", "").strip()
            or Path(os.environ.get("APPDATA", Path.home())) / "StemKitMobile")
 SONGS = LIB / "songs"
-STATE_FILES = {"songs": LIB / "library.json", "playlists": LIB / "playlists.json", "deleted": LIB / "deleted.json"}
+STATE_FILES = {"songs": LIB / "library.json", "playlists": LIB / "playlists.json", "artists": LIB / "artists.json",
+               "deleted": LIB / "deleted.json"}
 PATH_RE = re.compile(r"^(songs|lyrics|chords)/[\w\-. ()]+(/[\w\-. ()]+)*$")
 SIX = ["vocals", "drums", "bass", "guitar", "piano", "other"]
 CONTENT_TYPES = {
@@ -113,6 +114,8 @@ def merge_in(body: dict) -> dict:
             incoming = [x for x in incoming if isinstance(x, dict) and (x.get("stems") or x.get("id") in known)]
         songs = merge_items(base, incoming, deleted["songs"])
         playlists = merge_items(read_state("playlists"), body.get("playlists") or [], deleted["playlists"])
+        # followed artists: unfollowing is an edit (followed: false), never a deletion
+        artists = merge_items(read_state("artists"), body.get("artists") or [], {})
         # a song that is back (downloaded again) is no longer deleted
         for s in songs:
             deleted["songs"].pop(s["id"], None)
@@ -120,6 +123,7 @@ def merge_in(body: dict) -> dict:
             deleted["playlists"].pop(p["id"], None)
         write_state("songs", songs)
         write_state("playlists", playlists)
+        write_state("artists", artists)
         write_state("deleted", deleted)
         # files go only for songs this merge removed: a song downloaded again
         # after being deleted keeps its fresh files
@@ -142,7 +146,7 @@ def list_files() -> dict:
 
 
 def full_state() -> dict:
-    return {"rev": rev, "songs": read_state("songs"), "playlists": read_state("playlists"),
+    return {"rev": rev, "songs": read_state("songs"), "playlists": read_state("playlists"), "artists": read_state("artists"),
             "deleted": read_state("deleted"), "files": list_files(), "phoneSync": last_phone_sync}
 
 
