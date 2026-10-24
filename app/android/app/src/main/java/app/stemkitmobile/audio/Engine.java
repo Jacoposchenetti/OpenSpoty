@@ -543,7 +543,8 @@ public final class Engine {
     private Deck openDeck(Spec spec) throws Exception {
         Deck d = new Deck(spec);
         // open every file at once: each decoder needs a few ms to report its format
-        java.util.concurrent.Future<FrameSource> orig = spec.original != null && (spec.original.startsWith("http://") || new File(spec.original).isFile())
+        // (http: YouTube through StreamProxy; https: a podcast episode, straight from its server)
+        java.util.concurrent.Future<FrameSource> orig = spec.original != null && (spec.original.startsWith("http://") || spec.original.startsWith("https://") || new File(spec.original).isFile())
             ? opener.submit(() -> openSource(spec.original)) : null;
         List<java.util.concurrent.Future<FrameSource>> st = new ArrayList<>();
         for (String p : spec.stemPaths) st.add(opener.submit(() -> openSource(p)));

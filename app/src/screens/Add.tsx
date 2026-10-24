@@ -811,11 +811,11 @@ function HomeShelves() {
     )
   return (
     <div className="home-shelves">
-      <NewEpisodes />
       <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
       <TrackTiles title="Brani che potrebbero piacerti" tracks={tracks} />
       <Shelf title="Playlist da ascoltare" items={home.playlists} />
       <Shelf title="Ultime uscite dei tuoi artisti" items={home.releases} showArtist />
+      <NewEpisodes />
     </div>
   )
 }

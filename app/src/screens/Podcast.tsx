@@ -183,31 +183,30 @@ export function NewEpisodes() {
   }, [feeds])
   if (!list?.length) return null
   return (
-    <section className="shelf new-episodes">
+    <section className="shelf">
       <h3>Nuovi episodi</h3>
-      {list.map(({ e, p }) => {
-        const s = episodeSong(e, p)
-        const prog = progressOf(s.id)
-        return (
-          <button
-            key={s.id}
-            className="episode-tile"
-            onClick={() => {
-              store.addTemp([s])
-              pb.playList([s.id], 0, 'Nuovi episodi')
-            }}
-          >
-            <img src={e.image || p.image} alt="" loading="lazy" />
-            <span className="lib-text">
-              <span className="row-title">{e.title}</span>
-              <span className="row-sub">
-                {p.name} · {shortDate(e.date)}
-                {prog?.done ? ' · Ascoltato' : ''}
+      <div className="shelf-row">
+        {list.map(({ e, p }) => {
+          const s = episodeSong(e, p)
+          const prog = progressOf(s.id)
+          return (
+            <button
+              key={s.id}
+              className="card-tile"
+              onClick={() => {
+                store.addTemp([s])
+                pb.playList([s.id], 0, 'Nuovi episodi')
+              }}
+            >
+              {e.image || p.image ? <img src={e.image || p.image} alt="" loading="lazy" /> : <span className="tile-ph" />}
+              <span className="tile-title">{e.title}</span>
+              <span className="tile-sub">
+                {p.name} · {prog?.done ? 'Ascoltato' : shortDate(e.date)}
               </span>
-            </span>
-          </button>
-        )
-      })}
+            </button>
+          )
+        })}
+      </div>
     </section>
   )
 }
