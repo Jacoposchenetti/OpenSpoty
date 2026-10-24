@@ -153,7 +153,8 @@ export function Player() {
           onKeyUp={(e) => pb.seek(Number((e.target as HTMLInputElement).value))}
           aria-label="Posizione"
         />
-        <span>{fmtTime(duration)}</span>
+        {/* an episode shows what is left, like Spotify's podcasts */}
+        <span>{song.episode ? `-${fmtTime(Math.max(0, duration - pos))}` : fmtTime(duration)}</span>
       </div>
 
       <div className="transport">
