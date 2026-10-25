@@ -12,29 +12,17 @@
 
 Cerca musica, riproducila tramite YouTube e organizza la libreria con playlist e preferiti. Puoi anche importare playlist e album Spotify pubblici: Spotify fornisce metadati e copertine, mentre l'audio viene riprodotto tramite YouTube.
 
-![Libreria musicale OpenSpoty con brani recenti, playlist e raccolta](screenshots/library-en.png)
-
-*Libreria: brani ascoltati di recente, playlist e musica salvata.*
-
-![Ricerca OpenSpoty con consigli di artisti e brani](screenshots/search-en.jpg)
-
-*Ricerca e suggerimenti.*
+<p align="center"><a href="screenshots/library-en.png"><img src="screenshots/library-en.png" width="120" alt="Libreria musicale OpenSpoty"></a> <a href="screenshots/search-en.jpg"><img src="screenshots/search-en.jpg" width="120" alt="Ricerca e suggerimenti OpenSpoty"></a></p>
+<p align="center"><sub>Libreria</sub> <sub>Ricerca</sub></p>
 
 ## Esercitati con le parti che ti servono
 
 OpenSpoty è pensata per musicisti e ascoltatori. In Play Along puoi regolare separatamente voce, batteria, basso, chitarra, piano e altri strumenti; silenziare o isolare le singole parti per concentrarti su ciò che stai studiando. Carica accordi e testo sincronizzato, modifica la posizione degli accordi e cambia tono o velocità. Rilevamento BPM, count-in e loop A–B aiutano a esercitarsi con precisione.
 
-![Controlli Play Along di OpenSpoty per tracce strumentali, mute e solo, accordi e tonalità](screenshots/playalong-controls-en.jpg)
+<p align="center"><a href="screenshots/playalong-controls-en.jpg"><img src="screenshots/playalong-controls-en.jpg" width="120" alt="Controlli Play Along per tracce, mute e solo, accordi e tonalità"></a> <a href="screenshots/player-en.jpg"><img src="screenshots/player-en.jpg" width="120" alt="Player e controlli della coda"></a> <a href="screenshots/player-en-duplicate.jpg"><img src="screenshots/player-en-duplicate.jpg" width="120" alt="Schermata duplicata del player"></a></p>
+<p align="center"><sub>Play Along (ritaglio senza testo)</sub> <sub>Player</sub> <sub>Copia del player</sub></p>
 
-*Controlli Play Along. Questa schermata fornita è stata acquisita prima dell'ultimo aggiornamento delle traduzioni; la versione attuale traduce i controlli quando è selezionato l'inglese. Il ritaglio esclude il testo della canzone.*
-
-![Player OpenSpoty con opzioni di riproduzione, copertina e coda](screenshots/player-en.jpg)
-
-*Player: opzioni di riproduzione, copertina, controlli, volume e coda.*
-
-![Seconda schermata del player OpenSpoty fornita dal proprietario del progetto](screenshots/player-en-duplicate.jpg)
-
-*La seconda immagine del player è una copia della schermata fornita.*
+*La schermata Play Along è stata acquisita prima dell'ultimo aggiornamento delle traduzioni; la versione attuale traduce questi controlli quando è selezionato l'inglese. Il ritaglio esclude il testo della canzone.*
 
 ## Altri strumenti musicali
 
@@ -43,17 +31,10 @@ OpenSpoty è pensata per musicisti e ascoltatori. In Play Along puoi regolare se
 - **Riconoscimento dei brani:** identifica musica dall'audio circostante e consulta i risultati recenti.
 - **Altre funzioni della libreria:** note, podcast, download offline e sincronizzazione tra telefono e PC sulla stessa rete locale.
 
-![Accordatore per chitarra OpenSpoty con accordatura standard e feedback in tempo reale](screenshots/tuner-en.jpg)
+<p align="center"><a href="screenshots/tuner-en.jpg"><img src="screenshots/tuner-en.jpg" width="120" alt="Accordatore per chitarra con feedback in tempo reale"></a> <a href="screenshots/alarms-en.jpg"><img src="screenshots/alarms-en.jpg" width="120" alt="Timer e sveglie musicali"></a> <a href="screenshots/identify-en.jpg"><img src="screenshots/identify-en.jpg" width="120" alt="Riconoscimento e risultati recenti"></a></p>
+<p align="center"><sub>Accordatore</sub> <sub>Sveglie e timer</sub> <sub>Riconoscimento</sub></p>
 
-*Accordatore per strumenti.*
-
-![Timer di spegnimento e sveglie musicali OpenSpoty](screenshots/alarms-en.jpg)
-
-*Timer e sveglie. I titoli delle sveglie e i brani scelti sono contenuti inseriti dall'utente e possono restare nella lingua originale.*
-
-![Riconoscimento di un brano e identificazioni recenti in OpenSpoty](screenshots/identify-en.jpg)
-
-*Riconoscimento musicale.*
+*I titoli delle sveglie e i brani scelti sono contenuti inseriti dall'utente e possono restare nella lingua originale.*
 
 ## Download e installazione
 

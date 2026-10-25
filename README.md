@@ -12,29 +12,17 @@
 
 Search for music, play it through YouTube, and organize your library with playlists and favorites. You can also import public Spotify playlists and albums; Spotify provides metadata and artwork while playback audio comes from YouTube.
 
-![OpenSpoty music library with recently played tracks, playlists, and library tools](screenshots/library-en.png)
-
-*Library: recently played music, playlists, and saved tracks.*
-
-![OpenSpoty search with artist and song recommendations](screenshots/search-en.jpg)
-
-*Search and recommendations.*
+<p align="center"><a href="screenshots/library-en.png"><img src="screenshots/library-en.png" width="120" alt="OpenSpoty music library"></a> <a href="screenshots/search-en.jpg"><img src="screenshots/search-en.jpg" width="120" alt="OpenSpoty search and recommendations"></a></p>
+<p align="center"><sub>Library</sub> <sub>Search</sub></p>
 
 ## Practice with the parts you need
 
 OpenSpoty is designed for musicians as well as listeners. In Play Along, adjust the volume of vocals, drums, bass, guitar, piano, and other stems independently; mute or solo parts to focus on what you are practicing. Load chords and synchronized lyrics, edit chord positions, and change pitch or playback speed. BPM detection, count-in, and A–B looping help with focused practice.
 
-![OpenSpoty Play Along controls for instrument stems, mute and solo, chords, and key](screenshots/playalong-controls-en.jpg)
+<p align="center"><a href="screenshots/playalong-controls-en.jpg"><img src="screenshots/playalong-controls-en.jpg" width="120" alt="Play Along controls for stems, mute and solo, chords, and key"></a> <a href="screenshots/player-en.jpg"><img src="screenshots/player-en.jpg" width="120" alt="Player controls and queue"></a> <a href="screenshots/player-en-duplicate.jpg"><img src="screenshots/player-en-duplicate.jpg" width="120" alt="Duplicate player screenshot supplied by the project owner"></a></p>
+<p align="center"><sub>Play Along controls (cropped before lyrics)</sub> <sub>Player</sub> <sub>Duplicate player capture</sub></p>
 
-*Play Along controls. This supplied screen was captured before the final localization pass; the current app translates these controls when English is selected. The crop omits the song lyrics.*
-
-![OpenSpoty player with playback options, album art, and queue controls](screenshots/player-en.jpg)
-
-*Player view: playback options, artwork, transport, volume, and queue.*
-
-![Duplicate OpenSpoty player screenshot supplied by the project owner](screenshots/player-en-duplicate.jpg)
-
-*The second player image was supplied as a duplicate capture.*
+*The Play Along screen was captured before the final localization pass; the current app translates these controls when English is selected. The crop omits song lyrics.*
 
 ## More music tools
 
@@ -43,17 +31,10 @@ OpenSpoty is designed for musicians as well as listeners. In Play Along, adjust 
 - **Song identification:** identify a song from nearby audio and revisit recent results.
 - **Library extras:** notes, podcasts, offline downloads, and phone–PC synchronization on the same local network.
 
-![OpenSpoty guitar tuner with standard tuning and live pitch feedback](screenshots/tuner-en.jpg)
+<p align="center"><a href="screenshots/tuner-en.jpg"><img src="screenshots/tuner-en.jpg" width="120" alt="Guitar tuner with standard tuning and live pitch feedback"></a> <a href="screenshots/alarms-en.jpg"><img src="screenshots/alarms-en.jpg" width="120" alt="Sleep timer and music alarms"></a> <a href="screenshots/identify-en.jpg"><img src="screenshots/identify-en.jpg" width="120" alt="Song identification and recent results"></a></p>
+<p align="center"><sub>Tuner</sub> <sub>Alarms and timer</sub> <sub>Song identification</sub></p>
 
-*Instrument tuner.*
-
-![OpenSpoty sleep timer and music alarms](screenshots/alarms-en.jpg)
-
-*Sleep timer and alarms. Alarm titles and selected tracks are user-provided content and can remain in their original language.*
-
-![OpenSpoty song identification and recent identification](screenshots/identify-en.jpg)
-
-*Song identification.*
+*Alarm titles and selected tracks are user-provided content and can remain in their original language.*
 
 ## Download and install
 
