@@ -2,7 +2,7 @@ import { App as CapApp } from '@capacitor/app'
 import { AlarmClock, BellRing, Heart, ListMusic, Music, Pause, Play, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
-import { Alarms, DAY_NAMES, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, MONTHS, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
+import { Alarms, dayNames, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, months, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
 import { songsFor } from '../lib/catalog'
 import { similarSongs } from '../lib/radio'
 import { engine } from '../lib/engine'
@@ -12,6 +12,7 @@ import { isNative } from '../lib/native'
 import type { Song } from '../lib/types'
 import { alarmSpec, usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t as tr } from '../lib/i18n'
 
 type Store = ReturnType<typeof useStore>
 
@@ -85,31 +86,31 @@ export function AlarmPage() {
 
       <section className="card">
         <div className="card-head">
-          <h2>Sveglie</h2>
+          <h2>{tr('Sveglie')}</h2>
           <button className="small" onClick={() => setEditing(newAlarm())}>
-            <Plus /> Nuova
+            <Plus /> {tr('Nuova')}
           </button>
         </div>
         {state?.next && (
           <p className="muted small">
-            <BellRing className="inline-ico" /> Prossima sveglia {inWords(state.next.at)}
+            <BellRing className="inline-ico" /> {tr('Prossima sveglia')} {inWords(state.next.at)}
           </p>
         )}
         {isNative && state && !state.fullScreen && (
           <div className="notice">
-            Per vedere la sveglia sopra la schermata di blocco, consenti le notifiche a schermo intero.{' '}
+            {tr('Per vedere la sveglia sopra la schermata di blocco, consenti le notifiche a schermo intero.')}{' '}
             <button className="small" onClick={() => void Alarms.allowFullScreen()}>
-              Consenti
+              {tr('Consenti')}
             </button>
           </div>
         )}
-        {!isNative && <p className="muted small">Le sveglie suonano sul telefono.</p>}
+        {!isNative && <p className="muted small">{tr('Le sveglie suonano sul telefono.')}</p>}
         {alarms === null ? (
           <div className="page-loading">
             <Spinner />
           </div>
         ) : !sorted.length ? (
-          <p className="muted">Svegliati con la tua musica: una canzone, una playlist, un album o un artista.</p>
+          <p className="muted">{tr('Svegliati con la tua musica: una canzone, una playlist, un album o un artista.')}</p>
         ) : (
           sorted.map((a) => (
             <div key={a.id} className={`alarm-row ${a.enabled ? '' : 'off'}`} onClick={() => setEditing(a)}>
@@ -119,9 +120,9 @@ export function AlarmPage() {
               <span className="alarm-info">
                 <span>{a.label || whenLabel(a)}</span>
                 <span className="muted small">
-                  {isPast(a) ? 'passata · ' : ''}
+            {isPast(a) ? `${tr('passata')} · ` : ''}
                   {a.label ? `${whenLabel(a)} · ` : ''}
-                  {a.content.name}
+                  {tr(a.content.name)}
                 </span>
               </span>
               <label className="toggle" onClick={(e) => e.stopPropagation()}>
@@ -210,42 +211,42 @@ function SleepTimer() {
   return (
     <section className="card sleep-card">
       <h2>
-        <Timer className="inline-ico" /> Timer di spegnimento
+        <Timer className="inline-ico" /> {tr('Timer di spegnimento')}
       </h2>
       {active ? (
         <div className={`timer-count ${paused ? 'paused' : ''}`}>
-          {pb.sleep.atEnd && !paused ? 'Fine brano' : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
+          {pb.sleep.atEnd && !paused ? tr('Fine brano') : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
         </div>
       ) : (
         <div className="wheels">
-          <Wheel max={23} value={h} onChange={(v) => setDur(v * 3600 + m * 60 + sec)} label="ore" />
+          <Wheel max={23} value={h} onChange={(v) => setDur(v * 3600 + m * 60 + sec)} label={tr('ore')} />
           <span className="wheel-sep">:</span>
-          <Wheel max={59} value={m} onChange={(v) => setDur(h * 3600 + v * 60 + sec)} label="minuti" />
+          <Wheel max={59} value={m} onChange={(v) => setDur(h * 3600 + v * 60 + sec)} label={tr('minuti')} />
           <span className="wheel-sep">:</span>
-          <Wheel max={59} value={sec} onChange={(v) => setDur(h * 3600 + m * 60 + v)} label="secondi" />
+          <Wheel max={59} value={sec} onChange={(v) => setDur(h * 3600 + m * 60 + v)} label={tr('secondi')} />
         </div>
       )}
-      <p className="muted small center">{paused ? 'In pausa.' : running ? 'Poi la musica si ferma.' : 'La musica si ferma dopo questo tempo.'}</p>
+      <p className="muted small center">{paused ? tr('In pausa.') : running ? tr('Poi la musica si ferma.') : tr('La musica si ferma dopo questo tempo.')}</p>
       {active ? (
         <div className="sleep-actions">
           {paused ? (
             <button className="primary" onClick={resume}>
-              <Play /> Riprendi
+              <Play /> {tr('Riprendi')}
             </button>
           ) : (
             !pb.sleep.atEnd && (
               <button onClick={pause}>
-                <Pause /> Pausa
+                <Pause /> {tr('Pausa')}
               </button>
             )
           )}
           <button className="danger" onClick={cancel}>
-            Annulla
+            {tr('Annulla')}
           </button>
         </div>
       ) : (
         <button className="primary" disabled={dur <= 0} onClick={start}>
-          Avvia
+          {tr('Avvia')}
         </button>
       )}
     </section>
@@ -293,7 +294,7 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
   const set = (p: Partial<Alarm>) => setA((x) => ({ ...x, ...p }))
   if (picking) return <ContentPicker onPick={(content) => (set({ content }), setPicking(false))} onClose={() => setPicking(false)} />
   return (
-    <Sheet title={isNew ? 'Nuova sveglia' : 'Sveglia'} onClose={onClose}>
+    <Sheet title={isNew ? tr('Nuova sveglia') : tr('Sveglia')} onClose={onClose}>
       <input
         className="alarm-clock-input"
         type="time"
@@ -305,10 +306,10 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
       />
       <div className="seg">
         <button className={!a.date ? 'active' : ''} onClick={() => set({ date: undefined })}>
-          Ogni settimana
+          {tr('Ogni settimana')}
         </button>
         <button className={a.date ? 'active' : ''} onClick={() => set({ date: a.date ?? nextDay(a) })}>
-          Una data
+          {tr('Una data')}
         </button>
       </div>
       {a.date ? (
@@ -319,7 +320,7 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
       ) : (
         <>
           <div className="day-chips">
-            {DAY_NAMES.map((d, i) => (
+            {dayNames().map((d, i) => (
               <button
                 key={i}
                 className={a.days.includes(i + 1) ? 'active' : ''}
@@ -335,24 +336,24 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
       <button className="content-pick" onClick={() => setPicking(true)}>
         {a.content.image ? <img src={a.content.image} alt="" /> : <span className="recent-ico">{a.content.kind === 'liked' ? <Heart /> : <Music />}</span>}
         <span className="lib-text">
-          <span className="muted small">Svegliami con</span>
-          <span className="row-title">{a.content.name}</span>
+          <span className="muted small">{tr('Svegliami con')}</span>
+          <span className="row-title">{tr(a.content.name)}</span>
         </span>
       </button>
       <label className="switch-row">
         <input type="checkbox" checked={a.shuffle} onChange={(e) => set({ shuffle: e.target.checked })} />
         <span>
-          <Shuffle className="inline-ico" /> In ordine casuale
+          <Shuffle className="inline-ico" /> {tr('In ordine casuale')}
         </span>
       </label>
       <div className="after-pick">
-        <span className="muted small">Quando le canzoni finiscono</span>
+        <span className="muted small">{tr('Quando le canzoni finiscono')}</span>
         <div className="seg">
           {(
             [
-              ['repeat', 'Ripeti'],
-              ['similar', 'Brani simili'],
-              ['stop', 'Fermati']
+              ['repeat', tr('Ripeti')],
+              ['similar', tr('Brani simili')],
+              ['stop', tr('Fermati')]
             ] as const
           ).map(([v, label]) => (
             <button key={v} className={(a.after ?? 'repeat') === v ? 'active' : ''} onClick={() => set({ after: v })}>
@@ -360,27 +361,27 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
             </button>
           ))}
         </div>
-        {(a.after ?? 'repeat') === 'similar' && <p className="muted small">I brani simili arrivano da internet: servirà la connessione.</p>}
+        {(a.after ?? 'repeat') === 'similar' && <p className="muted small">{tr('I brani simili arrivano da internet: servirà la connessione.')}</p>}
       </div>
       <label className="slider-row">
-        <span>Volume {Math.round(a.volume * 100)}%</span>
+        <span>{tr('Volume')} {Math.round(a.volume * 100)}%</span>
         <input type="range" min={0.1} max={1} step={0.05} value={a.volume} onChange={(e) => set({ volume: Number(e.target.value) })} />
       </label>
       <label className="slider-row">
-        <span>Sale piano piano in {a.fadeSec < 60 ? `${a.fadeSec} s` : `${Math.round(a.fadeSec / 60)} min`}</span>
+        <span>{tr('Sale piano piano in {time}', { time: a.fadeSec < 60 ? `${a.fadeSec} s` : `${Math.round(a.fadeSec / 60)} min` })}</span>
         <input type="range" min={5} max={300} step={5} value={a.fadeSec} onChange={(e) => set({ fadeSec: Number(e.target.value) })} />
       </label>
       <label className="slider-row">
-        <span>Posticipa di {a.snooze} min</span>
+        <span>{tr('Posticipa di {time} min', { time: a.snooze })}</span>
         <input type="range" min={1} max={30} step={1} value={a.snooze} onChange={(e) => set({ snooze: Number(e.target.value) })} />
       </label>
-      <input placeholder="Nome (facoltativo)" value={a.label} onChange={(e) => set({ label: e.target.value })} />
+      <input placeholder={tr('Nome (facoltativo)')} value={a.label} onChange={(e) => set({ label: e.target.value })} />
       <button className="primary" onClick={() => onSave({ ...a, enabled: true })}>
-        Salva
+        {tr('Salva')}
       </button>
       {!isNew && (
         <button className="danger" onClick={onDelete}>
-          <Trash2 /> Elimina sveglia
+          <Trash2 /> {tr('Elimina sveglia')}
         </button>
       )}
     </Sheet>
@@ -410,18 +411,18 @@ function Calendar({ value, hour, minute, onPick }: { value: string; hour: number
   return (
     <div className="calendar">
       <div className="cal-head">
-        <button className="icon-btn" disabled={!canBack} onClick={() => move(-1)} aria-label="Mese prima">
+        <button className="icon-btn" disabled={!canBack} onClick={() => move(-1)} aria-label={tr('Mese prima')}>
           <ChevronLeft />
         </button>
         <span>
-          {MONTHS[month.getMonth()]} {month.getFullYear()}
+          {months()[month.getMonth()]} {month.getFullYear()}
         </span>
-        <button className="icon-btn" onClick={() => move(1)} aria-label="Mese dopo">
+        <button className="icon-btn" onClick={() => move(1)} aria-label={tr('Mese dopo')}>
           <ChevronRight />
         </button>
       </div>
       <div className="cal-grid">
-        {DAY_NAMES.map((d, i) => (
+        {dayNames().map((d, i) => (
           <span key={`h${i}`} className="cal-dow">
             {d}
           </span>
@@ -472,18 +473,18 @@ function ContentPicker({ onPick, onClose }: { onPick: (c: AlarmContent) => void;
   const fold = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
   const songs = q.trim().length >= 2 ? store.songs.filter((s) => fold(s.title).includes(fold(q.trim()))).slice(0, 8) : []
   return (
-    <Sheet title="Svegliami con…" onClose={onClose}>
+    <Sheet title={tr('Svegliami con…')} onClose={onClose}>
       <div className="search-field">
         <SearchIcon className="search-ico light" />
-        <input className="with-ico" placeholder="Cerca un brano, un album o un artista" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="with-ico" placeholder={tr('Cerca un brano, un album o un artista')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {!q.trim() && (
         <>
           <button className="pick-row" onClick={() => onPick({ kind: 'liked', id: '', name: 'Brani che ti piacciono' })}>
-            <Heart /> Brani che ti piacciono
+            <Heart /> {tr('Brani che ti piacciono')}
           </button>
           <button className="pick-row" onClick={() => onPick({ kind: 'all', id: '', name: 'Tutta la libreria' })}>
-            <Music /> Tutta la libreria
+            <Music /> {tr('Tutta la libreria')}
           </button>
           {store.playlists.map((p) => (
             <button key={p.id} className="pick-row" onClick={() => onPick({ kind: 'playlist', id: p.id, name: p.name })}>
@@ -502,7 +503,7 @@ function ContentPicker({ onPick, onClose }: { onPick: (c: AlarmContent) => void;
           {c.image ? <img className={c.kind === 'artist' ? 'round' : ''} src={c.image} alt="" /> : <Music />}
           <span>
             {c.name}
-            <span className="muted small"> · {c.kind === 'artist' ? 'artista (brani popolari)' : 'album'}</span>
+            <span className="muted small"> · {c.kind === 'artist' ? tr('artista (brani popolari)') : tr('album')}</span>
           </span>
         </button>
       ))}
@@ -543,12 +544,12 @@ export function AlarmRinging() {
       <div className="ring-time">
         {pad(ring.hour)}:{pad(ring.minute)}
       </div>
-      <div className="ring-label">{ring.label || 'Sveglia'}</div>
+      <div className="ring-label">{ring.label || tr('Sveglia')}</div>
       <button className="ring-snooze" onClick={() => void Alarms.snooze().then(check)}>
-        Posticipa {ring.snooze} min
+        {tr('Posticipa di {time} min', { time: ring.snooze })}
       </button>
       <button className="ring-stop" onClick={() => void Alarms.stop().then(check)}>
-        Stop
+        {tr('Stop')}
       </button>
     </div>
   )

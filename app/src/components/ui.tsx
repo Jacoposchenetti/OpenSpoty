@@ -2,6 +2,7 @@ import { GripVertical, Music, LoaderCircle } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { fileUrl } from '../lib/storage'
 import { STEM_META, type Song } from '../lib/types'
+import { t } from '../lib/i18n'
 
 /* ---------------------------------------------------------------- back button
    Android's back button closes the top-most open thing first (a sheet, the
@@ -150,14 +151,14 @@ export function SongThumb({ song, size = 48 }: { song: Pick<Song, 'id' | 'title'
 
 /** a spinning ring: something is loading */
 export function Spinner({ size = 18 }: { size?: number }) {
-  return <LoaderCircle className="spin spinner" style={{ width: size, height: size }} aria-label="Caricamento" />
+  return <LoaderCircle className="spin spinner" style={{ width: size, height: size }} aria-label={t('Caricamento…')} />
 }
 
 export function StemDots({ stems }: { stems: Song['stems'] }) {
   return (
     <span className="dots">
       {stems.map((s) => (
-        <i key={s} style={{ background: STEM_META[s].color }} title={STEM_META[s].label} />
+        <i key={s} style={{ background: STEM_META[s].color }} title={t(STEM_META[s].label)} />
       ))}
     </span>
   )
@@ -272,7 +273,7 @@ export function SortableList<T>({ items, keyOf, onMove, render }: SortableProps<
           {render(
             item,
             i,
-            <span className="handle" onPointerDown={start(i)} onPointerMove={move} onPointerUp={end} onPointerCancel={end} aria-label="Trascina per spostare">
+            <span className="handle" onPointerDown={start(i)} onPointerMove={move} onPointerUp={end} onPointerCancel={end} aria-label={t('Trascina per spostare')}>
               <GripVertical />
             </span>
           )}

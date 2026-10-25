@@ -2,6 +2,7 @@ import { Heart, Pause, Play, SkipForward } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t } from '../lib/i18n'
 import { nameParts } from '../lib/media'
 import { SongThumb, Spinner, useKeyboardOpen } from './ui'
 
@@ -29,17 +30,17 @@ export function MiniPlayer() {
   const sub = pb.error
     ? pb.error
     : pb.loading
-      ? 'Caricamento…'
+      ? t('Caricamento…')
       : pb.now?.fromQueue
         ? 'Dalla coda'
-        : pb.now?.contextName || 'In riproduzione'
+        : pb.now?.contextName || t('In riproduzione')
 
   return (
     <div className="mini">
       <div className="mini-progress">
         <div ref={bar} />
       </div>
-      <button className="mini-main" onClick={() => store.setPlayerOpen(true)} aria-label="Apri il player">
+      <button className="mini-main" onClick={() => store.setPlayerOpen(true)} aria-label={t('Apri il player')}>
         <SongThumb song={song} size={42} />
         <span className="lib-text">
           <span className="row-title">{nameParts(song.title).name}</span>
@@ -49,14 +50,14 @@ export function MiniPlayer() {
       <button
         className={`mini-btn heart ${song.liked ? 'on' : ''}`}
         onClick={() => store.updateSong(song.id, song.liked ? { liked: false } : { liked: true, likedAt: Date.now() })}
-        aria-label={song.liked ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}
+        aria-label={song.liked ? t('Togli dai preferiti') : t('Aggiungi ai preferiti')}
       >
         <Heart fill={song.liked ? 'currentColor' : 'none'} />
       </button>
-      <button className="mini-btn" disabled={pb.loading} onClick={pb.toggle} aria-label={pb.playing ? 'Pausa' : 'Play'}>
+      <button className="mini-btn" disabled={pb.loading} onClick={pb.toggle} aria-label={pb.playing ? t('Pausa') : t('Play')}>
         {pb.loading ? <Spinner size={22} /> : pb.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
       </button>
-      <button className="mini-btn" onClick={pb.next} aria-label="Successiva">
+      <button className="mini-btn" onClick={pb.next} aria-label={t('Successiva')}>
         <SkipForward fill="currentColor" />
       </button>
     </div>

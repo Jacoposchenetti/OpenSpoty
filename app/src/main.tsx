@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { ImportsProvider } from './imports'
 import { isNative } from './lib/native'
+import { LocaleProvider } from './lib/i18n'
 import { PlaybackProvider } from './playback'
 import { StoreProvider } from './store'
 import './styles.css'
@@ -16,12 +17,14 @@ if (isNative) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <StoreProvider>
-      <PlaybackProvider>
-        <ImportsProvider>
-          <App />
-        </ImportsProvider>
-      </PlaybackProvider>
-    </StoreProvider>
+    <LocaleProvider>
+      <StoreProvider>
+        <PlaybackProvider>
+          <ImportsProvider>
+            <App />
+          </ImportsProvider>
+        </PlaybackProvider>
+      </StoreProvider>
+    </LocaleProvider>
   </StrictMode>
 )

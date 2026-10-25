@@ -1,6 +1,7 @@
 import { CircleArrowUp, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errMsg } from '../lib/format'
+import { t } from '../lib/i18n'
 import { isNative, StemKitNative } from '../lib/native'
 import { checkUpdate, type Update } from '../lib/update'
 import { Spinner } from './ui'
@@ -29,7 +30,7 @@ export function UpdateBanner() {
         if (s.state === 'failed') throw new Error(s.error)
         setPct(s.pct)
         if (s.state === 'restarting') {
-          setMsg('Riavvio OpenSpoty…')
+          setMsg(t('Riavvio OpenSpoty…'))
           return
         }
       }
@@ -45,7 +46,7 @@ export function UpdateBanner() {
     const h = StemKitNative.addListener('transfer', (e) => e.id === 'update' && setPct(e.pct))
     try {
       const r = await StemKitNative.installUpdate({ url: up.url })
-      if (r.needsPermission) setMsg('Consenti "Installa app sconosciute" a OpenSpoty, poi torna qui e tocca di nuovo Aggiorna.')
+      if (r.needsPermission) setMsg(t('Consenti "Installa app sconosciute" a OpenSpoty, poi torna qui e tocca di nuovo Aggiorna.'))
     } catch (e) {
       setMsg(errMsg(e))
     } finally {
@@ -57,7 +58,7 @@ export function UpdateBanner() {
     <div className="update-banner">
       <CircleArrowUp />
       <span className="update-text">
-        <b>Aggiornamento disponibile</b>
+        <b>{t('Aggiornamento disponibile')}</b>
         <span className="muted small">
           OpenSpoty {up.version}
           {msg ? ` · ${msg}` : ''}
@@ -69,10 +70,10 @@ export function UpdateBanner() {
             <Spinner size={14} /> {pct}%
           </>
         ) : (
-          'Aggiorna'
+          t('Aggiorna')
         )}
       </button>
-      <button className="icon-btn" onClick={() => setHidden(true)} aria-label="Più tardi">
+      <button className="icon-btn" onClick={() => setHidden(true)} aria-label={t('Più tardi')}>
         <X />
       </button>
     </div>

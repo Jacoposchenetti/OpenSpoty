@@ -2,6 +2,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem'
 import { engine } from './engine'
 import { isNative, StemKitNative } from './native'
 import type { Song } from './types'
+import { localeTag } from './i18n'
 
 /* Podcasts: found with Apple's public search, played from the podcast's own
    feed (core/Podcasts.java). An episode plays like a song (Song.episode), from
@@ -144,8 +145,8 @@ export async function removeEpisode(id: string): Promise<void> {
 export function shortDate(ms: number): string {
   if (!ms) return ''
   const d = new Date(ms)
-  const m = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'][d.getMonth()]
-  return `${d.getDate()} ${m}${d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : ''}`
+  const includeYear = d.getFullYear() !== new Date().getFullYear()
+  return new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short', ...(includeYear ? { year: 'numeric' as const } : {}) }).format(d)
 }
 
 /** "1 h 12 min", "48 min" */

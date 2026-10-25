@@ -50,6 +50,7 @@ export interface TransferEvent {
 
 /* Java side: android/app/src/main/java/app/stemkitmobile/StemKitNativePlugin.java */
 export interface StemKitNativePlugin {
+  setLanguage(opts: { language: 'it' | 'en' }): Promise<void>
   pickAudio(): Promise<PickedAudio>
   upload(opts: { id: string; uri: string; url: string; pin: string; filename: string }): Promise<{ status: number; body: string }>
   download(opts: { id: string; url: string; pin: string; path: string }): Promise<{ path: string; size: number }>

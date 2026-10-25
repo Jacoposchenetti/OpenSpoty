@@ -21,6 +21,7 @@ import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t as tr } from '../lib/i18n'
 import { fmtTime } from '../lib/format'
 import { isNative } from '../lib/native'
 import { STEM_META, type MixState, type StemId } from '../lib/types'
@@ -88,7 +89,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     const t = pb.position()
     void moveLine(song.id, lyrics, index, t).then((l) => {
       setLyrics(l)
-      store.showToast(`Riga spostata a ${fmtTime(t)}`)
+      store.showToast(tr('Riga spostata a {time}', { time: fmtTime(t) }))
     })
   }
 
@@ -169,16 +170,16 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   return (
     <div className="lyrics">
       <header className="player-head">
-        <button className="icon-btn" onClick={onClose} aria-label="Chiudi">
+        <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
           <ChevronDown />
         </button>
         <div className="player-title">
           <div className="title">{name}</div>
-          <div className="sub">{artist || (lines ? 'Testo sincronizzato' : 'Testo')}</div>
+          <div className="sub">{artist || (lines ? tr('Testo sincronizzato') : tr('Testo'))}</div>
         </div>
-        <button className={`chords-btn ${showChords ? 'on' : ''}`} onClick={toggleChords} aria-label="Accordi">
+        <button className={`chords-btn ${showChords ? 'on' : ''}`} onClick={toggleChords} aria-label={tr('Accordi')}>
           <Guitar />
-          <small>Accordi</small>
+          <small>{tr('Accordi')}</small>
         </button>
       </header>
 
@@ -186,43 +187,43 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
 
       <div className="chord-bar">
         <span className="stepper-mini">
-          <button onClick={() => setSpeed(speed - 0.05)} aria-label="Più lenta">
+          <button onClick={() => setSpeed(speed - 0.05)} aria-label={tr('Più lenta')}>
             <Minus />
           </button>
-          <span>Velocità {Math.round(speed * 100)}%</span>
-          <button onClick={() => setSpeed(speed + 0.05)} aria-label="Più veloce">
+          <span>{tr('Velocità')} {Math.round(speed * 100)}%</span>
+          <button onClick={() => setSpeed(speed + 0.05)} aria-label={tr('Più veloce')}>
             <Plus />
           </button>
         </span>
         <span className="stepper-mini">
-          <button onClick={() => setPitch(pitch - 1)} aria-label="Mezzo tono sotto">
+          <button onClick={() => setPitch(pitch - 1)} aria-label={tr('Mezzo tono sotto')}>
             <Minus />
           </button>
-          <span>Tono {pitch > 0 ? `+${pitch}` : pitch || '0'}</span>
-          <button onClick={() => setPitch(pitch + 1)} aria-label="Mezzo tono sopra">
+          <span>{tr('Tono')} {pitch > 0 ? `+${pitch}` : pitch || '0'}</span>
+          <button onClick={() => setPitch(pitch + 1)} aria-label={tr('Mezzo tono sopra')}>
             <Plus />
           </button>
         </span>
-        <button className="more" onClick={() => setShowTempo(true)} aria-label="BPM e count-in">
+        <button className="more" onClick={() => setShowTempo(true)} aria-label={tr('BPM e count-in')}>
           <SlidersHorizontal />
         </button>
-        {!isNative && <span className="muted small">velocità e tono: solo sul telefono</span>}
+        {!isNative && <span className="muted small">{tr('velocità e tono: solo sul telefono')}</span>}
       </div>
 
       {showChords && chords && (
         <div className="chord-bar">
           {key && <span className="key">{keyName(key, pitch)}</span>}
           <span className="capo">
-            <button onClick={() => (setCapo(Math.max(0, capo - 1)), setPref(`capo:${songId}`, String(Math.max(0, capo - 1))))} aria-label="Capotasto giù">
+            <button onClick={() => (setCapo(Math.max(0, capo - 1)), setPref(`capo:${songId}`, String(Math.max(0, capo - 1))))} aria-label={tr('Capotasto giù')}>
               <Minus />
             </button>
-            Capo {capo || 'no'}
-            <button onClick={() => (setCapo(Math.min(9, capo + 1)), setPref(`capo:${songId}`, String(Math.min(9, capo + 1))))} aria-label="Capotasto su">
+            {tr('Capo')} {capo || tr('no')}
+            <button onClick={() => (setCapo(Math.min(9, capo + 1)), setPref(`capo:${songId}`, String(Math.min(9, capo + 1))))} aria-label={tr('Capotasto su')}>
               <Plus />
             </button>
           </span>
           <button className={`simple ${simple ? 'on' : ''}`} onClick={() => (setSimple(!simple), setPref('chords-simple', simple ? '0' : '1'))}>
-            Semplici
+            {tr('Semplici')}
           </button>
         </div>
       )}
@@ -231,13 +232,13 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         {showChords && pct !== null && (
           <div className="chord-wait">
             <Spinner size={26} />
-            <span>Riconosco gli accordi… {pct}%</span>
-            <span className="muted small">Una volta sola per canzone: poi restano salvati.</span>
+            <span>{tr('Riconosco gli accordi…')} {pct}%</span>
+            <span className="muted small">{tr('Una volta sola per canzone: poi restano salvati.')}</span>
           </div>
         )}
         {showChords && chordErr && (
           <div className="notice error">
-            {chordErr} <button onClick={() => analyse()}>Riprova</button>
+            {chordErr} <button onClick={() => analyse()}>{tr('Riprova')}</button>
           </div>
         )}
         {!lyrics && !showChords && (
@@ -247,9 +248,9 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         )}
         {lyrics && !lyrics.found && !(showChords && chords) && (
           <div className="empty">
-            <p className="big">Testo non trovato</p>
-            <p>LRCLIB non ha questa canzone (o il titolo è scritto in modo diverso).</p>
-            <button onClick={() => load(true)}>Riprova</button>
+            <p className="big">{tr('Testo non trovato')}</p>
+            <p>{tr('LRCLIB non ha questa canzone (o il titolo è scritto in modo diverso).')}</p>
+            <button onClick={() => load(true)}>{tr('Riprova')}</button>
           </div>
         )}
 
@@ -321,28 +322,28 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
           <div className="align-note">
             {alignErr}
             <button className="link-btn small" onClick={() => lyrics && align(lyrics)}>
-              Riprova
+              {tr('Riprova')}
             </button>
           </div>
         )}
         {lyrics && !lines && lyrics.plain && <pre className="lyrics-plain">{lyrics.plain}</pre>}
-        {lyrics?.instrumental && !lines && !lyrics.plain && !showChords && <p className="muted">Brano strumentale.</p>}
+        {lyrics?.instrumental && !lines && !lyrics.plain && !showChords && <p className="muted">{tr('Brano strumentale.')}</p>}
         {lyrics?.found && (
           <p className="credits">
-            Testi da LRCLIB
-            {lyrics.aligned && !lyrics.synced ? ' · tempi ricavati dalla voce' : ''}
-            {showChords && chords ? ' · accordi riconosciuti dall’audio: toccane uno per correggerlo' : ''}
-            {lines?.length ? ' · una riga fuori tempo? Tienila premuta quando inizia e si sposta lì' : ''}
+            {tr('Testi da LRCLIB')}
+            {lyrics.aligned && !lyrics.synced ? ` · ${tr('tempi ricavati dalla voce')}` : ''}
+            {showChords && chords ? ` · ${tr('accordi riconosciuti dall’audio: toccane uno per correggerlo')}` : ''}
+            {lines?.length ? ` · ${tr('una riga fuori tempo? Tienila premuta quando inizia e si sposta lì')}` : ''}
           </p>
         )}
         {lyrics?.aligned && !lyrics.synced && !aligning && (
           <button className="link-btn small" onClick={() => align({ ...lyrics, aligned: undefined })}>
-            <RotateCcw /> Ricalcola i tempi del testo
+            <RotateCcw /> {tr('Ricalcola i tempi del testo')}
           </button>
         )}
         {showChords && chords && (
           <button className="link-btn small" onClick={() => analyse(true)}>
-            <RotateCcw /> Rianalizza
+            <RotateCcw /> {tr('Rianalizza')}
           </button>
         )}
       </div>
@@ -409,10 +410,10 @@ function ChordEditor({ seg, d, onClose, onSave }: { seg: ChordSeg; d: Display; o
         ))}
       </div>
       <button className="primary" onClick={() => onSave(label)}>
-        Usa {chordName(label, { ...d, simple: false })}
+        {tr('Usa')} {chordName(label, { ...d, simple: false })}
       </button>
-      <button onClick={() => onSave('')}>Nessun accordo qui</button>
-      <button onClick={() => onSave(null)}>Ripristina quello riconosciuto</button>
+      <button onClick={() => onSave('')}>{tr('Nessun accordo qui')}</button>
+      <button onClick={() => onSave(null)}>{tr('Ripristina quello riconosciuto')}</button>
     </Sheet>
   )
 }
@@ -427,11 +428,11 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
       <div className="mixer-empty">
         {job?.state === 'running' && job.songId === song.id ? (
           <span className="muted small">
-            <Spinner size={14} /> Separo le tracce… {Math.round(job.pct)}%
+            <Spinner size={14} /> {tr('Separo le tracce…')} {Math.round(job.pct)}%
           </span>
         ) : (
           <button className="small" onClick={() => void store.splitLater(song)}>
-            <SlidersVertical /> Separa voce e strumenti
+            <SlidersVertical /> {tr('Separa voce e strumenti')}
           </button>
         )}
       </div>
@@ -447,7 +448,7 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
         const on = audible(id)
         return (
           <div key={id} className={`mx ${on ? 'on' : 'off'}`} style={{ ['--c' as string]: meta.color }}>
-            <button className="mx-name" onClick={() => toggleMute(id)} disabled={!!mix.solo.length} aria-label={`${meta.label}: ${on ? 'attiva' : 'silenziata'}`}>
+            <button className="mx-name" onClick={() => toggleMute(id)} disabled={!!mix.solo.length} aria-label={`${meta.label}: ${on ? tr('attiva') : tr('silenziata')}`}>
               {meta.label}
             </button>
             <input
@@ -457,7 +458,7 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
               step={0.01}
               value={mix.vols[id] ?? 1}
               onChange={(e) => onChange({ ...mix, vols: { ...mix.vols, [id]: Number(e.target.value) } })}
-              aria-label={`Volume ${meta.label}`}
+              aria-label={`${tr('Volume')} ${meta.label}`}
             />
             <button className={`mx-solo ${mix.solo.includes(id) ? 'active' : ''}`} onClick={() => toggleSolo(id)} aria-label={`Solo ${meta.label}`}>
               S
@@ -466,8 +467,8 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
         )
       })}
       <div className="mx-presets">
-        <button onClick={() => onChange({ ...mix, muted: [], solo: [], vols: {} })}>Tutte</button>
-        {song.stems.includes('vocals') && <button onClick={() => onChange({ ...mix, muted: ['vocals'], solo: [] })}>Senza voce</button>}
+        <button onClick={() => onChange({ ...mix, muted: [], solo: [], vols: {} })}>{tr('Tutte')}</button>
+        {song.stems.includes('vocals') && <button onClick={() => onChange({ ...mix, muted: ['vocals'], solo: [] })}>{tr('Senza voce')}</button>}
       </div>
     </div>
   )
@@ -508,7 +509,7 @@ export function PlayBar() {
             scrubbing.current = false
             pb.seek(Number((e.target as HTMLInputElement).value))
           }}
-          aria-label="Posizione"
+          aria-label={tr('Posizione')}
         />
         <span>{fmtTime(pb.duration)}</span>
       </div>
@@ -520,14 +521,14 @@ export function PlayBar() {
           B {b !== null ? fmtTime(b) : ''}
         </button>
         <button className={loopOn ? 'active' : ''} disabled={a === null || b === null || b <= a} onClick={() => pb.setLoop(loopOn ? null : { a: a!, b: b! })}>
-          Loop
+          {tr('Loop')}
         </button>
         {(a !== null || b !== null) && (
-          <button onClick={() => (pb.setLoop(null), setA(null), setB(null))} aria-label="Cancella loop">
+          <button onClick={() => (pb.setLoop(null), setA(null), setB(null))} aria-label={tr('Cancella loop')}>
             <X />
           </button>
         )}
-        <button className="pb-play" disabled={!ready && !pb.loading} onClick={pb.toggle} aria-label={pb.playing ? 'Pausa' : 'Play'}>
+        <button className="pb-play" disabled={!ready && !pb.loading} onClick={pb.toggle} aria-label={pb.playing ? tr('Pausa') : tr('Play')}>
           {pb.loading ? <Spinner size={24} /> : pb.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </button>
       </div>

@@ -18,6 +18,7 @@ import {
 import { addRecent } from '../lib/recents'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t as tr } from '../lib/i18n'
 
 /* A podcast like on Spotify: its picture, Segui, what it is about, and the
    episodes newest first, each with how much of it you heard. */
@@ -47,7 +48,7 @@ export function PodcastPage({ feed }: { feed: string }) {
 
   const top = (
     <div className="list-top">
-      <button className="icon-btn back" onClick={store.closePage} aria-label="Indietro">
+              <button className="icon-btn back" onClick={store.closePage} aria-label={tr('Indietro')}>
         <ChevronLeft />
       </button>
     </div>
@@ -90,12 +91,12 @@ export function PodcastPage({ feed }: { feed: string }) {
             className={`follow-btn ${following ? 'on' : ''}`}
             onClick={() => {
               store.toggleFollow({ uri: key, name: p.name, image: p.image })
-              store.showToast(following ? `Non segui più ${p.name}` : `Ora segui ${p.name}`)
+              store.showToast(following ? `${tr('Non segui più')} ${p.name}` : `${tr('Ora segui')} ${p.name}`)
             }}
           >
-            {following ? 'Segui già' : 'Segui'}
+            {following ? tr('Segui già') : tr('Segui')}
           </button>
-          <button className="primary pod-play" disabled={!songs.length} onClick={() => play(0)} aria-label="Ascolta l'ultimo episodio">
+          <button className="primary pod-play" disabled={!songs.length} onClick={() => play(0)} aria-label={tr("Ascolta l'ultimo episodio")}>
             <Play fill="currentColor" />
           </button>
         </div>
@@ -105,13 +106,13 @@ export function PodcastPage({ feed }: { feed: string }) {
           </p>
         )}
       </div>
-      <h3 className="sec">Episodi</h3>
+      <h3 className="sec">{tr('Episodi')}</h3>
       {p.episodes.slice(0, shown).map((e, i) => (
         <EpisodeRow key={e.guid} e={e} p={p} current={pb.now?.songId === songs[i]?.id} onPlay={() => play(i)} />
       ))}
       {p.episodes.length > shown && (
         <button className="link-btn" onClick={() => setShown(shown + 30)}>
-          Mostra altri episodi
+          {tr('Mostra altri episodi')}
         </button>
       )}
     </div>
@@ -131,7 +132,7 @@ function EpisodeRow({ e, p, current, onPlay }: { e: Episode; p: PodcastFeed; cur
         <span className="row-title">{e.title}</span>
         <span className="row-sub">
           {shortDate(e.date)}
-          {e.duration ? ` · ${prog?.done ? 'Ascoltato' : prog ? `mancano ${longTime(left)}` : longTime(e.duration)}` : ''}
+          {e.duration ? ` · ${prog?.done ? tr('Ascoltato') : prog ? `${tr('mancano')} ${longTime(left)}` : longTime(e.duration)}` : ''}
         </span>
         {prog && !prog.done && (
           <span className="ep-bar">
@@ -139,7 +140,7 @@ function EpisodeRow({ e, p, current, onPlay }: { e: Episode; p: PodcastFeed; cur
           </span>
         )}
       </button>
-      {prog?.done && <Check className="in-lib-mark" aria-label="Ascoltato" />}
+      {prog?.done && <Check className="in-lib-mark" aria-label={tr('Ascoltato')} />}
       {isNative && (
         <button
           className="icon-btn"
@@ -149,12 +150,12 @@ function EpisodeRow({ e, p, current, onPlay }: { e: Episode; p: PodcastFeed; cur
             downloadEpisode(song, e.url)
               .then(() => {
                 setHave(true)
-                store.showToast('Episodio scaricato: si ascolta anche offline')
+                store.showToast(tr('Episodio scaricato: si ascolta anche offline'))
               })
               .catch((x) => store.showToast(errMsg(x)))
               .finally(() => setBusy(false))
           }}
-          aria-label={have ? 'Scaricato' : 'Scarica'}
+          aria-label={have ? tr('Scaricato') : tr('Scarica')}
         >
           {busy ? <Spinner size={16} /> : have ? <CircleArrowDown className="dl-mark" /> : <Download />}
         </button>
@@ -184,7 +185,7 @@ export function NewEpisodes() {
   if (!list?.length) return null
   return (
     <section className="shelf">
-      <h3>Nuovi episodi</h3>
+      <h3>{tr('Nuovi episodi')}</h3>
       <div className="shelf-row">
         {list.map(({ e, p }) => {
           const s = episodeSong(e, p)
@@ -195,13 +196,13 @@ export function NewEpisodes() {
               className="card-tile"
               onClick={() => {
                 store.addTemp([s])
-                pb.playList([s.id], 0, 'Nuovi episodi')
+                pb.playList([s.id], 0, tr('Nuovi episodi'))
               }}
             >
               {e.image || p.image ? <img src={e.image || p.image} alt="" loading="lazy" /> : <span className="tile-ph" />}
               <span className="tile-title">{e.title}</span>
               <span className="tile-sub">
-                {p.name} · {prog?.done ? 'Ascoltato' : shortDate(e.date)}
+                {p.name} · {prog?.done ? tr('Ascoltato') : shortDate(e.date)}
               </span>
             </button>
           )

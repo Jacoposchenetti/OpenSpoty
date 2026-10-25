@@ -6,6 +6,7 @@ import { SyncButton, SyncSheet } from './components/SyncSheet'
 import { UpdateBanner } from './components/UpdateBanner'
 import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
+import { t, useLocale } from './lib/i18n'
 import { Add } from './screens/Add'
 import { Library } from './screens/Library'
 import { CatalogPage } from './screens/Catalog'
@@ -25,6 +26,7 @@ const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
 
 export function App() {
   const store = useStore()
+  const { language, setLanguage } = useLocale()
   const storeRef = useRef(store)
   storeRef.current = store
   const [syncOpen, setSyncOpen] = useState(false)
@@ -59,9 +61,18 @@ export function App() {
             {store.deviceJob?.state === 'running' && (
               <button className="pill" onClick={() => store.setTab('add')}>
                 <SlidersVertical /> {Math.round(store.deviceJob.pct)}%
-                {store.deviceJob.queue?.length ? ` · +${store.deviceJob.queue.length} in coda` : ''}
+                {store.deviceJob.queue?.length ? ` · +${store.deviceJob.queue.length} ${t('in coda')}` : ''}
               </button>
             )}
+            <select
+              className="language-select"
+              aria-label={t('Lingua')}
+              value={language}
+              onChange={(event) => setLanguage(event.target.value === 'it' ? 'it' : 'en')}
+            >
+              <option value="it">{t('Italiano')}</option>
+              <option value="en">{t('English')}</option>
+            </select>
             <SyncButton onClick={() => setSyncOpen(true)} />
           </header>
           <UpdateBanner />
@@ -78,18 +89,18 @@ export function App() {
           </main>
           <MiniPlayer />
           <nav className="tabs" hidden={typing}>
-            {TABS.map((t) => (
+            {TABS.map((tab) => (
               <button
-                key={t.id}
-                className={store.tab === t.id ? 'active' : ''}
+                key={tab.id}
+                className={store.tab === tab.id ? 'active' : ''}
                 onClick={() => {
                   // tapping Libreria again goes back to the overview, like Spotify
-                  if (t.id === 'library' && store.tab === 'library') store.setLibView(null)
-                  store.setTab(t.id)
+                  if (tab.id === 'library' && store.tab === 'library') store.setLibView(null)
+                  store.setTab(tab.id)
                 }}
               >
-                <t.icon className="tab-icon" />
-                {t.label}
+                <tab.icon className="tab-icon" />
+                {t(tab.label)}
               </button>
             ))}
           </nav>

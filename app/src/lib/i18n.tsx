@@ -1,0 +1,470 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { isNative, StemKitNative } from './native'
+
+export type Language = 'it' | 'en'
+
+const STORAGE_KEY = 'openspoty:language'
+
+function detectLanguage(): Language {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved === 'it' || saved === 'en') return saved
+  } catch {
+    // Storage may be unavailable in private browsing.
+  }
+  const preferences = navigator.languages?.length ? navigator.languages : [navigator.language]
+  for (const preference of preferences) {
+    const language = preference.toLowerCase()
+    if (language.startsWith('it')) return 'it'
+    if (language.startsWith('en')) return 'en'
+  }
+  return 'en'
+}
+
+let currentLanguage = detectLanguage()
+
+const en: Record<string, string> = {
+  "Libreria": 'Library',
+  "brano": 'song',
+  "Cerca": 'Search',
+  "Accorda": 'Tuner',
+  "Sveglia": 'Alarm',
+  "Cattura": 'Identify',
+  "Collega il PC": 'Connect PC',
+  "Sincronizzazione": 'Synchronization',
+  "Telefono e PC": 'Phone and PC',
+  "Indirizzo": 'Address',
+  "Collega": 'Connect',
+  "Collegamento…": 'Connecting…',
+  "6 cifre": '6 digits',
+  "Sul PC apri OpenSpoty: in alto a destra trovi indirizzo e PIN.": 'Open OpenSpoty on your PC. You will find the address and PIN in the top-right corner.',
+  "Sincronizza ora": 'Sync now',
+  "Cambia PC": 'Change PC',
+  "Copio i brani: {done}/{total} file": 'Copying tracks: {done}/{total} files',
+  "Sincronizzo…": 'Syncing…',
+  "PC non raggiungibile: è acceso e sullo stesso Wi-Fi?": 'PC not reachable. Is it on and connected to the same Wi-Fi network?',
+  "In attesa…": 'Waiting…',
+  "Aggiornamento disponibile": 'Update available',
+  "Aggiorna": 'Update',
+  "Più tardi": 'Later',
+  "Riavvio OpenSpoty…": 'Restarting OpenSpoty…',
+  "Consenti \"Installa app sconosciute\" a OpenSpoty, poi torna qui e tocca di nuovo Aggiorna.": 'Allow OpenSpoty to install unknown apps, then return here and tap Update again.',
+  "Ascoltati di recente": 'Recently played',
+  "La tua libreria": 'Your library',
+  "Playlist": 'Playlist',
+  "Tutti i brani": 'All songs',
+  "brani": 'songs',
+  "Brani che ti piacciono": 'Liked songs',
+  "Catture recenti": 'Recent identifications',
+  "Ascolta": 'Listen',
+  "Aggiungi": 'Add',
+  "Condividi": 'Share',
+  "Chiudi": 'Close',
+  "Tocca per Cattura": 'Tap to identify a song',
+  "Avvicina il telefono alla musica. Tocca di nuovo per fermare.": 'Move your phone closer to the music. Tap again to stop.',
+  "Non l’ho riconosciuta: riprova più vicino alla musica.": 'Could not identify it. Try moving closer to the music.',
+  "Cerco…": 'Searching…',
+  "In ascolto…": 'Listening…',
+  "Ferma": 'Stop',
+  "Suona una corda": 'Play a string',
+  "Accordata ✓": 'In tune ✓',
+  "Accordatura": 'Tuning',
+  "Tocca una corda per sentirne la nota e accordare solo quella; tocca di nuovo per tornare automatico.": 'Tap a string to hear its note and tune it on its own. Tap again to return to automatic mode.',
+  "La più basso": 'Lower A',
+  "La più alto": 'Higher A',
+  "Serve il permesso del microfono per accordare.": 'Microphone permission is required to use the tuner.',
+  "Nessuna canzone": 'No songs',
+  "Playlist vuota": 'Empty playlist',
+  "Annulla": 'Cancel',
+  "Rinomina": 'Rename',
+  "Aggiungi brani": 'Add songs',
+  "Aggiungi a playlist…": 'Add to playlist…',
+  "Crea una playlist per la serata con “Playlist”: poi puoi riordinarla trascinando i brani.": 'Create a playlist for your session with “Playlist”. Then drag songs to reorder them.',
+  "Tieni premuto": 'Press and hold',
+  "e trascina per cambiare l’ordine.": 'and drag to change the order.',
+  "Nessun brano con “{query}”.": 'No songs match “{query}”.',
+  "Nuova playlist…": 'New playlist…',
+  "Ferma a fine brano": 'Stop after this song',
+  "Riproduzione automatica": 'Autoplay',
+  "Quando la lista finisce continua con brani simili, come Spotify.": 'When the list ends, continue with similar songs.',
+  "Utile dal vivo: non parte da sola la canzone successiva.": 'Useful for live playing: the next song will not start automatically.',
+  "Separa le tracce (per suonarci sopra)": 'Separate stems (to play along)',
+  "Metti in coda": 'Add to queue',
+  "Rimuovi da “{name}”": 'Remove from “{name}”',
+  "Ordine playlist": 'Playlist order',
+  "Aggiunte di recente": 'Recently added',
+  "Titolo A–Z": 'Title A–Z',
+  "Artista": 'Artist',
+  "Ancora nessuna canzone": 'No songs yet',
+  "Cercale e separale dalla scheda Cerca.": 'Find songs and separate their stems from the Search tab.',
+  "Tutte": 'All',
+  "Senza voce": 'No vocals',
+  "Semplici": 'Simplified',
+  "Vai all’artista": 'Go to artist',
+  "Scarica sul dispositivo": 'Download to device',
+  "Rimuovi download": 'Remove download',
+  "Separa le tracce": 'Separate stems',
+  "Link dell’episodio copiato": 'Episode link copied',
+  "Chitarra · standard": 'Guitar · Standard',
+  "Chitarra · Drop D": 'Guitar · Drop D',
+  "Chitarra · mezzo tono sotto": 'Guitar · Half-step down',
+  "Chitarra · DADGAD": 'Guitar · DADGAD',
+  "Chitarra · Open G": 'Guitar · Open G',
+  "Basso 4 corde": '4-string bass',
+  "Basso 5 corde": '5-string bass',
+  "Ukulele": 'Ukulele',
+  "Cromatico (tutte le note)": 'Chromatic (all notes)',
+  "Corda": 'String',
+  "Troppo bassa · {cents} cent: tendi la corda": 'Too low · {cents} cents: tighten the string',
+  "Troppo alta · {cents} cent: allenta la corda": 'Too high · {cents} cents: loosen the string',
+  "Artisti che segui": 'Artists you follow',
+  "Podcast che segui": 'Podcasts you follow',
+  "Es. Serata sabato": 'e.g. Saturday jam',
+  "Copiata negli appunti": 'Copied to clipboard',
+  "Scaricata": 'Downloaded',
+  "Indietro": 'Back',
+  "Cerca in questa lista": 'Search this list',
+  "Ordina": 'Sort',
+  "Riproduci": 'Play',
+  "Completa": 'Complete',
+  "Cancella": 'Clear',
+  "Recenti": 'Recent',
+  "Togli": 'Remove',
+  "Cosa vuoi ascoltare?": 'What do you want to listen to?',
+  "In libreria": 'In library',
+  "Playlist Spotify": 'Spotify playlist',
+  "Link copiato": 'Link copied',
+  "Impossibile collegarsi": 'Could not connect',
+  "Nessun risultato": 'No results',
+  "Ultima sincronizzazione col telefono alle {time}.": 'Last synced with phone at {time}.',
+  "Il telefono non si è ancora sincronizzato.": 'The phone has not synced yet.',
+  "Per collegare il telefono": 'To connect your phone',
+  "Sincronizzato{pc} alle {time}": 'Synced{pc} at {time}',
+  "Cerca una canzone": 'Search for a song',
+  "Cerca la tua musica": 'Search your music',
+  "Cancella ricerche recenti": 'Clear recent searches',
+  "Opzioni": 'Options',
+  "Opzioni playlist": 'Playlist options',
+  "Tieni premuto e trascina per cambiare l’ordine.": 'Press and hold, then drag to change the order.',
+  "Nuova playlist": 'New playlist',
+  "Rinomina playlist": 'Rename playlist',
+  "Crea": 'Create',
+  "Salva": 'Save',
+  "Canzone rimossa": 'Song removed',
+  "Aggiunta alla coda": 'Added to queue',
+  "Video YouTube": 'YouTube video',
+  "Album Spotify": 'Spotify album',
+  "Telefono": 'Phone',
+  "PC": 'PC',
+  "Riproduzione casuale": 'Shuffle playback',
+  "Ripeti": 'Repeat',
+  "Velocità": 'Speed',
+  "Tono": 'Pitch',
+  "Accordi": 'Chords',
+  "Testo": 'Lyrics',
+  "Tutte le tracce": 'All stems',
+  "Volume": 'Volume',
+  "Solo": 'Solo',
+  "Aggiungi a playlist": 'Add to playlist',
+  "Sposta in un’altra playlist…": 'Move to another playlist…',
+  "Apri l'app sul telefono o sul PC per cercare canzoni.": 'Open the app on your phone or PC to search for songs.',
+  "Nessun risultato.": 'No results.',
+  "Non seguire più": 'Unfollow',
+  "Segui": 'Follow',
+  "Già in libreria": 'Already in library',
+  "Aggiungi alla libreria": 'Add to library',
+  "Scarica anche sul dispositivo": 'Also download to this device',
+  "Separa anche le tracce": 'Also separate stems',
+  "Sveglie": 'Alarms',
+  "Le sveglie suonano sul telefono.": 'Alarms ring on your phone.',
+  "Svegliati con la tua musica: una canzone, una playlist, un album o un artista.": 'Wake up to your music: a song, playlist, album, or artist.',
+  "Svegliami con": 'Wake me up with',
+  "Quando le canzoni finiscono": 'When songs finish',
+  "I brani simili arrivano da internet: servirà la connessione.": 'Similar songs are streamed, so an internet connection is required.',
+  "Nome (facoltativo)": 'Name (optional)',
+  "Mese prima": 'Previous month',
+  "Mese dopo": 'Next month',
+  "Cerca un brano, un album o un artista": 'Search for a song, album, or artist',
+  "artista (brani popolari)": 'artist (popular songs)',
+  "Nuova": 'New',
+  "Prossima sveglia": 'Next alarm',
+  "Per vedere la sveglia sopra la schermata di blocco, consenti le notifiche a schermo intero.": 'To show alarms over the lock screen, allow full-screen notifications.',
+  "Consenti": 'Allow',
+  "Timer di spegnimento": 'Sleep timer',
+  "Fine brano": 'End of song',
+  "ore": 'hours',
+  "minuti": 'minutes',
+  "secondi": 'seconds',
+  "In pausa.": 'Paused.',
+  "Poi la musica si ferma.": 'Music will stop after this.',
+  "La musica si ferma dopo questo tempo.": 'Music stops after this time.',
+  "Riprendi": 'Resume',
+  "Pausa": 'Pause',
+  "Avvia": 'Start',
+  "Nuova sveglia": 'New alarm',
+  "Ogni settimana": 'Every week',
+  "Una data": 'One time',
+  "In ordine casuale": 'Shuffle',
+  "Fermati": 'Stop',
+  "Sale piano piano in {time}": 'Fade in over {time}',
+  "Posticipa di {time} min": 'Snooze for {time} min',
+  "Elimina sveglia": 'Delete alarm',
+  "Svegliami con…": 'Wake me up with…',
+  "Tutta la libreria": 'Entire library',
+  "album": 'album',
+  "Tutti i giorni": 'Every day',
+  "Una volta": 'Once',
+  "Lun–ven": 'Mon–Fri',
+  "Weekend": 'Weekend',
+  "passata · ": 'missed · ',
+  "Posticipa": 'Snooze',
+  "Stop": 'Stop',
+  "Niente in riproduzione": 'Nothing is playing',
+  "Tocca una canzone nella libreria per farla partire.": 'Tap a song in your library to start playing.',
+  "Chiudi il player": 'Close player',
+  "Dalla coda": 'From queue',
+  "In riproduzione": 'Now playing',
+  "poi:": 'next:',
+  "Opzioni del brano": 'Song options',
+  "Tutto": 'All',
+  "Brano": 'Track',
+  "Preferito": 'Favorite',
+  "Mi piace": 'Like',
+  "Suona": 'Play along',
+  "Preparo l’episodio…": 'Loading episode…',
+  "Preparo la canzone…": 'Loading song…',
+  "Posizione": 'Position',
+  "Precedente o inizio": 'Previous or start',
+  "Play": 'Play',
+  "Avanti": 'Forward',
+  "Successiva": 'Next',
+  "Volume generale": 'Master volume',
+  "Coda": 'Queue',
+  "Tono, velocità e tempo": 'Pitch, speed, and tempo',
+  "Si salvano per questa canzone. Il tono non cambia la velocità e viceversa.": 'These settings are saved for this song. Pitch and speed are independent.',
+  "Tonalità": 'Key',
+  "Mezzo tono sotto": 'Down one semitone',
+  "Mezzo tono sopra": 'Up one semitone',
+  "originale": 'original',
+  "semitoni": 'semitones',
+  "Più lenta": 'Slower',
+  "Più veloce": 'Faster',
+  "Originali": 'Original',
+  "Tempo e count-in": 'Tempo and count-in',
+  "Metà": 'Half',
+  "Doppio": 'Double',
+  "calcolo…": 'calculating…',
+  "Tocca a tempo (tap tempo)": 'Tap along to set tempo',
+  "Count-in no": 'Count-in off',
+  "1 battuta": '1 bar',
+  "2 battute": '2 bars',
+  "Con il count-in, quando premi play senti {count} colpi al tempo del brano prima che parta (vale per tutte le canzoni). Se il BPM è il doppio o la metà di quello giusto, correggilo con ×2 / ÷2 o battendo il tempo.": 'With count-in enabled, you hear {count} beats at the song tempo before playback starts. This applies to all songs. If the BPM is double or half the correct tempo, use ×2 / ÷2 or tap the beat to correct it.',
+  "Tono e velocità per ora funzionano solo sul telefono.": 'Pitch and speed controls are currently available on the phone only.',
+  "ora": 'now',
+  "Prossime in coda": 'Up next in queue',
+  "Vuota: usa “Metti in coda” dal menu ⋮ di un brano.": 'Queue is empty. Use “Add to queue” from a song menu.',
+  "Togli dalla coda": 'Remove from queue',
+  "Riproduzione automatica: brani simili": 'Autoplay: similar songs',
+  "Apri il player": 'Open player',
+  "Togli dai preferiti": 'Remove from favorites',
+  "Aggiungi ai preferiti": 'Add to favorites',
+  "Elimina playlist": 'Delete playlist',
+  "Le canzoni restano nella libreria: sparisce solo la playlist.": 'Songs remain in your library; only the playlist is removed.',
+  "Sparisce dalla libreria e da tutte le playlist. Le tracce separate vengono cancellate.": 'This removes the song from your library and all playlists. Its separated stems will be deleted.',
+  "Eliminare “{name}”?": 'Delete “{name}”?',
+  "Eliminare “{name}” dal telefono?": 'Delete “{name}” from this phone?',
+  "separazione": 'separating',
+  "Rinomina brano": 'Rename song',
+  "Elimina": 'Delete',
+  "Togli da “Brani che ti piacciono”": 'Remove from “Liked songs”',
+  "Aggiungi a “Brani che ti piacciono”": 'Add to “Liked songs”',
+  "Vai all'artista": 'Go to artist',
+  "Vai all'album": 'Go to album',
+  "Vai agli artisti": 'Go to artists',
+  "Apri il mixer delle tracce": 'Open stem mixer',
+  "Nome della playlist": 'Playlist name',
+  "Ci sono già tutte le canzoni della libreria.": 'All songs in your library are already here.',
+  "Rimuovi i download": 'Remove downloads',
+  "Scarica tutti": 'Download all',
+  "Rimuovere i download?": 'Remove downloads?',
+  "Tocca per": 'Tap to',
+  "Nella libreria": 'In library',
+  "Brani consigliati": 'Recommended songs',
+  "In base ai brani di questa playlist": 'Based on songs in this playlist',
+  "Ora segui": 'Now following',
+  "Segui già": 'Following',
+  "ascoltatori mensili": 'monthly listeners',
+  "Popolari": 'Popular',
+  "Mostra meno": 'Show less',
+  "Mostra altro": 'Show more',
+  "Discografia": 'Discography',
+  "Singoli ed EP": 'Singles and EPs',
+  "Raccolte": 'Compilations',
+  "Appare in": 'Appears on',
+  "Informazioni": 'About',
+  "Singolo": 'Single',
+  "Raccolta": 'Compilation',
+  "Salva e scarica": 'Save and download',
+  "Brani simili": 'Similar songs',
+  "Casuale": 'Shuffle',
+  "Album": 'Album',
+  "Fan anche di": 'Fans also like',
+  "Scarica": 'Download',
+  "Aggiunti di recente": 'Recently added',
+  "Note": 'Notes',
+  "Language / Lingua": 'Language',
+  "Testo sincronizzato": 'Synced lyrics',
+  "velocità e tono: solo sul telefono": 'speed and pitch: phone only',
+  "BPM e count-in": 'BPM and count-in',
+  "Riconosco gli accordi…": 'Recognizing chords…',
+  "Una volta sola per canzone: poi restano salvati.": 'This runs once per song; results are saved.',
+  "Riprova": 'Try again',
+  "Testo non trovato": 'Lyrics not found',
+  "LRCLIB non ha questa canzone (o il titolo è scritto in modo diverso).": 'LRCLIB does not have this song (or the title may be written differently).',
+  "Brano strumentale.": 'Instrumental track.',
+  "Nessun accordo qui": 'No chord here',
+  "Ripristina quello riconosciuto": 'Restore detected chord',
+  "Separo le tracce…": 'Separating stems…',
+  "Separa voce e strumenti": 'Separate vocals and instruments',
+  "attiva": 'on',
+  "silenziata": 'muted',
+  "Ascolta l'ultimo episodio": 'Listen to the latest episode',
+  "Episodi": 'Episodes',
+  "Mostra altri episodi": 'Show more episodes',
+  "Ascoltato": 'Played',
+  "mancano": 'remaining',
+  "Episodio scaricato: si ascolta anche offline": 'Episode downloaded for offline listening',
+  "Nuovi episodi": 'New episodes',
+  "Scaricato": 'Downloaded',
+  "Originale": 'Original',
+  "Scarico il riconoscimento della voce (57 MB, una volta sola)": 'Downloading speech recognition data (57 MB, one time)',
+  "Trascrivo da": 'Transcribing from',
+  "Testo trascritto dall’audio con Whisper": 'Transcript generated from audio with Whisper',
+  "tradotto con Google Traduttore": 'translated with Google Translate',
+  ": può contenere errori.": ': may contain errors.',
+  "Non segui più": 'Unfollow',
+  "Elimina dal telefono": 'Delete from this phone',
+  "Artisti che potrebbero piacerti": 'Artists you might like',
+  "Brani che potrebbero piacerti": 'Songs you might like',
+  "Playlist da ascoltare": 'Playlists to listen to',
+  "Ultime uscite dei tuoi artisti": 'New releases from your artists',
+  "Sposta in…": 'Move to…',
+  "Aggiunta a “{name}”": 'Added to “{name}”',
+  "È già in “{name}”": 'Already in “{name}”',
+  "Spostata in “{name}”": 'Moved to “{name}”',
+  "Capo": 'Capo',
+  "no": 'off',
+  "Capotasto giù": 'Lower capo',
+  "Capotasto su": 'Raise capo',
+  "una riga fuori tempo? Tienila premuta quando inizia e si sposta lì": 'out of sync? Press and hold a lyric line when it starts to move it here',
+  "in coda": 'in queue', "In coda": 'In queue', "Lingua": 'Language', "Italiano": 'Italian', "English": 'English',
+  "Caricamento…": 'Loading…', "Trascina per spostare": 'Drag to move',
+  "Playlist “{name}” importata": 'Playlist “{name}” imported', "Non trovata su YouTube": 'Not found on YouTube',
+  "Aggiungo “{name}” alla libreria…": 'Adding “{name}” to your library…', "non trovati {count}": '{count} not found',
+  "Interrompi": 'Stop import', "Canzone": 'Song', "Annulla tutto": 'Cancel all', "passata": 'missed',
+  "In ascolto… {seconds} s": 'Listening… {seconds} s', "Artista sconosciuto": 'Unknown artist',
+  "“{name}” non trovato": '“{name}” not found', "Album non trovato": 'Album not found',
+  "Nessuno di questi brani trovato su YouTube": 'None of these songs were found on YouTube',
+  "Nessun brano trovato su YouTube": 'No songs found on YouTube',
+  "Aggiungi {name} a una playlist": 'Add {name} to a playlist', "Artisti": 'Artists',
+  "“{name}”: {count} brani nella playlist": '“{name}”: {count} songs in the playlist',
+  "Podcast": 'Podcast', "Riga spostata a {time}": 'Line moved to {time}', "Cancella loop": 'Clear loop',
+  "Note per questo brano": 'Notes for this song',
+  "Es. capo al 3° tasto · attacco dopo 4 battute · finale lungo": 'e.g. capo on fret 3 · start after 4 bars · long ending',
+  "Poi da “{name}”": 'Then from “{name}”', "libreria": 'library', "Vai al podcast": 'Go to podcast',
+  "Copia il link dell’episodio": 'Copy episode link', "Segnato come ascoltato": 'Marked as played',
+  "Segna come ascoltato": 'Mark as played', "Voce": 'Vocals', "Batteria": 'Drums', "Basso": 'Bass',
+  "Chitarra": 'Guitar', "Altro": 'Other',
+  "Download da YouTube": 'Downloading from YouTube', "Lettura dell’audio": 'Reading audio',
+  "Caricamento del modello": 'Loading model', "Separazione": 'Separating stems', "Compressione tracce": 'Encoding stems',
+  "Pronta": 'Ready', "Avvio…": 'Starting…', "Annullata": 'Cancelled', "Memoria insufficiente": 'Not enough memory',
+  "cartella non creata": 'Could not create folder',
+  "Il file originale non c’è più: riscarica la canzone": 'The original file is missing. Download the song again.',
+  "Il file non contiene audio": 'The file contains no audio', "Non riesco a leggere l’audio di questo file": 'Could not read audio from this file',
+  "file non leggibile": 'File cannot be read',
+  "“{name}”: tracce pronte": '“{name}”: stems are ready',
+  "“{name}” aggiunta alla libreria": '“{name}” added to your library',
+  "Questa canzone non si può separare qui": 'This song cannot be separated here',
+  "In coda: “{name}”": 'Queued: “{name}”', "Separo “{name}”…": 'Separating “{name}”…',
+  "I brani tornano in streaming e restano nella libreria e nelle playlist; senza internet non si possono ascoltare. Le tracce separate restano scaricate.": 'Songs return to streaming and stay in your library and playlists; they cannot be played offline. Separated stems remain downloaded.',
+  "Artisti…": 'Artists…', "Importa {count} brani": 'Import {count} songs', "OK": 'OK',
+  "Testi da LRCLIB": 'Lyrics from LRCLIB', "tempi ricavati dalla voce": 'timings aligned from the vocals',
+  "accordi riconosciuti dall’audio: toccane uno per correggerlo": 'chords recognized from the audio: tap one to edit it',
+  "Ricalcola i tempi del testo": 'Recalculate lyric timings', "Rianalizza": 'Analyze again', "Usa": 'Use', "Loop": 'Loop', "Studio": 'Practice',
+  "Tracce pronte": 'Stems ready', "Errore": 'Error', "Scarico l'audio": 'Downloading audio', "Preparo l'audio": 'Preparing audio',
+  "Separo le tracce": 'Separating stems', "Salvo le tracce": 'Saving stems', "motore interrotto": 'Engine stopped', "errore": 'Error',
+  "Serve il permesso del microfono per riconoscere la canzone": 'Microphone permission is required to identify a song',
+  "percorso non valido": 'Invalid path', "ricerca vuota": 'Empty search', "parametri non validi": 'Invalid parameters',
+  "Questa canzone è già in preparazione": 'This song is already being prepared', "indirizzo non valido": 'Invalid address',
+  "Errore {code} dal PC": 'PC error {code}', "Errore {code}": 'Error {code}'
+}
+
+export function t(source: string, values: Record<string, string | number> = {}): string {
+  let result = currentLanguage === 'it' ? source : en[source] ?? source
+  if (currentLanguage === 'en' && source.startsWith('Separazione · ~')) {
+    result = `Separating stems · ~${source.slice('Separazione · ~'.length)}`
+  } else if (currentLanguage === 'en' && /^Errore \d+( dal PC)?$/.test(source)) {
+    result = source.replace(/^Errore (\d+)( dal PC)?$/, (_, code: string, pc: string) => pc ? `PC error ${code}` : `Error ${code}`)
+  } else if (currentLanguage === 'en') {
+    const dynamicError = source.match(/^(Riconoscimento accordi|Allineamento del testo|Trascrizione|Traduzione|Ricerca) non riuscit[oa]: (.*)$/)
+    if (dynamicError) {
+      const operation: Record<string, string> = {
+        'Riconoscimento accordi': 'Chord recognition', 'Allineamento del testo': 'Lyric timing',
+        Trascrizione: 'Transcription', Traduzione: 'Translation', Ricerca: 'Search'
+      }
+      result = `${operation[dynamicError[1]]} failed: ${dynamicError[2]}`
+    } else {
+      const prefixedError = source.match(/^(Non riesco a leggere il file|Invio al PC fallito|Download fallito|Ricerca non riuscita|Download non riuscito|Non riesco ad aggiungere il file|Aggiornamento non scaricato|Riconoscimento non riuscito):?\s*(.*)$/)
+      if (prefixedError) {
+        const prefix: Record<string, string> = {
+          'Non riesco a leggere il file': 'Could not read file', 'Invio al PC fallito': 'PC transfer failed',
+          'Download fallito': 'Download failed', 'Ricerca non riuscita': 'Search failed',
+          'Download non riuscito': 'Download failed', 'Non riesco ad aggiungere il file': 'Could not add the file',
+          'Aggiornamento non scaricato': 'Update download failed', 'Riconoscimento non riuscito': 'Recognition failed'
+        }
+        result = `${prefix[prefixedError[1]]}${prefixedError[2] ? `: ${prefixedError[2]}` : ''}`
+      }
+    }
+  }
+  for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{${name}}`, String(value))
+  return result
+}
+
+export function localeTag(): string {
+  return currentLanguage === 'it' ? 'it-IT' : 'en-US'
+}
+
+interface LocaleContextValue {
+  language: Language
+  setLanguage(language: Language): void
+}
+
+const LocaleContext = createContext<LocaleContextValue | null>(null)
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(currentLanguage)
+  useEffect(() => {
+    document.documentElement.lang = language
+    if (isNative) void StemKitNative.setLanguage({ language }).catch(() => undefined)
+  }, [language])
+  const value = useMemo<LocaleContextValue>(() => ({
+    language,
+    setLanguage(next) {
+      currentLanguage = next
+      setLanguageState(next)
+      try {
+        localStorage.setItem(STORAGE_KEY, next)
+      } catch {
+        // Keep the selection for this session even when storage is unavailable.
+      }
+    }
+  }), [language])
+  currentLanguage = language
+  return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
+}
+
+export function useLocale(): LocaleContextValue {
+  const value = useContext(LocaleContext)
+  if (!value) throw new Error('useLocale must be used inside LocaleProvider')
+  return value
+}

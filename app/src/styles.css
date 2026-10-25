@@ -131,6 +131,17 @@ code {
 .top {
   gap: 8px;
 }
+.language-select {
+  width: auto;
+  min-height: 36px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: 12px;
+}
 .logo b {
   color: var(--text);
 }

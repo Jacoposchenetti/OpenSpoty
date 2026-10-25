@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, MicVocal, Play, Plus, Search as SearchIcon, Share2, SlidersVertical, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpSearch } from '../lib/engine'
+import { t as tr } from '../lib/i18n'
 import { isMatched, matchTrack, songFor, songsFor } from '../lib/catalog'
 import { errMsg, fmtTime } from '../lib/format'
 import type { YtResult } from '../lib/native'
@@ -172,8 +173,8 @@ function Search() {
   const job = store.deviceJob
   const status = (id: string): string | null => {
     const song = store.songs.find((s) => s.id === `yt-${id}`)
-    if (job?.state === 'running' && job.songId === `yt-${id}`) return `separazione ${Math.round(job.pct)}%`
-    if (job?.queue?.length && song && job.queue.includes(song.title)) return 'in coda'
+    if (job?.state === 'running' && job.songId === `yt-${id}`) return `${tr('separazione')} ${Math.round(job.pct)}%`
+    if (job?.queue?.length && song && job.queue.includes(song.title)) return tr('in coda')
     if (!song) return null
     return song.stems.length ? 'con tracce' : null
   }
@@ -181,7 +182,7 @@ function Search() {
   if (!engine.available) {
     return (
       <section className="card">
-        <div className="notice">Apri l'app sul telefono o sul PC per cercare canzoni.</div>
+        <div className="notice">{tr("Apri l'app sul telefono o sul PC per cercare canzoni.")}</div>
       </section>
     )
   }
@@ -191,7 +192,7 @@ function Search() {
     <section className="card">
       <div className={`search ${focused ? 'focused' : ''}`}>
         {(focused || results) && (
-          <button className="icon-btn" onClick={exit} aria-label="Indietro">
+          <button className="icon-btn" onClick={exit} aria-label={tr('Indietro')}>
             <ArrowLeft />
           </button>
         )}
@@ -199,7 +200,7 @@ function Search() {
           {!focused && !results && <SearchIcon className="search-ico" />}
           <input
             ref={input}
-            placeholder="Cosa vuoi ascoltare?"
+            placeholder={tr('Cosa vuoi ascoltare?')}
             value={query}
             onFocus={() => (setFocused(true), setRecents(loadRecents()))}
             onChange={(e) => setQuery(e.target.value)}
@@ -209,7 +210,7 @@ function Search() {
             autoCorrect="off"
           />
           {query && (
-            <button className="clear" onClick={() => (setQuery(''), input.current?.focus())} aria-label="Cancella">
+            <button className="clear" onClick={() => (setQuery(''), input.current?.focus())} aria-label={tr('Cancella')}>
               {searching ? <Spinner size={16} /> : <X />}
             </button>
           )}
@@ -220,7 +221,7 @@ function Search() {
 
       {focused && !query.trim() && (
         <div className="recents">
-          {recents.length > 0 && <h3 className="sec">Recenti</h3>}
+          {recents.length > 0 && <h3 className="sec">{tr('Recenti')}</h3>}
           {recents.map((r) => (
             <div key={`${r.kind}:${r.id}`} className="recent-row">
               <button className="recent-main" onMouseDown={(e) => e.preventDefault()} onClick={() => openRecent(r)}>
@@ -240,14 +241,14 @@ function Search() {
                   {r.sub && <span className="row-sub">{r.sub}</span>}
                 </span>
               </button>
-              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => (removeRecent(r), setRecents(loadRecents()))} aria-label="Togli">
+              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => (removeRecent(r), setRecents(loadRecents()))} aria-label={tr('Togli')}>
                 <X />
               </button>
             </div>
           ))}
           {recents.length > 0 && (
             <button className="clear-recents" onMouseDown={(e) => e.preventDefault()} onClick={() => (clearRecents(), setRecents([]))}>
-              Cancella ricerche recenti
+              {tr('Cancella ricerche recenti')}
             </button>
           )}
         </div>
@@ -260,7 +261,7 @@ function Search() {
               <button className="sugg-main" onMouseDown={(e) => e.preventDefault()} onClick={() => submit(x)}>
                 <SearchIcon /> {x}
               </button>
-              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setQuery(x + ' ')} aria-label="Completa">
+              <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setQuery(x + ' ')} aria-label={tr('Completa')}>
                 <ArrowUpLeft />
               </button>
             </div>
@@ -396,7 +397,7 @@ function MixedResults({
       const list = await Promise.all(songItems.map((x) => (x === m || x.kind === 'yt' || (x.kind === 'track' && isMatched(x.t)) ? resolve(x) : null)))
       const at = songItems.indexOf(m as SongItem)
       const mine = list[at]
-      if (!mine) return store.showToast('Non trovata su YouTube')
+      if (!mine) return store.showToast(tr('Non trovata su YouTube'))
       const songs = list.filter((s): s is Song => !!s)
       store.addTemp(songs)
       addRecent(
@@ -422,7 +423,7 @@ function MixedResults({
     setBusy(k)
     try {
       const s = await resolve(m)
-      if (!s) return store.showToast('Non trovata su YouTube')
+      if (!s) return store.showToast(tr('Non trovata su YouTube'))
       store.addTemp([s])
       setMenuSong(s)
     } finally {
@@ -436,7 +437,7 @@ function MixedResults({
         <Spinner size={26} />
       </div>
     ) : yt ? (
-      <p className="muted pad">Nessun risultato.</p>
+      <p className="muted pad">{tr('Nessun risultato.')}</p>
     ) : null
 
   return (
@@ -460,11 +461,11 @@ function MixedResults({
                 className={`r-act ${on ? 'on' : ''}`}
                 onClick={() => {
                   store.toggleFollow({ uri: key, name: p.name, image: p.image })
-                  store.showToast(on ? `Non segui più ${p.name}` : `Ora segui ${p.name}`)
+                  store.showToast(on ? `${tr('Non segui più')} ${p.name}` : `${tr('Ora segui')} ${p.name}`)
                 }}
               >
                 {on ? <Check /> : <Plus />}
-                <small>{on ? 'Segui già' : 'Segui'}</small>
+                <small>{on ? tr('Segui già') : tr('Segui')}</small>
               </button>
             </div>
           )
@@ -498,16 +499,16 @@ function MixedResults({
                   onClick={() => {
                     const on = store.isFollowing(x.uri)
                     store.toggleFollow(x)
-                    store.showToast(on ? `Non segui più ${x.name}` : `Ora segui ${x.name}`)
+                    store.showToast(on ? `${tr('Non segui più')} ${x.name}` : `${tr('Ora segui')} ${x.name}`)
                   }}
-                  aria-label={store.isFollowing(x.uri) ? `Non seguire più ${x.name}` : `Segui ${x.name}`}
+                  aria-label={store.isFollowing(x.uri) ? `${tr('Non seguire più')} ${x.name}` : `${tr('Segui')} ${x.name}`}
                 >
                   {store.isFollowing(x.uri) ? <Check /> : <Plus />}
-                  <small>{store.isFollowing(x.uri) ? 'Segui già' : 'Segui'}</small>
+                  <small>{store.isFollowing(x.uri) ? tr('Segui già') : tr('Segui')}</small>
                 </button>
               )}
               {m.kind !== 'artist' && (
-                <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`Opzioni ${x.name}`}>
+                <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`${tr('Opzioni')} ${x.name}`}>
                   <EllipsisVertical />
                 </button>
               )}
@@ -543,8 +544,8 @@ function MixedResults({
                 </span>
               </span>
             </button>
-            {song && <Check className="in-lib-mark" aria-label="In libreria" />}
-            <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`Opzioni ${title}`}>
+            {song && <Check className="in-lib-mark" aria-label={tr('In libreria')} />}
+            <button className="icon-btn" onClick={() => void openMenu(m)} aria-label={`${tr('Opzioni')} ${title}`}>
               <EllipsisVertical />
             </button>
           </div>
@@ -600,7 +601,7 @@ function CollectionMenu({ m, onClose }: { m: Extract<Mixed, { kind: 'album' | 'p
   const saved = store.playlists.some((p) => p.source === x.uri)
   if (picking)
     return (
-      <Sheet title="Vai agli artisti" onClose={onClose}>
+      <Sheet title={tr('Vai agli artisti')} onClose={onClose}>
         {artists.map((a) => (
           <button key={a.name} onClick={() => (void openArtist({ title: '' }, a), onClose())}>
             <MicVocal /> {a.name}
@@ -610,30 +611,30 @@ function CollectionMenu({ m, onClose }: { m: Extract<Mixed, { kind: 'album' | 'p
     )
   return (
     <Sheet title={x.name} onClose={onClose}>
-      <button onClick={() => (onClose(), void shareSpotify(x.name, x.uri).then((r) => r === 'copied' && store.showToast('Link copiato')))}>
-        <Share2 /> Condividi
+      <button onClick={() => (onClose(), void shareSpotify(x.name, x.uri).then((r) => r === 'copied' && store.showToast(tr('Link copiato'))))}>
+        <Share2 /> {tr('Condividi')}
       </button>
       <button
         disabled={saved || !tracks?.length}
         onClick={() => {
           if (tracks) void save(x.name, x.uri, tracks, false)
-          store.showToast(`Aggiungo “${x.name}” alla libreria…`)
+          store.showToast(tr('Aggiungo “{name}” alla libreria…', { name: x.name }))
           onClose()
         }}
       >
-        {saved ? <Check /> : <Plus />} {saved ? 'Già in libreria' : 'Aggiungi alla libreria'}
+        {saved ? <Check /> : <Plus />} {saved ? tr('Già in libreria') : tr('Aggiungi alla libreria')}
       </button>
       {!tracks ? (
         <button disabled>
-          <Spinner size={14} /> Artisti…
+          <Spinner size={14} /> {tr('Artisti…')}
         </button>
       ) : artists.length > 1 ? (
         <button onClick={() => setPicking(true)}>
-          <MicVocal /> Vai agli artisti
+          <MicVocal /> {tr('Vai agli artisti')}
         </button>
       ) : artists.length === 1 ? (
         <button onClick={() => (void openArtist({ title: '' }, artists[0]), onClose())}>
-          <MicVocal /> Vai all'artista
+          <MicVocal /> {tr("Vai all'artista")}
         </button>
       ) : null}
     </Sheet>
@@ -652,9 +653,9 @@ function SpotifyImport({ imp }: { imp: Import }) {
   return (
     <section className="card import">
       <div className="card-head">
-        <h2>{list ? list.name : 'Playlist Spotify'}</h2>
+        <h2>{list ? list.name : tr('Playlist Spotify')}</h2>
         {phase !== 'running' && (
-          <button className="icon-btn" onClick={() => imports.remove(imp.id)} aria-label="Chiudi">
+          <button className="icon-btn" onClick={() => imports.remove(imp.id)} aria-label={tr('Chiudi')}>
             <X />
           </button>
         )}
@@ -669,14 +670,14 @@ function SpotifyImport({ imp }: { imp: Import }) {
         <>
           <label className="switch-row">
             <input type="checkbox" checked={download} onChange={(e) => setDownload(e.target.checked)} />
-            <span>Scarica anche sul dispositivo</span>
+            <span>{tr('Scarica anche sul dispositivo')}</span>
           </label>
           <label className="switch-row">
             <input type="checkbox" checked={split} onChange={(e) => setSplit(e.target.checked)} />
-            <span>Separa anche le tracce</span>
+            <span>{tr('Separa anche le tracce')}</span>
           </label>
           <button className="primary" onClick={() => imports.start(imp.id, { download, split })}>
-            Importa {list.tracks.length} brani
+            {tr('Importa {count} brani', { count: list.tracks.length })}
           </button>
         </>
       )}
@@ -687,11 +688,11 @@ function SpotifyImport({ imp }: { imp: Import }) {
           </div>
           <p className="muted small">
             {finished}/{list.tracks.length}
-            {count('non trovata') ? ` · non trovati ${count('non trovata')}` : ''}
+            {count('non trovata') ? ` · ${tr('non trovati {count}', { count: count('non trovata') })}` : ''}
           </p>
           {phase === 'running' && (
             <button className="small" onClick={() => imports.stop(imp.id)}>
-              Interrompi
+              {tr('Interrompi')}
             </button>
           )}
         </>
@@ -703,7 +704,7 @@ function SpotifyImport({ imp }: { imp: Import }) {
               <span className="pick-title">
                 {t.title} <span className="muted">· {t.artist}</span>
               </span>
-              <span className="tag">{states[i]}</span>
+              <span className="tag">{tr(states[i])}</span>
             </div>
           ))}
         </div>
@@ -724,28 +725,28 @@ function SplitJob() {
     <section className="card">
       <div className={`job ${job.state}`}>
         <div className="job-title">
-          <SlidersVertical /> {job.title ?? 'Canzone'}
+          <SlidersVertical /> {job.title ?? tr('Canzone')}
         </div>
         <div className="bar">
           <i style={{ width: `${job.pct}%` }} />
         </div>
         <div className="job-msg">
-          {job.state === 'failed' ? job.error || job.message : job.message} {running ? `${Math.round(job.pct)}%` : ''}
+          {job.state === 'failed' ? tr(job.error || job.message) : tr(job.message)} {running ? `${Math.round(job.pct)}%` : ''}
         </div>
         {queue.length > 0 && (
           <div className="job-msg">
-            In coda ({queue.length}): {queue.join(' · ')}
+            {tr('In coda')} ({queue.length}): {queue.join(' · ')}
           </div>
         )}
         <div className="row-actions">
           {running ? (
             <>
               <button className="small" onClick={() => void engine.cancelSeparation()}>
-                Annulla
+                {tr('Annulla')}
               </button>
               {queue.length > 0 && (
                 <button className="small" onClick={() => void engine.cancelSeparation(true)}>
-                  Annulla tutto
+                  {tr('Annulla tutto')}
                 </button>
               )}
             </>
@@ -753,11 +754,11 @@ function SplitJob() {
             <>
               {job.state === 'done' && (
                 <button className="small primary" onClick={() => playback.playSong(job.songId)}>
-                  <Play fill="currentColor" /> Play
+                  <Play fill="currentColor" /> {tr('Play')}
                 </button>
               )}
               <button className="small" onClick={() => store.setDeviceJob(null)}>
-                OK
+                {tr('OK')}
               </button>
             </>
           )}
@@ -811,10 +812,10 @@ function HomeShelves() {
     )
   return (
     <div className="home-shelves">
-      <Shelf title="Artisti che potrebbero piacerti" items={home.artists} round />
-      <TrackTiles title="Brani che potrebbero piacerti" tracks={tracks} />
-      <Shelf title="Playlist da ascoltare" items={home.playlists} />
-      <Shelf title="Ultime uscite dei tuoi artisti" items={home.releases} showArtist />
+      <Shelf title={tr('Artisti che potrebbero piacerti')} items={home.artists} round />
+      <TrackTiles title={tr('Brani che potrebbero piacerti')} tracks={tracks} />
+      <Shelf title={tr('Playlist da ascoltare')} items={home.playlists} />
+      <Shelf title={tr('Ultime uscite dei tuoi artisti')} items={home.releases} showArtist />
       <NewEpisodes />
     </div>
   )

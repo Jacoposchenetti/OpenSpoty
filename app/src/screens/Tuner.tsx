@@ -1,6 +1,7 @@
 import { Mic, MicOff, Minus, Plus, Volume2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { detectPitch, freqOf, midiFromName, midiOf, noteIt, noteName, TUNINGS } from '../lib/pitch'
+import { localeTag, t } from '../lib/i18n'
 import { usePlayback } from '../playback'
 
 function pref(key: string, fallback: string): string {
@@ -100,7 +101,7 @@ export function TunerPage() {
           void ctx.close()
         }
       } catch (e) {
-        setErr(/Permission|NotAllowed/i.test(String(e)) ? 'Serve il permesso del microfono per accordare.' : String(e))
+        setErr(/Permission|NotAllowed/i.test(String(e)) ? t('Serve il permesso del microfono per accordare.') : String(e))
         setOn(false)
       }
     })()
@@ -145,11 +146,11 @@ export function TunerPage() {
         className="tuning-select"
         value={tuningId}
         onChange={(e) => (setTuningId(e.target.value), setPref('tuning', e.target.value), setLocked(null))}
-        aria-label="Accordatura"
+        aria-label={t('Accordatura')}
       >
-        {TUNINGS.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
+        {TUNINGS.map((tuningOption) => (
+          <option key={tuningOption.id} value={tuningOption.id}>
+            {t(tuningOption.name)}
           </option>
         ))}
       </select>
@@ -159,7 +160,7 @@ export function TunerPage() {
           {target !== null ? noteName(target).replace(/-?\d+$/, '') : '–'}
           <span className="tuner-octave">{target !== null ? noteName(target).match(/-?\d+$/)?.[0] : ''}</span>
         </div>
-        <div className="tuner-it">{target !== null ? noteIt(target) : 'Suona una corda'}</div>
+        <div className="tuner-it">{target !== null ? (localeTag() === 'it-IT' ? noteIt(target) : noteName(target).replace(/-?\d+$/, '')) : t('Suona una corda')}</div>
         <div className="gauge">
           {[-50, -25, 0, 25, 50].map((c) => (
             <span key={c} className={`tick ${c === 0 ? 'zero' : ''}`} style={{ left: `${50 + c}%` }} />
@@ -169,13 +170,13 @@ export function TunerPage() {
         <div className="tuner-hint">
           {!reading
             ? on
-              ? 'In ascolto…'
+              ? t('In ascolto…')
               : ''
             : inTune
-              ? 'Accordata ✓'
+              ? t('Accordata ✓')
               : cents < 0
-                ? `Troppo bassa · ${Math.round(-cents)} cent: tendi la corda`
-                : `Troppo alta · ${Math.round(cents)} cent: allenta la corda`}
+                ? t('Troppo bassa · {cents} cent: tendi la corda', { cents: Math.round(-cents) })
+                : t('Troppo alta · {cents} cent: allenta la corda', { cents: Math.round(cents) })}
         </div>
         {reading && <div className="tuner-freq">{reading.freq.toFixed(1)} Hz</div>}
       </div>
@@ -187,32 +188,32 @@ export function TunerPage() {
               key={i}
               className={`string ${activeString === i ? 'active' : ''} ${locked === i ? 'locked' : ''}`}
               onClick={() => (setLocked(locked === i ? null : i), playRef(m))}
-              aria-label={`Corda ${noteName(m)}`}
+              aria-label={`${t('Corda')} ${noteName(m)}`}
             >
               {noteName(m).replace(/-?\d+$/, '')}
-              <small>{noteIt(m)}</small>
+              <small>{localeTag() === 'it-IT' ? noteIt(m) : noteName(m).replace(/-?\d+$/, '')}</small>
             </button>
           ))}
         </div>
       )}
       {strings.length > 0 && (
         <p className="muted small center">
-          <Volume2 className="inline-ico" /> Tocca una corda per sentirne la nota e accordare solo quella; tocca di nuovo per tornare automatico.
+          <Volume2 className="inline-ico" /> {t('Tocca una corda per sentirne la nota e accordare solo quella; tocca di nuovo per tornare automatico.')}
         </p>
       )}
 
       <div className="tuner-bottom">
         <span className="stepper-mini">
-          <button onClick={() => (setA4(a4 - 1), setPref('a4', String(a4 - 1)))} aria-label="La più basso">
+          <button onClick={() => (setA4(a4 - 1), setPref('a4', String(a4 - 1)))} aria-label={t('La più basso')}>
             <Minus />
           </button>
-          <span>La = {a4} Hz</span>
-          <button onClick={() => (setA4(a4 + 1), setPref('a4', String(a4 + 1)))} aria-label="La più alto">
+          <span>{localeTag() === 'it-IT' ? 'La' : 'A'} = {a4} Hz</span>
+          <button onClick={() => (setA4(a4 + 1), setPref('a4', String(a4 + 1)))} aria-label={t('La più alto')}>
             <Plus />
           </button>
         </span>
         <button className="small" onClick={() => (setErr(null), setOn(!on))}>
-          {on ? <MicOff /> : <Mic />} {on ? 'Ferma' : 'Ascolta'}
+          {on ? <MicOff /> : <Mic />} {on ? t('Ferma') : t('Ascolta')}
         </button>
       </div>
       {err && <div className="notice error">{err}</div>}

@@ -136,9 +136,9 @@ public class SeparationService extends Service {
         String title = job.title;
         nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= 26) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Separazione tracce", NotificationManager.IMPORTANCE_LOW));
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL, english() ? "Stem separation" : "Separazione tracce", NotificationManager.IMPORTANCE_LOW));
         }
-        Notification n = notification(title, "Avvio…", 0);
+        Notification n = notification(title, english() ? "Starting…" : "Avvio…", 0);
         if (Build.VERSION.SDK_INT >= 35) {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING);
         } else if (Build.VERSION.SDK_INT >= 29) {
@@ -196,6 +196,22 @@ public class SeparationService extends Service {
             .build();
     }
 
+    private boolean english() {
+        return "en".equals(getSharedPreferences("openspoty", MODE_PRIVATE).getString("language", "it"));
+    }
+
+    private String localizedMessage(String message) {
+        if (!english()) return message;
+        if (message.equals("Download da YouTube")) return "Downloading from YouTube";
+        if (message.equals("Lettura dell'audio")) return "Reading audio";
+        if (message.equals("Caricamento del modello")) return "Loading model";
+        if (message.equals("Separazione")) return "Separating stems";
+        if (message.startsWith("Separazione · ~")) return "Separating stems · ~" + message.substring("Separazione · ~".length());
+        if (message.equals("Compressione tracce")) return "Encoding stems";
+        if (message.equals("Pronta")) return "Ready";
+        return message;
+    }
+
     private long lastNotify = 0;
 
     private synchronized void emit(String songId, String title, String state, float pct, String message, JSONObject extra) {
@@ -205,7 +221,8 @@ public class SeparationService extends Service {
             e.put("title", title);
             e.put("state", state);
             e.put("pct", Math.round(pct * 10) / 10.0);
-            e.put("message", message);
+            String shownMessage = localizedMessage(message);
+            e.put("message", shownMessage);
             e.put("queue", queueTitles());
             if (extra != null) {
                 for (java.util.Iterator<String> it = extra.keys(); it.hasNext(); ) {
@@ -219,7 +236,7 @@ public class SeparationService extends Service {
             long now = System.currentTimeMillis();
             if ("running".equals(state) && now - lastNotify > 1000) {
                 lastNotify = now;
-                nm.notify(NOTIF_ID, notification(title, message + " " + Math.round(pct) + "%", Math.round(pct)));
+                nm.notify(NOTIF_ID, notification(title, shownMessage + " " + Math.round(pct) + "%", Math.round(pct)));
             }
         } catch (Exception ex) {
             Log.w(TAG, "emit", ex);
@@ -376,7 +393,7 @@ public class SeparationService extends Service {
             nm.notify(songId.hashCode(), new NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
                 .setContentTitle(title)
-                .setContentText("Tracce pronte")
+                .setContentText(english() ? "Stems ready" : "Tracce pronte")
                 .setAutoCancel(true)
                 .build());
         } catch (Throwable t) {

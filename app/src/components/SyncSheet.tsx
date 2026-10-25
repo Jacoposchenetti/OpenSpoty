@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react'
 import { Bridge } from '../lib/bridge'
 import { errMsg } from '../lib/format'
 import { isDesktop } from '../lib/native'
+import { localeTag, t } from '../lib/i18n'
 import { useStore, type SyncStatus } from '../store'
 import { Sheet } from './ui'
 
-const clock = (t?: number) => (t ? new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '')
+const clock = (time?: number) => (time ? new Date(time).toLocaleTimeString(localeTag(), { hour: '2-digit', minute: '2-digit' }) : '')
 
 /** small status icon in the header; opens the sync sheet */
 export function SyncButton({ onClick }: { onClick: () => void }) {
@@ -14,12 +15,12 @@ export function SyncButton({ onClick }: { onClick: () => void }) {
   if (!isDesktop && !bridgeCfg) {
     return (
       <button className="pill" onClick={onClick}>
-        Collega il PC
+        {t('Collega il PC')}
       </button>
     )
   }
   return (
-    <button className={`sync-btn ${sync.state}`} onClick={onClick} aria-label="Sincronizzazione">
+    <button className={`sync-btn ${sync.state}`} onClick={onClick} aria-label={t('Sincronizzazione')}>
       {icon(sync)}
       {sync.state === 'syncing' && sync.total ? (
         <small>
@@ -40,7 +41,7 @@ function icon(s: SyncStatus) {
 
 export function SyncSheet({ onClose }: { onClose: () => void }) {
   return (
-    <Sheet title="Telefono e PC" onClose={onClose}>
+    <Sheet title={t('Telefono e PC')} onClose={onClose}>
       {isDesktop ? <PcSide /> : <PhoneSide />}
     </Sheet>
   )
@@ -58,12 +59,12 @@ function PcSide() {
   }, [])
   return (
     <>
-      <p>{sync.at ? `Ultima sincronizzazione col telefono alle ${clock(sync.at)}.` : 'Il telefono non si è ancora sincronizzato.'}</p>
+      <p>{sync.at ? t('Ultima sincronizzazione col telefono alle {time}.', { time: clock(sync.at) }) : t('Il telefono non si è ancora sincronizzato.')}</p>
       {info && (
         <div className="pairing">
-          <span className="muted small">Per collegare il telefono</span>
+          <span className="muted small">{t('Per collegare il telefono')}</span>
           <div>
-            Indirizzo <b>{info.addresses[0]}</b>
+            {t('Indirizzo')} <b>{info.addresses[0]}</b>
           </div>
           <div>
             PIN <b className="pin">{info.pin}</b>
@@ -101,17 +102,17 @@ function PhoneSide() {
   if (editing) {
     return (
       <>
-        <p className="muted small">Sul PC apri OpenSpoty: in alto a destra trovi indirizzo e PIN.</p>
+        <p className="muted small">{t('Sul PC apri OpenSpoty: in alto a destra trovi indirizzo e PIN.')}</p>
         <label>
-          Indirizzo
+          {t('Indirizzo')}
           <input inputMode="url" placeholder="192.168.1.36:8777" value={address} onChange={(e) => setAddress(e.target.value)} autoCapitalize="off" autoCorrect="off" />
         </label>
         <label>
           PIN
-          <input inputMode="numeric" placeholder="6 cifre" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
+          <input inputMode="numeric" placeholder={t('6 cifre')} maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} />
         </label>
         <button className="primary" disabled={busy || !address || pin.length !== 6} onClick={() => void connect()}>
-          {busy ? 'Collegamento…' : 'Collega'}
+          {busy ? t('Collegamento…') : t('Collega')}
         </button>
         {error && <div className="notice error">{error}</div>}
       </>
@@ -123,20 +124,20 @@ function PhoneSide() {
       <p>
         {sync.state === 'syncing'
           ? sync.total
-            ? `Copio i brani: ${sync.done}/${sync.total} file`
-            : 'Sincronizzo…'
+            ? t('Copio i brani: {done}/{total} file', { done: sync.done ?? 0, total: sync.total ?? 0 })
+            : t('Sincronizzo…')
           : sync.state === 'ok'
-            ? `Sincronizzato${sync.pcName ? ` con ${sync.pcName}` : ''} alle ${clock(sync.at)}`
+            ? t('Sincronizzato{pc} alle {time}', { pc: sync.pcName ? ` with ${sync.pcName}` : '', time: clock(sync.at) })
             : sync.state === 'offline'
-              ? 'PC non raggiungibile: è acceso e sullo stesso Wi-Fi?'
+              ? t('PC non raggiungibile: è acceso e sullo stesso Wi-Fi?')
               : sync.state === 'error'
                 ? sync.error
-                : 'In attesa…'}
+                : t('In attesa…')}
       </p>
       <button className="primary" disabled={sync.state === 'syncing'} onClick={store.syncNow}>
-        <RefreshCw /> Sincronizza ora
+        <RefreshCw /> {t('Sincronizza ora')}
       </button>
-      <button onClick={() => setEditing(true)}>Cambia PC</button>
+      <button onClick={() => setEditing(true)}>{t('Cambia PC')}</button>
     </>
   )
 }

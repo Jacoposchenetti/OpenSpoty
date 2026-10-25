@@ -32,6 +32,7 @@ import {
 import { isLocalPath, youtubeIdOf } from './lib/media'
 import { findPc, mergeDeleted, mergeItems, pingPc, syncWithPc } from './lib/sync'
 import type { FollowedArtist, MixState, Playlist, Song } from './lib/types'
+import { t } from './lib/i18n'
 
 export type Tab = 'library' | 'add' | 'tuner' | 'alarm' | 'capture'
 
@@ -310,7 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setDeviceJob(e)
         if (e.state === 'done') {
           void adoptSong(e.songId).then((song) => {
-            if (song) showToast(`“${song.title}”: tracce pronte`)
+            if (song) showToast(t('“{name}”: tracce pronte', { name: song.title }))
           })
         }
       }),
@@ -672,7 +673,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addToLibrary: (song, quiet) => {
       if (songsRef.current.some((s) => s.id === song.id)) return
       void commitSongs([{ ...song, addedAt: Date.now() }, ...songsRef.current])
-      if (!quiet) showToast(`“${song.title}” aggiunta alla libreria`)
+      if (!quiet) showToast(t('“{name}” aggiunta alla libreria', { name: song.title }))
     },
     download,
     removeDownload,
@@ -685,14 +686,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const vid = youtubeIdOf(song.id)
       const local = isLocalPath(song.original)
       if (!engine.available || (!local && !vid)) {
-        showToast('Questa canzone non si può separare qui')
+        showToast(t('Questa canzone non si può separare qui'))
         return
       }
       try {
         // separating is wanting it on this device: a streamed song is downloaded first
         if (!songsRef.current.some((s) => s.id === song.id)) await commitSongs([{ ...song, addedAt: Date.now() }, ...songsRef.current])
         await engine.separate(local ? { existing: true, songId: song.id, title: song.title } : { youtubeId: vid!, songId: song.id, title: song.title })
-        showToast(deviceJob?.state === 'running' ? `In coda: “${song.title}”` : `Separo “${song.title}”…`)
+        showToast(deviceJob?.state === 'running' ? t('In coda: “{name}”', { name: song.title }) : t('Separo “{name}”…', { name: song.title }))
       } catch (e) {
         showToast(errMsg(e))
       }

@@ -84,8 +84,9 @@ public class AlarmService extends Service {
 
     private void start(JSONObject alarm) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        boolean en = "en".equals(getSharedPreferences("openspoty", MODE_PRIVATE).getString("language", "it"));
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Sveglia", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel ch = new NotificationChannel(CHANNEL, en ? "Alarm" : "Sveglia", NotificationManager.IMPORTANCE_HIGH);
             ch.setSound(null, null); // the music is the sound
             ch.setBypassDnd(true);
             nm.createNotificationChannel(ch);
@@ -190,7 +191,7 @@ public class AlarmService extends Service {
         String label = alarm.optString("label");
         return new NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("Sveglia " + time)
+            .setContentTitle(("en".equals(getSharedPreferences("openspoty", MODE_PRIVATE).getString("language", "it")) ? "Alarm " : "Sveglia ") + time)
             .setContentText(label.isEmpty() ? "OpenSpoty" : label)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -198,7 +199,7 @@ public class AlarmService extends Service {
             .setFullScreenIntent(full, true)
             .setContentIntent(full)
             .setOngoing(true)
-            .addAction(0, "Posticipa " + alarm.optInt("snooze", 9) + " min", snooze)
+            .addAction(0, ("en".equals(getSharedPreferences("openspoty", MODE_PRIVATE).getString("language", "it")) ? "Snooze " : "Posticipa ") + alarm.optInt("snooze", 9) + " min", snooze)
             .addAction(0, "Stop", stop)
             .build();
     }

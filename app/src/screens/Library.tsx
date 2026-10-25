@@ -1,4 +1,4 @@
-import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, GripVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3 } from 'lucide-react'
+import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PromptSheet, Sheet, SongThumb, SortableList, Spinner, StemDots, useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
@@ -10,6 +10,7 @@ import { FastScroll } from '../components/FastScroll'
 import type { Playlist, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t } from '../lib/i18n'
 
 export { StemDots } from '../components/ui'
 
@@ -52,7 +53,7 @@ function Overview() {
     <div className="lib">
       {recent.length > 0 && (
         <>
-          <div className="q-head">Ascoltati di recente</div>
+          <div className="q-head">{t('Ascoltati di recente')}</div>
           <div className="recent">
             {recent.map((s) => (
               <button key={s.id} className="recent-item" onClick={() => playback.playSong(s.id)}>
@@ -65,9 +66,9 @@ function Overview() {
         </>
       )}
       <div className="lib-head">
-        <h1>La tua libreria</h1>
+        <h1>{t('La tua libreria')}</h1>
         <button className="small" onClick={() => setCreating(true)}>
-          <Plus /> Playlist
+          <Plus /> {t('Playlist')}
         </button>
       </div>
 
@@ -76,8 +77,8 @@ function Overview() {
           <Music />
         </span>
         <span className="lib-text">
-          <span className="row-title">Tutti i brani</span>
-          <span className="row-sub">{store.songs.length} brani</span>
+          <span className="row-title">{t('Tutti i brani')}</span>
+          <span className="row-sub">{store.songs.length} {t(store.songs.length === 1 ? 'brano' : 'brani')}</span>
         </span>
       </button>
 
@@ -87,8 +88,8 @@ function Overview() {
             <Heart fill="currentColor" />
           </span>
           <span className="lib-text">
-            <span className="row-title">Brani che ti piacciono</span>
-            <span className="row-sub">{liked.length} brani</span>
+            <span className="row-title">{t('Brani che ti piacciono')}</span>
+            <span className="row-sub">{liked.length} {t(liked.length === 1 ? 'brano' : 'brani')}</span>
           </span>
         </button>
       )}
@@ -105,10 +106,10 @@ function Overview() {
               {first ? <SongThumb song={first} size={56} /> : <span className="thumb ph" style={{ width: 56, height: 56 }}><ListMusic /></span>}
               <span className="lib-text">
                 <span className="row-title">{p.name}</span>
-                <span className="row-sub">Playlist · {p.songIds.filter((id) => byId.has(id)).length} brani</span>
+                <span className="row-sub">{t('Playlist')} · {p.songIds.filter((id) => byId.has(id)).length} {t(p.songIds.filter((id) => byId.has(id)).length === 1 ? 'brano' : 'brani')}</span>
               </span>
             </button>
-            <button className="icon-btn" onClick={() => setMenu(p)} aria-label={`Opzioni ${p.name}`}>
+            <button className="icon-btn" onClick={() => setMenu(p)} aria-label={`${t('Opzioni')} ${p.name}`}>
               <EllipsisVertical />
             </button>
             {store.playlists.length > 1 && handle}
@@ -119,7 +120,7 @@ function Overview() {
 
       {store.artists.length > 0 && (
         <>
-          <div className="q-head">Artisti che segui</div>
+          <div className="q-head">{t('Artisti che segui')}</div>
           {store.artists.map((a) => (
             <button key={a.id} className="lib-row" onClick={() => store.openPage({ kind: 'artist', uri: a.id, name: a.name })}>
               {a.image ? (
@@ -129,7 +130,7 @@ function Overview() {
               )}
               <span className="lib-text">
                 <span className="row-title">{a.name}</span>
-                <span className="row-sub">Artista</span>
+                <span className="row-sub">{t('Artista')}</span>
               </span>
             </button>
           ))}
@@ -138,7 +139,7 @@ function Overview() {
 
       {store.podcasts.length > 0 && (
         <>
-          <div className="q-head">Podcast che segui</div>
+          <div className="q-head">{t('Podcast che segui')}</div>
           {store.podcasts.map((p) => (
             <button key={p.feed} className="lib-row" onClick={() => store.openPage({ kind: 'podcast', uri: p.feed, name: p.name })}>
               {p.image ? (
@@ -148,7 +149,7 @@ function Overview() {
               )}
               <span className="lib-text">
                 <span className="row-title">{p.name}</span>
-                <span className="row-sub">Podcast</span>
+                <span className="row-sub">{t('Podcast')}</span>
               </span>
             </button>
           ))}
@@ -157,22 +158,22 @@ function Overview() {
 
       {!store.songs.length && (
         <div className="empty">
-          <p className="big">Ancora nessuna canzone</p>
-          <p>Cercale e separale dalla scheda Cerca.</p>
+          <p className="big">{t('Ancora nessuna canzone')}</p>
+          <p>{t('Cercale e separale dalla scheda Cerca.')}</p>
           <button className="primary" onClick={() => store.setTab('add')}>
-            Cerca una canzone
+            {t('Cerca una canzone')}
           </button>
         </div>
       )}
       {store.songs.length > 0 && !store.playlists.length && (
-        <p className="muted hint">Crea una playlist per la serata con “Playlist”: poi puoi riordinarla trascinando i brani.</p>
+        <p className="muted hint">{t('Crea una playlist per la serata con “Playlist”: poi puoi riordinarla trascinando i brani.')}</p>
       )}
 
       {creating && (
         <PromptSheet
-          title="Nuova playlist"
-          placeholder="Es. Serata sabato"
-          confirm="Crea"
+          title={t('Nuova playlist')}
+          placeholder={t('Es. Serata sabato')}
+          confirm={t('Crea')}
           onDone={(name) => store.setLibView(store.createPlaylist(name))}
           onClose={() => setCreating(false)}
         />
@@ -180,9 +181,9 @@ function Overview() {
       {menu && <PlaylistMenu playlist={menu} onClose={() => setMenu(null)} onRename={() => setRenaming(menu)} onDelete={() => setDeleting(menu)} />}
       {renaming && (
         <PromptSheet
-          title="Rinomina playlist"
+          title={t('Rinomina playlist')}
           initial={renaming.name}
-          confirm="Salva"
+          confirm={t('Salva')}
           onDone={(name) => store.renamePlaylist(renaming.id, name)}
           onClose={() => setRenaming(null)}
         />
@@ -198,11 +199,11 @@ function PlaylistMenu({ playlist, onClose, onRename, onDelete }: { playlist: Pla
   return (
     <Sheet title={playlist.name} onClose={onClose}>
       <button onClick={() => (onClose(), void sharePlaylist(playlist.name, songs).then((r) => r === 'copied' && store.showToast('Copiata negli appunti')))}>
-        <Share2 /> Condividi
+        <Share2 /> {t('Condividi')}
       </button>
-      <button onClick={() => (onClose(), onRename())}><Pencil /> Rinomina</button>
+      <button onClick={() => (onClose(), onRename())}><Pencil /> {t('Rinomina')}</button>
       <button className="danger" onClick={() => (onClose(), onDelete())}>
-        <Trash2 /> Elimina playlist
+        <Trash2 /> {t('Elimina playlist')}
       </button>
     </Sheet>
   )
@@ -212,7 +213,7 @@ function DeletePlaylist({ playlist, onClose }: { playlist: Playlist; onClose: ()
   const store = useStore()
   return (
     <Sheet title={`Eliminare “${playlist.name}”?`} onClose={onClose}>
-      <p className="muted">Le canzoni restano nella libreria: sparisce solo la playlist.</p>
+      <p className="muted">{t('Le canzoni restano nella libreria: sparisce solo la playlist.')}</p>
       <button
         className="danger solid"
         onClick={() => {
@@ -221,9 +222,9 @@ function DeletePlaylist({ playlist, onClose }: { playlist: Playlist; onClose: ()
           onClose()
         }}
       >
-        Elimina playlist
+        {t('Elimina playlist')}
       </button>
-      <button onClick={onClose}>Annulla</button>
+      <button onClick={onClose}>{t('Annulla')}</button>
     </Sheet>
   )
 }
@@ -310,10 +311,10 @@ function ListView({ viewId }: { viewId: string }) {
               ) : store.downloading.includes(song.id) ? (
                 <Spinner size={13} />
               ) : isDownloaded(song) ? (
-                <CircleArrowDown className="dl-mark" aria-label="Scaricata" />
+                <CircleArrowDown className="dl-mark" aria-label={t('Scaricata')} />
               ) : null}
               {store.deviceJob?.state === 'running' && store.deviceJob.songId === song.id ? (
-                <span className="tag busy">separazione {Math.round(store.deviceJob.pct)}%</span>
+        <span className="tag busy">{t('separazione')} {Math.round(store.deviceJob.pct)}%</span>
               ) : (
                 fmtTime(song.duration)
               )}
@@ -321,7 +322,7 @@ function ListView({ viewId }: { viewId: string }) {
           </span>
         </button>
         {song.notes && playlist && <NotebookPen className="row-note" />}
-        <button className="icon-btn" onClick={() => setSongMenu({ song, index })} aria-label={`Opzioni ${song.title}`}>
+        <button className="icon-btn" onClick={() => setSongMenu({ song, index })} aria-label={`${t('Opzioni')} ${song.title}`}>
           <EllipsisVertical />
         </button>
         {handle}
@@ -332,17 +333,17 @@ function ListView({ viewId }: { viewId: string }) {
   return (
     <div className="lib">
       <div className="list-top">
-        <button className="icon-btn back" onClick={() => store.setLibView(null)} aria-label="Indietro">
+        <button className="icon-btn back" onClick={() => store.setLibView(null)} aria-label={t('Indietro')}>
           <ChevronLeft />
         </button>
         <div className="list-title">
           <h1>{name}</h1>
           <span className="row-sub">
-            {items.length} brani · {totalTime(items)}
+            {items.length} {t(items.length === 1 ? 'brano' : 'brani')} · {totalTime(items)}
           </span>
         </div>
         {playlist && (
-          <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Opzioni playlist">
+          <button className="icon-btn" onClick={() => setMenu(true)} aria-label={t('Opzioni playlist')}>
             <EllipsisVertical />
           </button>
         )}
@@ -350,24 +351,24 @@ function ListView({ viewId }: { viewId: string }) {
 
       {items.length > 3 && (
         <div className="lib-tools">
-          <input placeholder="Cerca in questa lista" value={query} onChange={(e) => setQuery(e.target.value)} enterKeyHint="search" />
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Ordina">
-            {(playlist || isLiked) && <option value="custom">{isLiked ? 'Aggiunti di recente' : 'Ordine playlist'}</option>}
-            <option value="recent">Aggiunte di recente</option>
-            <option value="title">Titolo A–Z</option>
-            <option value="artist">Artista</option>
+          <input placeholder={t('Cerca in questa lista')} value={query} onChange={(e) => setQuery(e.target.value)} enterKeyHint="search" />
+          <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label={t('Ordina')}>
+            {(playlist || isLiked) && <option value="custom">{isLiked ? t('Aggiunti di recente') : t('Ordine playlist')}</option>}
+            <option value="recent">{t('Aggiunte di recente')}</option>
+            <option value="title">{t('Titolo A–Z')}</option>
+            <option value="artist">{t('Artista')}</option>
           </select>
         </div>
       )}
 
       <div className="list-actions">
         <button className="primary" disabled={!items.length} onClick={() => play(0)}>
-          <Play fill="currentColor" /> Riproduci
+          <Play fill="currentColor" /> {t('Riproduci')}
         </button>
         <button disabled={items.length < 2} onClick={shuffle}>
-          <Shuffle /> Casuale
+          <Shuffle /> {t('Casuale')}
         </button>
-        {playlist && <button className="icon-only" onClick={() => setAdding(true)} aria-label="Aggiungi brani"><Plus /></button>}
+        {playlist && <button className="icon-only" onClick={() => setAdding(true)} aria-label={t('Aggiungi brani')}><Plus /></button>}
         <DownloadToggle songs={items} />
       </div>
 
@@ -376,23 +377,23 @@ function ListView({ viewId }: { viewId: string }) {
       ) : (
         visible.map((v, i) => <div key={`${v.song.id}:${v.index}`}>{row(v.song, i, v.index)}</div>)
       )}
-      {q && !visible.length && <p className="muted hint">Nessun brano con “{query.trim()}”.</p>}
+        {q && !visible.length && <p className="muted hint">{t('Nessun brano con “{query}”.', { query: query.trim() })}</p>}
 
       {!items.length && (
         <div className="empty">
-          <p className="big">{playlist ? 'Playlist vuota' : 'Nessuna canzone'}</p>
+          <p className="big">{playlist ? t('Playlist vuota') : t('Nessuna canzone')}</p>
           {playlist ? (
             <button className="primary" onClick={() => setAdding(true)}>
-              <Plus /> Aggiungi brani
+              <Plus /> {t('Aggiungi brani')}
             </button>
           ) : (
             <button className="primary" onClick={() => store.setTab('add')}>
-              Cerca una canzone
+              {t('Cerca una canzone')}
             </button>
           )}
         </div>
       )}
-      {draggable && items.length > 1 && <p className="muted hint">Tieni premuto <GripVertical /> e trascina per cambiare l'ordine.</p>}
+      {draggable && items.length > 1 && <p className="muted hint">{t('Tieni premuto e trascina per cambiare l’ordine.')}</p>}
       {playlist && !q && <PlaylistSuggestions playlist={playlist} />}
       <FastScroll />
 
@@ -403,9 +404,9 @@ function ListView({ viewId }: { viewId: string }) {
       )}
       {renaming && playlist && (
         <PromptSheet
-          title="Rinomina playlist"
+          title={t('Rinomina playlist')}
           initial={playlist.name}
-          confirm="Salva"
+          confirm={t('Salva')}
           onDone={(n) => store.renamePlaylist(playlist.id, n)}
           onClose={() => setRenaming(false)}
         />
@@ -433,17 +434,17 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
   if (mode === 'add' || mode === 'move') {
     return (
       <PlaylistPicker
-        title={mode === 'add' ? 'Aggiungi a playlist' : 'Sposta in…'}
+        title={mode === 'add' ? t('Aggiungi a playlist') : t('Sposta in…')}
         exclude={mode === 'move' ? playlist?.id : undefined}
         onClose={onClose}
         onPick={(pid, pname) => {
           if (mode === 'move' && playlist) {
             store.moveToPlaylist(playlist.id, index, pid)
-            store.showToast(`Spostata in “${pname}”`)
+            store.showToast(t('Spostata in “{name}”', { name: pname }))
           } else {
             keep()
             const n = store.addToPlaylist(pid, [song.id])
-            store.showToast(n ? `Aggiunta a “${pname}”` : `È già in “${pname}”`)
+            store.showToast(n ? t('Aggiunta a “{name}”', { name: pname }) : t('È già in “{name}”', { name: pname }))
           }
         }}
       />
@@ -451,7 +452,7 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
   }
   if (mode === 'artists') {
     return (
-      <Sheet title="Vai agli artisti" onClose={onClose}>
+      <Sheet title={t('Vai agli artisti')} onClose={onClose}>
         {artists.map((a) => (
           <button key={a.name} onClick={() => (void openArtist(song, a), onClose())}>
             <MicVocal /> {a.name}
@@ -461,16 +462,16 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
     )
   }
   if (mode === 'rename') {
-    return <PromptSheet title="Rinomina brano" initial={song.title} confirm="Salva" onDone={(t) => void store.renameSong(song.id, t)} onClose={onClose} />
+    return <PromptSheet title={t('Rinomina brano')} initial={song.title} confirm={t('Salva')} onDone={(t) => void store.renameSong(song.id, t)} onClose={onClose} />
   }
   if (mode === 'delete') {
     return (
       <Sheet title={`Eliminare “${song.title}” dal telefono?`} onClose={onClose}>
-        <p className="muted">Sparisce dalla libreria e da tutte le playlist. Le tracce separate vengono cancellate.</p>
+        <p className="muted">{t('Sparisce dalla libreria e da tutte le playlist. Le tracce separate vengono cancellate.')}</p>
         <button className="danger solid" onClick={() => (void store.removeSong(song.id), onClose())}>
-          Elimina
+          {t('Elimina')}
         </button>
-        <button onClick={onClose}>Annulla</button>
+        <button onClick={onClose}>{t('Annulla')}</button>
       </Sheet>
     )
   }
@@ -490,12 +491,12 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
     >
       {!inLib && (
         <button onClick={() => (store.addToLibrary(song), onClose())}>
-          <Plus /> Aggiungi alla libreria
+          <Plus /> {t('Aggiungi alla libreria')}
         </button>
       )}
-      <button onClick={() => (playback.enqueue(song.id), store.showToast('Aggiunta alla coda'), onClose())}><ListEnd /> Metti in coda</button>
+      <button onClick={() => (playback.enqueue(song.id), store.showToast(t('Aggiunta alla coda')), onClose())}><ListEnd /> {t('Metti in coda')}</button>
       <button onClick={() => (onClose(), void shareSong(song).then((r) => r === 'copied' && store.showToast('Link copiato')))}>
-        <Share2 /> Condividi
+        <Share2 /> {t('Condividi')}
       </button>
       <button
         onClick={() => {
@@ -505,24 +506,24 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
         }}
       >
         <Heart fill={song.liked ? 'none' : 'currentColor'} />
-        {song.liked ? 'Togli da “Brani che ti piacciono”' : 'Aggiungi a “Brani che ti piacciono”'}
+        {song.liked ? t('Togli da “Brani che ti piacciono”') : t('Aggiungi a “Brani che ti piacciono”')}
       </button>
-      <button onClick={() => setMode('add')}><ListPlus /> Aggiungi a playlist…</button>
-      {playlist && <button onClick={() => setMode('move')}><ArrowRightLeft /> Sposta in un'altra playlist…</button>}
+      <button onClick={() => setMode('add')}><ListPlus /> {t('Aggiungi a playlist…')}</button>
+      {playlist && <button onClick={() => setMode('move')}><ArrowRightLeft /> {t('Sposta in un’altra playlist…')}</button>}
       {playlist && (
-        <button onClick={() => (store.removeFromPlaylist(playlist.id, index), onClose())}><X /> Rimuovi da “{playlist.name}”</button>
+        <button onClick={() => (store.removeFromPlaylist(playlist.id, index), onClose())}><X /> {t('Rimuovi da “{name}”', { name: playlist.name })}</button>
       )}
       {artists.length > 1 ? (
         <button onClick={() => setMode('artists')}>
-          <MicVocal /> Vai agli artisti
+          <MicVocal /> {t('Vai agli artisti')}
         </button>
       ) : (
         <button onClick={() => (void openArtist(song), onClose())}>
-          <MicVocal /> Vai all'artista
+          <MicVocal /> {t("Vai all'artista")}
         </button>
       )}
       <button onClick={() => (void openAlbum(song), onClose())}>
-        <Disc3 /> Vai all'album
+        <Disc3 /> {t("Vai all'album")}
       </button>
       {song.stems.length > 0 ? (
         <button
@@ -532,28 +533,28 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
             onClose()
           }}
         >
-          <SlidersVertical /> Apri il mixer delle tracce
+          <SlidersVertical /> {t('Apri il mixer delle tracce')}
         </button>
       ) : (
         <>
-          <button onClick={() => (void store.splitLater(song), onClose())}><SlidersVertical /> Separa le tracce (per suonarci sopra)</button>
+          <button onClick={() => (void store.splitLater(song), onClose())}><SlidersVertical /> {t('Separa le tracce (per suonarci sopra)')}</button>
           {isDownloaded(song) ? (
             <button onClick={() => (void store.removeDownload([song.id]), onClose())}>
-              <CircleArrowDown /> Rimuovi download
+              <CircleArrowDown /> {t('Rimuovi download')}
             </button>
           ) : (
             youtubeIdOf(song.id) && (
               <button onClick={() => (keep(), store.download([song.id]), onClose())}>
-                <Download /> Scarica sul dispositivo
+                <Download /> {t('Scarica sul dispositivo')}
               </button>
             )
           )}
         </>
       )}
-      {inLib && <button onClick={() => setMode('rename')}><Pencil /> Rinomina</button>}
+      {inLib && <button onClick={() => setMode('rename')}><Pencil /> {t('Rinomina')}</button>}
       {inLib && (
         <button className="danger" onClick={() => setMode('delete')}>
-          <Trash2 /> Elimina dal telefono
+          <Trash2 /> {t('Elimina dal telefono')}
         </button>
       )}
     </Sheet>
@@ -576,9 +577,9 @@ export function PlaylistPicker({
   if (creating) {
     return (
       <PromptSheet
-        title="Nuova playlist"
-        placeholder="Nome della playlist"
-        confirm="Crea"
+        title={t('Nuova playlist')}
+        placeholder={t('Nome della playlist')}
+        confirm={t('Crea')}
         onDone={(name) => onPick(store.createPlaylist(name), name)}
         onClose={onClose}
       />
@@ -587,7 +588,7 @@ export function PlaylistPicker({
   const lists = store.playlists.filter((p) => p.id !== exclude)
   return (
     <Sheet title={title} onClose={onClose}>
-      <button onClick={() => setCreating(true)}><Plus /> Nuova playlist…</button>
+      <button onClick={() => setCreating(true)}><Plus /> {t('Nuova playlist…')}</button>
       {lists.map((p) => (
         <button key={p.id} onClick={() => (onPick(p.id, p.name), onClose())}>
           <ListMusic /> {p.name} <span className="muted">· {p.songIds.length}</span>
@@ -611,7 +612,7 @@ function AddSongs({ playlist, onClose }: { playlist: Playlist; onClose: () => vo
           <span className="pick-title">{s.title}</span>
         </button>
       ))}
-      {!available.length && <p className="muted">Ci sono già tutte le canzoni della libreria.</p>}
+      {!available.length && <p className="muted">{t('Ci sono già tutte le canzoni della libreria.')}</p>}
       <button
         className="primary sticky"
         disabled={!picked.length}
@@ -620,7 +621,7 @@ function AddSongs({ playlist, onClose }: { playlist: Playlist; onClose: () => vo
           onClose()
         }}
       >
-        Aggiungi {picked.length || ''}
+        {t('Aggiungi')} {picked.length || ''}
       </button>
     </Sheet>
   )
@@ -640,21 +641,20 @@ function DownloadToggle({ songs }: { songs: Song[] }) {
       <button
         className={`dl-toggle ${all ? 'on' : ''}`}
         onClick={() => (all ? setAsking(true) : store.download(missing.map((s) => s.id)))}
-        aria-label={all ? 'Rimuovi i download' : 'Scarica tutti'}
+        aria-label={all ? t('Rimuovi i download') : t('Scarica tutti')}
       >
         {all ? <CircleArrowDown /> : <Download />}
         {busy ? ` ${streamable.length - missing.length}/${streamable.length}` : ''}
       </button>
       {asking && (
-        <Sheet title="Rimuovere i download?" onClose={() => setAsking(false)}>
+        <Sheet title={t('Rimuovere i download?')} onClose={() => setAsking(false)}>
           <p className="muted">
-            {streamable.length} brani tornano in streaming: restano in libreria e nelle playlist, ma senza internet non si sentono. Le canzoni separate in
-            tracce restano scaricate.
+            {t('I brani tornano in streaming e restano nella libreria e nelle playlist; senza internet non si possono ascoltare. Le tracce separate restano scaricate.')}
           </p>
           <button className="danger solid" onClick={() => (void store.removeDownload(streamable.map((s) => s.id)), setAsking(false))}>
-            Rimuovi download
+            {t('Rimuovi download')}
           </button>
-          <button onClick={() => setAsking(false)}>Annulla</button>
+          <button onClick={() => setAsking(false)}>{t('Annulla')}</button>
         </Sheet>
       )}
     </>

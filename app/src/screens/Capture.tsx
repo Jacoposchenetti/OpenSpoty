@@ -4,6 +4,7 @@ import { Spinner } from '../components/ui'
 import { capture, loadCaptures, saveCapture, stopCapture, type CaptureEvent, type Captured } from '../lib/capture'
 import { engine } from '../lib/engine'
 import { errMsg } from '../lib/format'
+import { localeTag, t } from '../lib/i18n'
 import type { CaptureMatch } from '../lib/native'
 import { share } from '../lib/share'
 import type { Song } from '../lib/types'
@@ -72,7 +73,7 @@ export function CapturePage() {
     try {
       const s = await songOf(m)
       store.addTemp([s])
-      pb.playList([s.id], 0, 'Cattura')
+      pb.playList([s.id], 0, t('Cattura'))
     } catch (e) {
       setErr(errMsg(e))
     } finally {
@@ -91,7 +92,7 @@ export function CapturePage() {
   return (
     <div className="page flat capture-page">
       <div className="capture-stage">
-        <button className={`capture-btn ${busy ? 'on' : ''}`} onClick={() => void start()} aria-label={busy ? 'Ferma' : 'Cattura'}>
+        <button className={`capture-btn ${busy ? 'on' : ''}`} onClick={() => void start()} aria-label={busy ? t('Ferma') : t('Cattura')}>
           <span className="capture-ring" style={{ transform: `scale(${1 + level * 0.5})` }} />
           <span className="capture-ring r2" style={{ transform: `scale(${1 + level * 0.25})` }} />
           <AudioLines />
@@ -99,12 +100,12 @@ export function CapturePage() {
         <p className="capture-hint">
           {busy
             ? ev?.phase === 'searching'
-              ? 'Cerco…'
-              : `In ascolto… ${ev ? Math.floor(ev.seconds) : 0} s`
-            : 'Tocca per Cattura'}
+              ? t('Cerco…')
+              : t('In ascolto… {seconds} s', { seconds: ev ? Math.floor(ev.seconds) : 0 })
+            : t('Tocca per Cattura')}
         </p>
-        {busy && <p className="muted small">Avvicina il telefono alla musica. Tocca di nuovo per fermare.</p>}
-        {none && <p className="muted">Non l’ho riconosciuta: riprova più vicino alla musica.</p>}
+        {busy && <p className="muted small">{t('Avvicina il telefono alla musica. Tocca di nuovo per fermare.')}</p>}
+        {none && <p className="muted">{t('Non l’ho riconosciuta: riprova più vicino alla musica.')}</p>}
         {err && <div className="notice error">{err}</div>}
       </div>
 
@@ -112,14 +113,14 @@ export function CapturePage() {
 
       {history.length > 0 && (
         <section className="card">
-          <h2>Catture recenti</h2>
+          <h2>{t('Catture recenti')}</h2>
           {history.map((h) => (
             <button key={h.at} className="recent-main" onClick={() => setResult(h)}>
               {h.image ? <img src={h.image} alt="" /> : <span className="recent-ico"><MicVocal /></span>}
               <span className="lib-text">
                 <span className="row-title">{h.title}</span>
                 <span className="row-sub">
-                  {h.artist} · {new Date(h.at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                  {h.artist} · {new Date(h.at).toLocaleDateString(localeTag(), { day: 'numeric', month: 'short' })}
                 </span>
               </span>
             </button>
@@ -140,7 +141,7 @@ function MatchCard({ m, opening, onListen, onAdd, onArtist, onClose }: {
 }) {
   return (
     <section className="card match-card">
-      <button className="icon-btn match-close" onClick={onClose} aria-label="Chiudi">
+      <button className="icon-btn match-close" onClick={onClose} aria-label={t('Chiudi')}>
         <X />
       </button>
       {m.image && <img className="match-art" src={m.image} alt="" />}
@@ -151,12 +152,12 @@ function MatchCard({ m, opening, onListen, onAdd, onArtist, onClose }: {
       <p className="muted small">{[m.album, m.year, m.genre].filter(Boolean).join(' · ')}</p>
       <div className="list-actions">
         <button className="primary" disabled={opening} onClick={() => onListen(m)}>
-          {opening ? <Spinner /> : <Play fill="currentColor" />} Ascolta
+          {opening ? <Spinner /> : <Play fill="currentColor" />} {t('Ascolta')}
         </button>
         <button onClick={() => onAdd(m)}>
-          <Plus /> Aggiungi
+          <Plus /> {t('Aggiungi')}
         </button>
-        <button className="share-btn" onClick={() => void share({ title: m.title, text: `${m.title} – ${m.artist}`, url: m.url })} aria-label="Condividi">
+        <button className="share-btn" onClick={() => void share({ title: m.title, text: `${m.title} – ${m.artist}`, url: m.url })} aria-label={t('Condividi')}>
           <Share2 />
         </button>
       </div>

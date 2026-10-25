@@ -4,6 +4,7 @@ import { engine, type SpotifyList } from './lib/engine'
 import { errMsg } from './lib/format'
 import { isNative } from './lib/native'
 import { useStore } from './store'
+import { t } from './lib/i18n'
 
 /* Spotify playlists / albums being imported: several at once, and they keep
    going while you use the rest of the app. */
@@ -99,7 +100,7 @@ export function ImportsProvider({ children }: { children: ReactNode }) {
           }
         }
         patch(id, () => ({ phase: 'done' }))
-        storeRef.current.showToast(`Playlist “${list.name}” importata`)
+        storeRef.current.showToast(t('Playlist “{name}” importata', { name: list.name }))
       })()
     },
     [items, patch]

@@ -6,6 +6,7 @@ import { nameParts, originalRef } from '../lib/media'
 import { firstGap, LANGS, loadTranscript, transcribeAt, translateMissing, translated, type Transcript } from '../lib/transcript'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
+import { t as tr } from '../lib/i18n'
 import { PlayBar } from './Lyrics'
 
 /* "Testo" of a podcast episode: what is being said, in time, in its language
@@ -117,7 +118,7 @@ export function TranscriptView({ songId, onClose }: { songId: string; onClose: (
   return (
     <div className="lyrics transcript">
       <header className="player-head">
-        <button className="icon-btn" onClick={onClose} aria-label="Chiudi">
+        <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
           <ChevronDown />
         </button>
         <div className="player-title">
@@ -127,7 +128,7 @@ export function TranscriptView({ songId, onClose }: { songId: string; onClose: (
       </header>
       <div className="lang-chips">
         <button className={!lang || lang === t?.lang ? 'active' : ''} onClick={() => pick('')}>
-          Originale{original ? ` (${original})` : ''}
+          {tr('Originale')}{original ? ` (${original})` : ''}
         </button>
         {LANGS.filter(([k]) => k !== t?.lang).map(([k, label]) => (
           <button key={k} className={lang === k ? 'active' : ''} onClick={() => pick(k)}>
@@ -150,12 +151,12 @@ export function TranscriptView({ songId, onClose }: { songId: string; onClose: (
           <div className="align-note">
             <Spinner size={16} />
             {work.downloading
-              ? `Scarico il riconoscimento della voce (57 MB, una volta sola) · ${work.pct ?? 0}%`
-              : `Trascrivo da ${fmtTime(work.at)}…`}
+              ? `${tr('Scarico il riconoscimento della voce (57 MB, una volta sola)')} · ${work.pct ?? 0}%`
+              : `${tr('Trascrivo da')} ${fmtTime(work.at)}…`}
           </div>
         )}
         {err && <div className="align-note">{err}</div>}
-        {t && <p className="credits">Testo trascritto dall’audio con Whisper{shown !== t.lang ? ' · tradotto con Google Traduttore' : ''}: può contenere errori.</p>}
+        {t && <p className="credits">{tr('Testo trascritto dall’audio con Whisper')}{shown !== t.lang ? ` · ${tr('tradotto con Google Traduttore')}` : ''}{tr(': può contenere errori.')}</p>}
       </div>
       <PlayBar />
     </div>

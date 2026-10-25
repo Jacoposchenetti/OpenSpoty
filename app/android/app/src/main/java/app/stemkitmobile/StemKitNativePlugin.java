@@ -48,6 +48,14 @@ import java.util.concurrent.Executors;
 public class StemKitNativePlugin extends Plugin {
     private final ExecutorService io = Executors.newCachedThreadPool();
 
+    @PluginMethod
+    public void setLanguage(PluginCall call) {
+        String language = call.getString("language", "it");
+        getContext().getSharedPreferences("openspoty", Activity.MODE_PRIVATE).edit()
+            .putString("language", "en".equals(language) ? "en" : "it").apply();
+        call.resolve();
+    }
+
     @Override
     public void load() {
         SeparationService.listener = e -> notifyListeners("separation", toJS(e));

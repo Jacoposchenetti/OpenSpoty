@@ -1,4 +1,5 @@
 import { registerPlugin } from '@capacitor/core'
+import { localeTag, t } from './i18n'
 import type { PlayerSpec } from './player'
 import { readCacheJson, writeCacheJson } from './storage'
 
@@ -64,22 +65,27 @@ export const newAlarm = (): Alarm => ({
   snooze: 9
 })
 
-export const DAY_NAMES = ['L', 'M', 'M', 'G', 'V', 'S', 'D']
+export const dayNames = () => Array.from({ length: 7 }, (_, index) =>
+  new Intl.DateTimeFormat(localeTag(), { weekday: 'short' }).format(new Date(2024, 0, 1 + index))
+)
 
 export function daysLabel(days: number[]): string {
-  if (!days.length) return 'Una volta'
+  if (!days.length) return t('Una volta')
   const s = [...days].sort().join('')
-  if (s === '1234567') return 'Tutti i giorni'
-  if (s === '12345') return 'Lun–ven'
-  if (s === '67') return 'Weekend'
-  const full = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom']
+  if (s === '1234567') return t('Tutti i giorni')
+  if (s === '12345') return t('Lun–ven')
+  if (s === '67') return t('Weekend')
+  const full = Array.from({ length: 7 }, (_, index) =>
+    new Intl.DateTimeFormat(localeTag(), { weekday: 'short' }).format(new Date(2024, 0, 1 + index))
+  )
   return [...days].sort().map((d) => full[d - 1]).join(', ')
 }
 
 export const pad = (n: number) => String(n).padStart(2, '0')
 
-export const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
-const WEEKDAYS = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato']
+export const months = () => Array.from({ length: 12 }, (_, index) =>
+  new Intl.DateTimeFormat(localeTag(), { month: 'long' }).format(new Date(2024, index, 1))
+)
 
 export const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 export const fromIso = (s: string) => {
@@ -91,7 +97,8 @@ export const fromIso = (s: string) => {
 export function dateLabel(iso: string): string {
   const d = fromIso(iso)
   const year = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : ''
-  return `${WEEKDAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}${year}`
+  const date = new Intl.DateTimeFormat(localeTag(), { weekday: 'long', day: 'numeric', month: 'long' }).format(d)
+  return `${date}${year}`
 }
 
 /** when an alarm rings, in words */
@@ -109,6 +116,7 @@ export const isPast = (a: Alarm) => {
 export function inWords(at: number): string {
   const min = Math.max(1, Math.round((at - Date.now()) / 60000))
   const h = Math.floor(min / 60), m = min % 60
+  if (localeTag() === 'en-US') return h ? `in ${h} hour${h === 1 ? '' : 's'}${m ? ` and ${m} minute${m === 1 ? '' : 's'}` : ''}` : `in ${m} minute${m === 1 ? '' : 's'}`
   if (!h) return `tra ${m} minut${m === 1 ? 'o' : 'i'}`
   return `tra ${h} or${h === 1 ? 'a' : 'e'}${m ? ` e ${m} minut${m === 1 ? 'o' : 'i'}` : ''}`
 }
