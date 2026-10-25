@@ -18,4 +18,6 @@ in alto nell'app; tocca Aggiorna e si riavvia da solo.
 
 Telefono: installa OpenSpoty.apk da
 https://github.com/Jacoposchenetti/OpenSpoty/releases/latest
-e collegalo al PC con il pulsante in alto a destra.
+e apri la sincronizzazione su entrambi i dispositivi. Sul PC trovi indirizzo
+HTTPS, PIN di 12 cifre e impronta SHA-256; inseriscili sul telefono. Confronta
+l'impronta sul PC prima dell'abbinamento: l'app rifiuta certificati diversi.

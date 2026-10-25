@@ -6,8 +6,8 @@
   YouTube searches and Spotify links (resolved to a YouTube search)
 
 Runs with StemKit's own private Python (no extra packages) and reuses its
-separation scripts, its ffmpeg and its yt-dlp. Every request except /api/ping
-needs the PIN shown in this window (header X-StemKit-Pin).
+separation scripts, its ffmpeg and its yt-dlp. API requests need the phone PIN
+or the per-process token injected into the desktop UI; /api/ping is public.
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import re
 import secrets
 import shutil
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -27,12 +28,14 @@ import urllib.parse
 import urllib.request
 import uuid
 import wave
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 VERSION = "1.0.0"
 PORT = int(os.environ.get("STEMKIT_BRIDGE_PORT", "8777"))
+TLS_PORT = int(os.environ.get("STEMKIT_BRIDGE_TLS_PORT", str(PORT + 1)))
 
 IS_WIN = sys.platform == "win32"
 DATA_DIR = Path(
@@ -94,14 +97,20 @@ def load_config() -> dict:
         cfg = json.loads(CONFIG.read_text("utf8"))
     except Exception:
         cfg = {}
-    if not re.fullmatch(r"\d{6}", str(cfg.get("pin", ""))):
-        cfg["pin"] = f"{secrets.randbelow(1_000_000):06d}"
+    if not re.fullmatch(r"[0-9]{12}", str(cfg.get("pin", ""))):
+        cfg["pin"] = f"{secrets.randbelow(1_000_000_000_000):012d}"
         CONFIG.parent.mkdir(parents=True, exist_ok=True)
         CONFIG.write_text(json.dumps(cfg, indent=2), "utf8")
     return cfg
 
 
 CFG = load_config()
+# A per-process credential used only by the desktop UI served on loopback.
+# Unlike the phone PIN, this token is never displayed or persisted.
+LOCAL_UI_TOKEN = secrets.token_urlsafe(32)
+TLS_CERT_PATH: Path | None = None
+TLS_KEY_PATH: Path | None = None
+TLS_FINGERPRINT = ""
 
 failed_auth: dict[str, list[float]] = {}
 failed_auth_lock = threading.Lock()
@@ -568,15 +577,56 @@ def lan_addresses() -> list[str]:
     return addrs
 
 
+def ensure_tls_certificate() -> tuple[Path, Path, str]:
+    """Create a stable, self-signed server certificate; the phone pins its SHA-256."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    directory = DATA_DIR / "bridge-tls"
+    cert_path, key_path = directory / "server.pem", directory / "server-key.pem"
+    directory.mkdir(parents=True, exist_ok=True)
+    reusable = False
+    if cert_path.is_file() and key_path.is_file():
+        try:
+            existing_cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+            existing_key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+            reusable = existing_cert.public_key().public_numbers() == existing_key.public_key().public_numbers()
+        except Exception:
+            reusable = False
+    if not reusable:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "OpenSpoty PC Bridge")])
+        now = datetime.now(timezone.utc)
+        cert = (x509.CertificateBuilder().subject_name(subject).issuer_name(subject)
+                .public_key(key.public_key()).serial_number(x509.random_serial_number())
+                .not_valid_before_utc(now - timedelta(minutes=1))
+                .not_valid_after_utc(now + timedelta(days=3650))
+                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                .add_extension(x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+                .sign(key, hashes.SHA256()))
+        key_path.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+        cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+        try:
+            key_path.chmod(0o600)
+        except OSError:
+            pass
+    cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+    return cert_path, key_path, cert.fingerprint(hashes.SHA256()).hex()
+
+
 STATUS_PAGE = """<!doctype html><html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>OpenSpoty Bridge</title>
 <style>body{font-family:system-ui,sans-serif;background:#0d0d14;color:#eee;max-width:640px;margin:40px auto;padding:0 16px}
 .pin{font-size:48px;letter-spacing:8px;font-weight:700;color:#a78bfa}code{background:#1d1d2b;padding:2px 6px;border-radius:4px}
 li{margin:4px 0}.muted{color:#999}</style></head><body>
 <h1>OpenSpoty Bridge</h1>
-<p>Nell'app <b>OpenSpoty</b> → <i>PC</i>, inserisci uno di questi indirizzi e il PIN.</p>
+<p>Nell'app <b>OpenSpoty</b> → <i>PC</i>, inserisci uno di questi indirizzi, il PIN e l'impronta.</p>
 <ul>%ADDRS%</ul><p>PIN</p><div class="pin">%PIN%</div>
-<p class="muted">Via cavo USB: <code>adb reverse tcp:%PORT% tcp:%PORT%</code> e poi indirizzo <code>127.0.0.1:%PORT%</code>.</p>
+<p>Impronta certificato SHA-256</p><code>%FINGERPRINT%</code>
+<p class="muted">Via USB: <code>adb reverse tcp:%TLS_PORT% tcp:%TLS_PORT%</code> e poi indirizzo <code>https://127.0.0.1:%TLS_PORT%</code>.</p>
 <h2>Lavori</h2><ul id="jobs">%JOBS%</ul>
 <script>setTimeout(()=>location.reload(),5000)</script></body></html>"""
 
@@ -592,16 +642,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # -- helpers
     def cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "X-StemKit-Pin, Content-Type, X-Filename")
-        self.send_header("Access-Control-Max-Age", "600")
+        origin = self.headers.get("Origin", "")
+        desktop_origins = {f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}
+        app_origins = {"http://localhost", "https://localhost", "capacitor://localhost"}
+        if origin in desktop_origins | app_origins:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "X-StemKit-Pin, X-StemKit-Local-Token, Content-Type, X-Filename")
+            self.send_header("Access-Control-Max-Age", "600")
 
     def send_json(self, data, status=200):
         body = json.dumps(data).encode("utf8")
         self.send_response(status)
         self.cors()
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -612,15 +669,24 @@ class Handler(BaseHTTPRequestHandler):
     def is_local(self) -> bool:
         return self.client_address[0] in ("127.0.0.1", "::1")
 
+    def is_trusted_local_ui(self) -> bool:
+        host = self.headers.get("Host", "").lower()
+        hosts = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+        origin = self.headers.get("Origin", "")
+        origins = {f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}
+        return self.is_local() and host in hosts and (not origin or origin in origins)
+
     def authed(self) -> bool:
         ip = self.client_address[0]
         if auth_locked(ip):
             self.error(429, "Troppi PIN sbagliati: riprova tra 10 minuti")
             return False
-        if self.is_local():
-            return True  # the PC app itself (and the phone over USB, via adb reverse)
+        if self.is_trusted_local_ui() and secrets.compare_digest(
+            self.headers.get("X-StemKit-Local-Token", ""), LOCAL_UI_TOKEN
+        ):
+            return True  # desktop UI served on loopback; never trust loopback alone
         pin = self.headers.get("X-StemKit-Pin", "")
-        if secrets.compare_digest(pin, CFG["pin"]):
+        if pin.isascii() and secrets.compare_digest(pin, CFG["pin"]):
             return True
         note_failed_auth(ip)
         self.error(401, "PIN sbagliato")
@@ -689,17 +755,21 @@ class Handler(BaseHTTPRequestHandler):
     def route_get(self):
         p, q = self.parts()
         if p == ["bridge"]:
-            if not self.is_local():
+            if not self.is_trusted_local_ui():
                 return self.error(403, "Apri questa pagina dal PC")
-            addrs = "".join(f"<li><code>{a}:{PORT}</code></li>" for a in lan_addresses()) or "<li>nessuna rete</li>"
+            addrs = "".join(f"<li><code>https://{a}:{TLS_PORT}</code></li>" for a in lan_addresses()) or "<li>nessuna rete</li>"
             jl = "".join(
                 f"<li>{j.title} — {j.message} {j.pct}% ({j.state})</li>"
                 for j in sorted(jobs.values(), key=lambda j: -j.created)
             ) or "<li class='muted'>nessuno</li>"
             html = (STATUS_PAGE.replace("%ADDRS%", addrs).replace("%PIN%", CFG["pin"])
-                    .replace("%PORT%", str(PORT)).replace("%JOBS%", jl)).encode("utf8")
+                    .replace("%FINGERPRINT%", TLS_FINGERPRINT).replace("%PORT%", str(PORT))
+                    .replace("%TLS_PORT%", str(TLS_PORT))
+                    .replace("%JOBS%", jl)).encode("utf8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Length", str(len(html)))
             self.end_headers()
             self.wfile.write(html)
@@ -815,15 +885,26 @@ def main():
         print("Apri StemKit sul PC almeno una volta e completa la configurazione.")
         input("Premi Invio per chiudere…")
         sys.exit(1)
+    global TLS_CERT_PATH, TLS_KEY_PATH, TLS_FINGERPRINT
+    TLS_CERT_PATH, TLS_KEY_PATH, TLS_FINGERPRINT = ensure_tls_certificate()
     pc_app.start()
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    # Plain HTTP stays on loopback for the PC UI and USB adb-reverse only.
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     server.daemon_threads = True
+    lan_server = ThreadingHTTPServer(("0.0.0.0", TLS_PORT), Handler)
+    lan_server.daemon_threads = True
+    tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    tls.minimum_version = ssl.TLSVersion.TLSv1_2
+    tls.load_cert_chain(str(TLS_CERT_PATH), str(TLS_KEY_PATH))
+    lan_server.socket = tls.wrap_socket(lan_server.socket, server_side=True)
+    threading.Thread(target=lan_server.serve_forever, name="openspoty-tls", daemon=True).start()
     print("=" * 56)
     print(f"  OpenSpoty Bridge {VERSION} — pronto")
     print("  Nell'app OpenSpoty → PC, inserisci:")
     for a in lan_addresses():
-        print(f"     indirizzo  {a}:{PORT}")
+        print(f"     indirizzo  https://{a}:{TLS_PORT}")
     print(f"     PIN        {CFG['pin']}")
+    print(f"     impronta   {TLS_FINGERPRINT}")
     print(f"  App sul PC: http://127.0.0.1:{PORT}/")
     print(f"  Libreria: {pc_app.LIB}")
     print("  Lascia aperta questa finestra. Ctrl+C per chiudere.")
@@ -832,6 +913,9 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        lan_server.shutdown()
+        lan_server.server_close()
 
 
 if __name__ == "__main__":

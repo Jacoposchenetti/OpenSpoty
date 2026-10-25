@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rebuild StemKit Mobile for both devices: the phone (install on the
 # USB-connected phone, relaunch, re-arm the WebView debugger 9222 + bridge
-# tunnel 8777) and the PC (app/dist served by the bridge, pc-engine jars).
+# TLS tunnel 8778) and the PC (app/dist served locally on 8777, pc-engine jars).
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ADB=~/Android/Sdk/platform-tools/adb.exe
@@ -23,5 +23,5 @@ sleep 5
 SOCK=$($ADB shell cat /proc/net/unix | grep -o "webview_devtools_remote_[0-9]*" | tail -1)
 $ADB forward --remove-all
 $ADB forward tcp:9222 localabstract:$SOCK >/dev/null
-$ADB reverse tcp:8777 tcp:8777 >/dev/null
+$ADB reverse tcp:8778 tcp:8778 >/dev/null
 echo "deployed ($SOCK)"

@@ -43,7 +43,7 @@ Scarica l'APK Android o il pacchetto Windows da [GitHub Releases](https://github
 - **Android:** scarica l'APK e aprilo sul telefono. Se richiesto, consenti l'installazione da quella fonte. L'APK v1.12.0 attuale è una build di test firmata con la chiave di debug; gli aggiornamenti devono usare la stessa chiave. OpenSpoty è distribuita fuori da Google Play.
 - **Windows:** scarica ed estrai `OpenSpoty-Windows.zip`, poi avvia `OpenSpoty.exe`. Al primo avvio Windows potrebbe chiedere conferma perché l'app non usa un certificato commerciale.
 
-Per sincronizzare telefono e PC, apri la schermata di sincronizzazione su entrambi e inserisci l'indirizzo e il PIN mostrati dall'app PC. I due dispositivi devono essere sulla stessa rete locale.
+Per sincronizzare telefono e PC, apri la schermata di sincronizzazione nell'app PC per visualizzare indirizzo HTTPS, PIN di 12 cifre e impronta SHA-256 del certificato. Inserisci questi dati sul telefono mentre i due dispositivi sono sulla stessa rete locale. Confronta l'impronta mostrata sul PC prima dell'abbinamento: OpenSpoty verificherà quel certificato per cifrare i trasferimenti.
 
 ## Come funziona
 

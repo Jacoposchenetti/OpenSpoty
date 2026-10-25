@@ -69,12 +69,12 @@ export const pingPc = (cfg: BridgeConfig) => req<{ ok: boolean; name: string }>(
 export async function findPc(cfg: BridgeConfig): Promise<BridgeConfig | null> {
   const m = cfg.address.match(/^(?:https?:\/\/)?(\d+\.\d+\.\d+)\.(\d+)(?::(\d+))?/)
   if (!m) return null
-  const port = m[3] ?? '8777'
+  const port = m[3] ?? '8778'
   const hosts = Array.from({ length: 254 }, (_, i) => i + 1).filter((h) => String(h) !== m[2])
   for (let i = 0; i < hosts.length; i += 64) {
     const found = await Promise.any(
       hosts.slice(i, i + 64).map(async (h) => {
-        const c = { address: `${m[1]}.${h}:${port}`, pin: cfg.pin }
+        const c = { address: `https://${m[1]}.${h}:${port}`, pin: cfg.pin, fingerprint: cfg.fingerprint }
         await pingPc(c)
         return c
       })
@@ -113,9 +113,9 @@ export async function syncWithPc(
   let done = 0
   onProgress({ done, total })
   const jobs = [
-    ...up.map((f) => () => StemKitNative.pushFile({ id: `sync:${f}`, path: f, url: `${base}/api/lib/file/${f}`, pin: cfg.pin }).then(() => (mine[f] = 1))),
+    ...up.map((f) => () => StemKitNative.pushFile({ id: `sync:${f}`, path: f, url: `${base}/api/lib/file/${f}`, pin: cfg.pin, fingerprint: cfg.fingerprint }).then(() => (mine[f] = 1))),
     ...down.map(
-      (f) => () => StemKitNative.download({ id: `sync:${f}`, url: `${base}/api/lib/file/${f}`, pin: cfg.pin, path: f }).then(() => (mine[f] = 1))
+      (f) => () => StemKitNative.download({ id: `sync:${f}`, url: `${base}/api/lib/file/${f}`, pin: cfg.pin, fingerprint: cfg.fingerprint, path: f }).then(() => (mine[f] = 1))
     )
   ]
   // two transfers at a time; one failure doesn't stop the rest (retried next sync)

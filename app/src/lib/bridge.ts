@@ -1,14 +1,15 @@
 import type { PcJob, PcSong, SearchResult, StemId } from './types'
 
 export interface BridgeConfig {
-  address: string // "192.168.1.36:8777"
+  address: string // "https://192.168.1.36:8778"
   pin: string
+  fingerprint: string // SHA-256 of the PC bridge certificate, confirmed during pairing
 }
 
 export function bridgeBase(address: string): string {
   const a = address.trim().replace(/\/+$/, '')
-  const withScheme = /^https?:\/\//.test(a) ? a : `http://${a}`
-  return /:\d+$/.test(withScheme) ? withScheme : `${withScheme}:8777`
+  const withScheme = a.replace(/^http:\/\//i, 'https://').replace(/^(?!https:\/\/)/i, 'https://')
+  return /:\d+$/.test(withScheme) ? withScheme : `${withScheme}:8778`
 }
 
 /* Client for bridge/stemkit_bridge.py running on the PC. */

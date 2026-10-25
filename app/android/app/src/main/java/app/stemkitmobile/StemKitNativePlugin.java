@@ -33,7 +33,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.HttpsURLConnection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,6 +57,36 @@ public class StemKitNativePlugin extends Plugin {
         getContext().getSharedPreferences("openspoty", Activity.MODE_PRIVATE).edit()
             .putString("language", "en".equals(language) ? "en" : "it").apply();
         call.resolve();
+    }
+
+    @PluginMethod
+    public void setBridgeTrust(PluginCall call) {
+        String fingerprint = call.getString("fingerprint", "").toLowerCase(java.util.Locale.ROOT);
+        if (!fingerprint.matches("[0-9a-f]{64}")) {
+            call.reject("Impronta SHA-256 non valida");
+            return;
+        }
+        getContext().getSharedPreferences("openspoty", Activity.MODE_PRIVATE).edit()
+            .putString("bridgeFingerprint", fingerprint).apply();
+        call.resolve();
+    }
+
+    private HttpURLConnection bridgeConnection(String url, String fingerprint) throws Exception {
+        URLConnection raw = new URL(url).openConnection();
+        if (fingerprint == null || fingerprint.isEmpty()) return (HttpURLConnection) raw;
+        if (!(raw instanceof HttpsURLConnection)) throw new SecurityException("Il Bridge deve usare HTTPS");
+        HttpsURLConnection secure = (HttpsURLConnection) raw;
+        secure.setSSLSocketFactory(BridgeTlsPin.context(fingerprint).getSocketFactory());
+        secure.setHostnameVerifier((host, session) -> {
+            try {
+                java.security.cert.Certificate[] chain = session.getPeerCertificates();
+                return chain.length > 0 && chain[0] instanceof X509Certificate
+                    && BridgeTlsPin.matches((X509Certificate) chain[0], fingerprint);
+            } catch (Exception e) {
+                return false;
+            }
+        });
+        return secure;
     }
 
     @Override
@@ -138,13 +171,14 @@ public class StemKitNativePlugin extends Plugin {
         String path = call.getString("uri");
         String url = call.getString("url");
         String pin = call.getString("pin", "");
+        String fingerprint = call.getString("fingerprint", "");
         String filename = call.getString("filename", "canzone.mp3");
         io.execute(() -> {
             HttpURLConnection c = null;
             try {
                 File f = new File(path);
                 long size = f.length();
-                c = (HttpURLConnection) new URL(url).openConnection();
+                c = bridgeConnection(url, fingerprint);
                 c.setRequestMethod("POST");
                 c.setDoOutput(true);
                 c.setConnectTimeout(10_000);
@@ -218,6 +252,7 @@ public class StemKitNativePlugin extends Plugin {
         String rel = call.getString("path", "");
         String url = call.getString("url");
         String pin = call.getString("pin", "");
+        String fingerprint = call.getString("fingerprint", "");
         if (rel.contains("..")) {
             call.reject("percorso non valido");
             return;
@@ -227,7 +262,7 @@ public class StemKitNativePlugin extends Plugin {
             try {
                 File f = new File(getContext().getFilesDir(), rel);
                 long size = f.length();
-                c = (HttpURLConnection) new URL(url).openConnection();
+                c = bridgeConnection(url, fingerprint);
                 c.setRequestMethod("POST");
                 c.setDoOutput(true);
                 c.setConnectTimeout(10_000);
@@ -265,6 +300,7 @@ public class StemKitNativePlugin extends Plugin {
         String id = call.getString("id", "");
         String url = call.getString("url");
         String pin = call.getString("pin", "");
+        String fingerprint = call.getString("fingerprint", "");
         String rel = call.getString("path", "");
         if (rel.contains("..")) {
             call.reject("percorso non valido");
@@ -277,7 +313,7 @@ public class StemKitNativePlugin extends Plugin {
             try {
                 //noinspection ResultOfMethodCallIgnored
                 dst.getParentFile().mkdirs();
-                c = (HttpURLConnection) new URL(url).openConnection();
+                c = bridgeConnection(url, fingerprint);
                 c.setConnectTimeout(10_000);
                 c.setReadTimeout(120_000); // the PC may transcode the stem first
                 c.setRequestProperty("X-StemKit-Pin", pin);

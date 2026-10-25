@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Bridge, type BridgeConfig } from './lib/bridge'
 import { engine } from './lib/engine'
 import { errMsg } from './lib/format'
-import { isDesktop, isNative, type SeparationEvent } from './lib/native'
+import { isDesktop, isNative, StemKitNative, type SeparationEvent } from './lib/native'
 import { deleteLyrics } from './lib/lyrics'
 import {
   collectDeviceSongs,
@@ -295,7 +295,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       playlistsRef.current = pls
       setPlaylistsState(pls)
-      setBridgeState(cfg)
+      setBridgeState(cfg?.fingerprint ? cfg : null)
       await adoptDeviceSongs()
       if (engine.available) {
         const st = await engine.separationStatus().catch(() => null)
@@ -542,6 +542,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const setBridgeCfg = useCallback(async (cfg: BridgeConfig) => {
     setBridgeState(cfg)
+    if (isNative) await StemKitNative.setBridgeTrust({ fingerprint: cfg.fingerprint })
     await saveBridgeConfig(cfg)
   }, [])
 

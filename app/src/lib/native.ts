@@ -51,9 +51,10 @@ export interface TransferEvent {
 /* Java side: android/app/src/main/java/app/stemkitmobile/StemKitNativePlugin.java */
 export interface StemKitNativePlugin {
   setLanguage(opts: { language: 'it' | 'en' }): Promise<void>
+  setBridgeTrust(opts: { fingerprint: string }): Promise<void>
   pickAudio(): Promise<PickedAudio>
-  upload(opts: { id: string; uri: string; url: string; pin: string; filename: string }): Promise<{ status: number; body: string }>
-  download(opts: { id: string; url: string; pin: string; path: string }): Promise<{ path: string; size: number }>
+  upload(opts: { id: string; uri: string; url: string; pin: string; fingerprint?: string; filename: string }): Promise<{ status: number; body: string }>
+  download(opts: { id: string; url: string; pin: string; fingerprint?: string; path: string }): Promise<{ path: string; size: number }>
   podcastSearch(opts: { query: string }): Promise<{ results: import('./podcasts').Podcast[] }>
   podcastFeed(opts: { url: string }): Promise<import('./podcasts').PodcastFeed>
   /** looks up the YouTube streams of songs likely to be played next (faster start) */
@@ -63,7 +64,7 @@ export interface StemKitNativePlugin {
   /** every file under songs/ with its size */
   listFiles(): Promise<{ files: Record<string, number> }>
   /** sends a file of the data folder to the PC, keeping it */
-  pushFile(opts: { id: string; path: string; url: string; pin: string }): Promise<void>
+  pushFile(opts: { id: string; path: string; url: string; pin: string; fingerprint?: string }): Promise<void>
   separate(opts: {
     uri?: string
     youtubeId?: string

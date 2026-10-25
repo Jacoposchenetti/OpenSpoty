@@ -43,7 +43,7 @@ Download the Android APK or Windows package from [GitHub Releases](https://githu
 - **Android:** download the APK and open it on your phone. If prompted, allow installation from that source. The current v1.12.0 APK is a debug-signed tester build; updates must use the same signing key. OpenSpoty is distributed outside Google Play.
 - **Windows:** download and extract `OpenSpoty-Windows.zip`, then run `OpenSpoty.exe`. Windows may ask you to confirm the first launch because the app is not signed with a commercial certificate.
 
-To sync phone and PC, open the sync screen on both devices and enter the address and PIN shown by the PC app. Keep both devices on the same local network.
+To sync phone and PC, open the sync screen in the PC app to view its HTTPS address, 12-digit PIN, and SHA-256 certificate fingerprint. Enter these on the phone while both devices are on the same local network. Compare the fingerprint shown on the PC before pairing; OpenSpoty pins that certificate for encrypted transfers.
 
 ## How it works
 

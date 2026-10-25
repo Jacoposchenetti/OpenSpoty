@@ -1514,6 +1514,10 @@ label {
   color: var(--accent);
   font-size: 20px;
 }
+.pairing .fingerprint {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
 
 
 /* artist / album pages (Spotify catalogue) */

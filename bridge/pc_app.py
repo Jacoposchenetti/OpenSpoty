@@ -583,8 +583,16 @@ def serve_app(h, path: str) -> None:
         return h.error(503, "App non compilata: esegui tools/deploy.sh")
     data = f.read_bytes()
     if f.name == "index.html":
-        flags = b"window.__STEMKIT_DESKTOP__=1" + (b";window.__OPENSPOTY_PORTABLE__=1" if HOME else b"")
-        data = data.replace(b"<head>", b"<head><script>" + flags + b"</script>", 1)
+        flags = ("window.__STEMKIT_DESKTOP__=1"
+                 + (";window.__OPENSPOTY_PORTABLE__=1" if HOME else "")
+                 + ";(function(){const t=" + json.dumps(sb.LOCAL_UI_TOKEN) + ";"
+                 + "const f=window.fetch.bind(window);window.fetch=(i,o={})=>{"
+                 + "const u=i instanceof Request?i.url:i;let x;try{x=new URL(u,location.href)}"
+                 + "catch(_){return f(i,o)}if(x.origin!==location.origin)return f(i,o);"
+                 + "const h=new Headers(i instanceof Request?i.headers:undefined);"
+                 + "new Headers(o.headers||{}).forEach((v,k)=>h.set(k,v));"
+                 + "h.set('X-StemKit-Local-Token',t);return f(i,{...o,headers:h})}})();")
+        data = data.replace(b"<head>", b"<head><script>" + flags.encode("utf8") + b"</script>", 1)
     h.send_response(200)
     h.send_header("Content-Type", CONTENT_TYPES.get(f.suffix, "application/octet-stream"))
     h.send_header("Content-Length", str(len(data)))
@@ -597,7 +605,7 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
     """Handles the PC-app and sync endpoints; False if the path is not ours."""
     path = "/".join(p)
     if method == "GET" and (not p or p[0] not in ("api", "bridge")):
-        if not h.is_local():
+        if not h.is_trusted_local_ui():
             h.error(403, "L'app si apre solo da questo PC")
             return True
         serve_app(h, "/" + path)
@@ -689,7 +697,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             if not h.is_local():
                 h.error(403, "solo da questo PC")
             else:
-                h.send_json({"addresses": [f"{a}:{sb.PORT}" for a in sb.lan_addresses()], "pin": sb.CFG["pin"],
+                h.send_json({"addresses": [f"https://{a}:{sb.TLS_PORT}" for a in sb.lan_addresses()], "pin": sb.CFG["pin"],
+                             "fingerprint": sb.TLS_FINGERPRINT,
                              "name": sb.socket.gethostname(), "phoneSync": last_phone_sync})
         elif method == "POST":
             b = read_body_json(h)
