@@ -19,10 +19,10 @@ Search for music, play it through YouTube, and organize your library with playli
 
 OpenSpoty is designed for musicians as well as listeners. In Play Along, adjust the volume of vocals, drums, bass, guitar, piano, and other stems independently; mute or solo parts to focus on what you are practicing. Load chords and synchronized lyrics, edit chord positions, and change pitch or playback speed. BPM detection, count-in, and A–B looping help with focused practice.
 
-<p align="center"><a href="screenshots/playalong-controls-en.jpg"><img src="screenshots/playalong-controls-en.jpg" width="260" alt="English Play Along controls for stems, mute and solo, chords, and key"></a> <a href="screenshots/player-en.jpg"><img src="screenshots/player-en.jpg" width="120" alt="Player controls and queue"></a> <a href="screenshots/player-en-duplicate.jpg"><img src="screenshots/player-en-duplicate.jpg" width="120" alt="Duplicate player screenshot supplied by the project owner"></a></p>
-<p align="center"><sub>English Play Along controls with muted stems</sub> <sub>Player</sub> <sub>Duplicate player capture</sub></p>
+<p align="center"><a href="screenshots/playalong-controls-en.jpg"><img src="screenshots/playalong-controls-en.jpg" width="120" alt="Play Along controls and synchronized lyrics"></a> <a href="screenshots/player-en.jpg"><img src="screenshots/player-en.jpg" width="120" alt="Player controls and queue"></a></p>
+<p align="center"><sub>Play Along</sub> <sub>Player</sub></p>
 
-*The Play Along screenshot is cropped to show the English controls and omit song lyrics.*
+*Play Along with English controls and synchronized lyrics.*
 
 ## More music tools
 
