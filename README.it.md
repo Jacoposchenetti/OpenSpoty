@@ -20,9 +20,9 @@ Cerca musica, riproducila tramite YouTube e organizza la libreria con playlist e
 OpenSpoty è pensata per musicisti e ascoltatori. In Play Along puoi regolare separatamente voce, batteria, basso, chitarra, piano e altri strumenti; silenziare o isolare le singole parti per concentrarti su ciò che stai studiando. Carica accordi e testo sincronizzato, modifica la posizione degli accordi e cambia tono o velocità. Rilevamento BPM, count-in e loop A–B aiutano a esercitarsi con precisione.
 
 <p align="center"><a href="screenshots/playalong-controls-en.jpg"><img src="screenshots/playalong-controls-en.jpg" width="120" alt="Controlli Play Along per tracce, mute e solo, accordi e tonalità"></a> <a href="screenshots/player-en.jpg"><img src="screenshots/player-en.jpg" width="120" alt="Player e controlli della coda"></a> <a href="screenshots/player-en-duplicate.jpg"><img src="screenshots/player-en-duplicate.jpg" width="120" alt="Schermata duplicata del player"></a></p>
-<p align="center"><sub>Play Along (ritaglio senza testo)</sub> <sub>Player</sub> <sub>Copia del player</sub></p>
+<p align="center"><sub>Controlli Play Along in inglese, tracce silenziate</sub> <sub>Player</sub> <sub>Copia del player</sub></p>
 
-*La schermata Play Along è stata acquisita prima dell'ultimo aggiornamento delle traduzioni; la versione attuale traduce questi controlli quando è selezionato l'inglese. Il ritaglio esclude il testo della canzone.*
+*La schermata Play Along mostra i controlli in inglese ed è ritagliata per escludere il testo della canzone.*
 
 ## Altri strumenti musicali
 
