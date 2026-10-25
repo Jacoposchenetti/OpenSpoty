@@ -6,6 +6,12 @@
 
 [Leggi in italiano](README.it.md)
 
+## Screenshots
+
+| Search and recommendations | Identify a song |
+| --- | --- |
+| ![OpenSpoty search and music recommendations in English](screenshots/search-en.jpg) | ![OpenSpoty song identification screen in English](screenshots/identify-en.jpg) |
+
 ## Download and install
 
 Download the latest Android APK or Windows package from [GitHub Releases](https://github.com/Jacoposchenetti/OpenSpoty/releases).

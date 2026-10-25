@@ -117,8 +117,12 @@ export const prefersFlats = (k: { tonic: number; minor: boolean } | null, shift:
   return [5, 10, 3, 8, 1].includes(major)
 }
 
-export const keyName = (k: { tonic: number; minor: boolean }, shift: number) =>
-  `${IT[(((k.tonic + shift) % 12) + 12) % 12]} ${k.minor ? 'minore' : 'maggiore'}`
+export const keyName = (k: { tonic: number; minor: boolean }, shift: number, language: 'it' | 'en' = 'it') => {
+  const index = (((k.tonic + shift) % 12) + 12) % 12
+  const note = language === 'it' ? IT[index] : (prefersFlats(k, shift) ? FLAT : SHARP)[index]
+  const quality = language === 'it' ? (k.minor ? 'minore' : 'maggiore') : (k.minor ? 'minor' : 'major')
+  return `${note} ${quality}`
+}
 
 /** user corrections (Song.chordEdits) over the recognised chords; drops repeats and silence */
 export function applyEdits(segs: ChordSeg[], edits?: Record<string, string>): ChordSeg[] {

@@ -21,7 +21,7 @@ import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
-import { t as tr } from '../lib/i18n'
+import { t as tr, localeTag } from '../lib/i18n'
 import { fmtTime } from '../lib/format'
 import { isNative } from '../lib/native'
 import { STEM_META, type MixState, type StemId } from '../lib/types'
@@ -212,7 +212,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
 
       {showChords && chords && (
         <div className="chord-bar">
-          {key && <span className="key">{keyName(key, pitch)}</span>}
+          {key && <span className="key">{keyName(key, pitch, localeTag() === 'it-IT' ? 'it' : 'en')}</span>}
           <span className="capo">
             <button onClick={() => (setCapo(Math.max(0, capo - 1)), setPref(`capo:${songId}`, String(Math.max(0, capo - 1))))} aria-label={tr('Capotasto giù')}>
               <Minus />
@@ -314,8 +314,8 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
           <div className="align-note">
             <Spinner size={16} />
             {aligning.downloading
-              ? `Scarico il riconoscimento del canto (57 MB, una volta sola) · ${aligning.pct}%`
-              : `Metto il testo a tempo con la musica · ${aligning.pct}%`}
+              ? `${tr('Scarico il riconoscimento del canto (57 MB, una volta sola)')} · ${aligning.pct}%`
+              : `${tr('Metto il testo a tempo con la musica')} · ${aligning.pct}%`}
           </div>
         )}
         {alignErr && (
@@ -394,7 +394,7 @@ function ChordEditor({ seg, d, onClose, onSave }: { seg: ChordSeg; d: Display; o
   const names = d.flats ? ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
   const label = labelOf(root - d.shift, quality)
   return (
-    <Sheet title={`Accordo a ${Math.floor(seg[0] / 60)}:${String(Math.floor(seg[0] % 60)).padStart(2, '0')}`} onClose={onClose}>
+    <Sheet title={tr('Accordo a {time}', { time: `${Math.floor(seg[0] / 60)}:${String(Math.floor(seg[0] % 60)).padStart(2, '0')}` })} onClose={onClose}>
       <div className="chord-grid">
         {names.map((n, i) => (
           <button key={n} className={i === root ? 'active' : ''} onClick={() => setRoot(i)}>
@@ -405,7 +405,7 @@ function ChordEditor({ seg, d, onClose, onSave }: { seg: ChordSeg; d: Display; o
       <div className="chord-grid q">
         {QUALITIES.map((q) => (
           <button key={q} className={q === quality ? 'active' : ''} onClick={() => setQuality(q)}>
-            {QUALITY_NAMES[q]}
+            {tr(QUALITY_NAMES[q])}
           </button>
         ))}
       </div>
@@ -448,8 +448,8 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
         const on = audible(id)
         return (
           <div key={id} className={`mx ${on ? 'on' : 'off'}`} style={{ ['--c' as string]: meta.color }}>
-            <button className="mx-name" onClick={() => toggleMute(id)} disabled={!!mix.solo.length} aria-label={`${meta.label}: ${on ? tr('attiva') : tr('silenziata')}`}>
-              {meta.label}
+            <button className="mx-name" onClick={() => toggleMute(id)} disabled={!!mix.solo.length} aria-label={`${tr(meta.label)}: ${on ? tr('attiva') : tr('silenziata')}`}>
+              {tr(meta.label)}
             </button>
             <input
               type="range"
@@ -458,9 +458,9 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
               step={0.01}
               value={mix.vols[id] ?? 1}
               onChange={(e) => onChange({ ...mix, vols: { ...mix.vols, [id]: Number(e.target.value) } })}
-              aria-label={`${tr('Volume')} ${meta.label}`}
+              aria-label={`${tr('Volume')} ${tr(meta.label)}`}
             />
-            <button className={`mx-solo ${mix.solo.includes(id) ? 'active' : ''}`} onClick={() => toggleSolo(id)} aria-label={`Solo ${meta.label}`}>
+            <button className={`mx-solo ${mix.solo.includes(id) ? 'active' : ''}`} onClick={() => toggleSolo(id)} aria-label={`Solo ${tr(meta.label)}`}>
               S
             </button>
           </div>
