@@ -59,4 +59,4 @@ For Windows packaging, run `bash tools/pc/package.sh` from Git Bash with the req
 
 ## License
 
-OpenSpoty is licensed under [GPL-3.0](LICENSE). It includes third-party components under their respective licenses, including StemKit, HT-Demucs, BTC chord recognition, SongRec, Signalsmith Stretch, ONNX Runtime, and lucide. See the source tree and bundled license files for details.
+OpenSpoty source code is licensed under [GPL-3.0](LICENSE), so it can be copied and modified under that license. The OpenSpoty name, logo, and app icon are project branding and are not granted for reuse by the code license; see the [branding policy](BRANDING.md). Third-party components and media remain under their respective licenses and rights.

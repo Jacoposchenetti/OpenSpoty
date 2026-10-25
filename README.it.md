@@ -55,4 +55,4 @@ Prova l'app e raccontaci cosa funziona e cosa no. Per segnalare un problema, ind
 
 ## Licenza
 
-OpenSpoty è distribuita con licenza [GPL-3.0](LICENSE). Include componenti di terze parti con le rispettive licenze, tra cui StemKit, HT-Demucs, BTC chord recognition, SongRec, Signalsmith Stretch, ONNX Runtime e lucide. Per i dettagli, consulta il codice sorgente e i file di licenza inclusi.
+Il codice sorgente di OpenSpoty è distribuito con licenza [GPL-3.0](LICENSE), che consente di copiarlo e modificarlo nel rispetto dei suoi termini. Il nome OpenSpoty, il logo e l’icona dell’app sono elementi distintivi del progetto e la licenza del codice non ne autorizza il riuso; consulta la [policy del marchio](BRANDING.md). Componenti e contenuti di terze parti restano soggetti alle rispettive licenze e diritti.
