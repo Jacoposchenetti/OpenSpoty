@@ -253,6 +253,7 @@ const en: Record<string, string> = {
   "semitoni": 'semitones',
   "Più lenta": 'Slower',
   "Più veloce": 'Faster',
+  "Velocità normale": 'Normal speed',
   "Originali": 'Original',
   "Tempo e count-in": 'Tempo and count-in',
   "Metà": 'Half',

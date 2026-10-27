@@ -3277,3 +3277,27 @@ input.with-ico {
   font-size: 19px;
   line-height: 1.4;
 }
+
+/* Suona: the speed as a bar */
+.speed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px;
+  font-size: 13px;
+}
+.speed-label {
+  flex: none;
+  min-width: 96px;
+}
+.speed-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+.speed-reset {
+  flex: none;
+  min-height: 30px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}

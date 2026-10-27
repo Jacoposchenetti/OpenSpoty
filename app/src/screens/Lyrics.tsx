@@ -185,16 +185,9 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
 
       <Mixer songId={songId} mix={mix} onChange={update} />
 
+      <SpeedSlider value={speed} onChange={setSpeed} />
+
       <div className="chord-bar">
-        <span className="stepper-mini">
-          <button onClick={() => setSpeed(speed - 0.05)} aria-label={tr('Più lenta')}>
-            <Minus />
-          </button>
-          <span>{tr('Velocità')} {Math.round(speed * 100)}%</span>
-          <button onClick={() => setSpeed(speed + 0.05)} aria-label={tr('Più veloce')}>
-            <Plus />
-          </button>
-        </span>
         <span className="stepper-mini">
           <button onClick={() => setPitch(pitch - 1)} aria-label={tr('Mezzo tono sotto')}>
             <Minus />
@@ -475,6 +468,54 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
 }
 
 /** where the song is, the A-B loop to practise a passage, play/pause */
+/** the speed as a bar to drag (50–150%): the engine hears it at most every 120 ms while you drag,
+   it snaps to 100% near it, and "100%" brings it back */
+function SpeedSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [v, setV] = useState(value)
+  const dragging = useRef(false)
+  const last = useRef(0)
+  useEffect(() => {
+    if (!dragging.current) setV(value)
+  }, [value])
+  const snap = (x: number) => (Math.abs(x - 1) < 0.025 ? 1 : Math.round(x * 100) / 100)
+  const apply = (x: number, now = false) => {
+    const y = snap(x)
+    setV(y)
+    const t = Date.now()
+    if (now || t - last.current > 120) {
+      last.current = t
+      onChange(y)
+    }
+  }
+  const done = () => {
+    dragging.current = false
+    onChange(v)
+  }
+  return (
+    <div className="speed-row">
+      <span className="speed-label">
+        {tr('Velocità')} <b>{Math.round(v * 100)}%</b>
+      </span>
+      <input
+        type="range"
+        min={0.5}
+        max={1.5}
+        step={0.01}
+        value={v}
+        onPointerDown={() => (dragging.current = true)}
+        onChange={(e) => apply(Number(e.target.value))}
+        onPointerUp={done}
+        onTouchEnd={done}
+        onKeyUp={done}
+        aria-label={tr('Velocità')}
+      />
+      <button className="speed-reset" disabled={v === 1} onClick={() => apply(1, true)} aria-label={tr('Velocità normale')}>
+        100%
+      </button>
+    </div>
+  )
+}
+
 export function PlayBar() {
   const pb = usePlayback()
   const [pos, setPos] = useState(0)
