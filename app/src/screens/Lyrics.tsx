@@ -552,7 +552,7 @@ export function PlayBar() {
           }}
           aria-label={tr('Posizione')}
         />
-        <span>{fmtTime(pb.duration)}</span>
+        <span>-{fmtTime(Math.max(0, pb.duration - pos))}</span>
       </div>
       <div className="playbar-row">
         <button className={a !== null ? 'set' : ''} onClick={() => setA(pos)} disabled={!ready}>

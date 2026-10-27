@@ -161,8 +161,8 @@ export function Player() {
           onKeyUp={(e) => pb.seek(Number((e.target as HTMLInputElement).value))}
           aria-label={tr('Posizione')}
         />
-        {/* an episode shows what is left, like Spotify's podcasts */}
-        <span>{song.episode ? `-${fmtTime(Math.max(0, duration - pos))}` : fmtTime(duration)}</span>
+        {/* what is left to the end (songs and episodes alike) */}
+        <span>-{fmtTime(Math.max(0, duration - pos))}</span>
       </div>
 
       <div className="transport">
