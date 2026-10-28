@@ -76,13 +76,154 @@ public final class Rhythm implements AutoCloseable {
         }
         // one meter for the whole song; only where the "one" falls may move (a pickup, a short bar)
         int m = meterOf(pdown, spect, beats);
-        // an odd meter found by repetition: the network is unsure of its "one" too, so the bar keeps
-        // one place all song long, where the sound changes most (bars start with a new chord)
-        int[] pos = fromRepetition ? steadyPhases(pdown, novelty(spect, beats), m) : phases(pdown, m);
-        int[] meter = new int[beats.length];
-        Arrays.fill(meter, m);
+        int[] meter = new int[beats.length], pos;
+        if (m >= 9) {
+            // a rare long meter (9, 11, 12) heard all song long: one meter, one place for the "one"
+            pos = steadyPhases(pdown, novelty(spect, beats), m);
+            Arrays.fill(meter, m);
+        } else {
+            // the usual: the meter section by section (a song may go 4/4, 7/4, 4/4)
+            int[][] mp = sections(pdown, spect, beats);
+            meter = mp[0];
+            pos = mp[1];
+        }
         if (progress != null) progress.at(1f);
         return new Result(beats, meter, pos);
+    }
+
+    private static final int[] SECTION_METERS = {3, 4, 5, 6, 7};
+    private static final double[] SECTION_PRIOR = {-0.2, 0, -0.4, -0.6, -0.4};
+    private static final double SECTION_CHANGE = 10, REP_WEIGHT = 0.6, NOVELTY_WEIGHT = 0.5;
+    private static final int REP_WINDOW = 14;
+
+    /**
+     * The meter bar by bar: a Viterbi over the beats with states (meter m, place k in the bar) and,
+     * for each beat, three clues: the network's "one" (on k = 0), which meter repeats best around
+     * here (likeness to the beats m and 2m later, over 14 beats each side, compared across meters),
+     * and how much the sound changes on a bar start. A meter changes only at a bar start, at a cost:
+     * it takes several bars of agreeing clues. Checked in model-export/rhythm on songs that change
+     * (Money: 7/4, 4/4, 7/4, 4/4) and on songs that don't.
+     */
+    static int[][] sections(double[] pdown, float[][] spect, double[] beats) {
+        int n = beats.length, M = 128, NM = SECTION_METERS.length;
+        int[] meterOut = new int[n], posOut = new int[n];
+        if (n == 0) return new int[][] {meterOut, posOut};
+        // each beat's sound (mean spectrum up to the next beat), as is and with its neighbourhood removed
+        double[][] f = new double[n][M], g = new double[n][M];
+        for (int i = 0; i < n; i++) {
+            int a = Math.min(spect.length - 1, (int) (beats[i] * FPS));
+            int b = Math.min(spect.length, Math.max(a + 1, i + 1 < n ? (int) (beats[i + 1] * FPS) : a + 25));
+            for (int r = a; r < b; r++) for (int k = 0; k < M; k++) f[i][k] += spect[r][k];
+            for (int k = 0; k < M; k++) f[i][k] /= (b - a);
+        }
+        for (int i = 0; i < n; i++) {
+            int lo = Math.max(0, i - 16), hi = Math.min(n - 1, i + 16);
+            double norm = 0;
+            for (int k = 0; k < M; k++) {
+                double mean = 0;
+                for (int j = lo; j <= hi; j++) mean += f[j][k];
+                g[i][k] = f[i][k] - mean / (hi - lo + 1);
+                norm += g[i][k] * g[i][k];
+            }
+            norm = Math.sqrt(norm) + 1e-9;
+            for (int k = 0; k < M; k++) g[i][k] /= norm;
+        }
+        // change of sound on each beat, scaled by its 95th percentile
+        double[] nov = new double[n];
+        for (int i = 1; i < n; i++) {
+            double c = 0, na = 0, nb = 0;
+            for (int k = 0; k < M; k++) {
+                c += f[i][k] * f[i - 1][k];
+                na += f[i][k] * f[i][k];
+                nb += f[i - 1][k] * f[i - 1][k];
+            }
+            nov[i] = 1 - c / (Math.sqrt(na * nb) + 1e-9);
+        }
+        double[] ns = nov.clone();
+        Arrays.sort(ns);
+        double p95 = ns[(int) (0.95 * (n - 1))] + 1e-9;
+        for (int i = 0; i < n; i++) nov[i] /= p95;
+        // likeness to the beat L later
+        double[][] sim = new double[25][n];
+        for (int L = 1; L <= 24; L++) {
+            for (int i = 0; i + L < n; i++) {
+                double s = 0;
+                for (int k = 0; k < M; k++) s += g[i][k] * g[i + L][k];
+                sim[L][i] = s;
+            }
+        }
+        // for each meter, the repetition around each beat; then how it compares to the other meters there
+        double[][] z = new double[NM][n];
+        for (int a = 0; a < NM; a++) {
+            int m = SECTION_METERS[a], m2 = Math.min(24, 2 * m);
+            double[] prefix = new double[n + 1];
+            for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + (sim[m][i] + sim[m2][i]) / 2;
+            for (int i = 0; i < n; i++) {
+                int lo = Math.max(0, i - REP_WINDOW), hi = Math.min(n - 1, i + REP_WINDOW);
+                z[a][i] = (prefix[hi + 1] - prefix[lo]) / (hi - lo + 1);
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            double mean = 0, var = 0;
+            for (int a = 0; a < NM; a++) mean += z[a][i];
+            mean /= NM;
+            for (int a = 0; a < NM; a++) var += (z[a][i] - mean) * (z[a][i] - mean);
+            double sd = Math.sqrt(var / NM) + 1e-9;
+            for (int a = 0; a < NM; a++) z[a][i] = (z[a][i] - mean) / sd;
+        }
+        // states: (meter a, place k)
+        int S = 0;
+        for (int m : SECTION_METERS) S += m;
+        int[] sa = new int[S], sk = new int[S], last = new int[NM];
+        for (int a = 0, j = 0; a < NM; a++) {
+            for (int k = 0; k < SECTION_METERS[a]; k++, j++) {
+                sa[j] = a;
+                sk[j] = k;
+            }
+            last[a] = j - 1;
+        }
+        double eps = 1e-3;
+        double[] score = new double[S], next = new double[S];
+        int[][] back = new int[n][S];
+        for (int i = 0; i < n; i++) {
+            double p = Math.min(1 - eps, Math.max(eps, pdown[i]));
+            double lp = Math.log(p), lq = Math.log(1 - p);
+            for (int j = 0; j < S; j++) {
+                int a = sa[j];
+                double e = (sk[j] == 0 ? lp + NOVELTY_WEIGHT * nov[i] : lq) + REP_WEIGHT * z[a][i] + SECTION_PRIOR[a] * 0.05;
+                if (i == 0) {
+                    next[j] = e;
+                    continue;
+                }
+                if (sk[j] > 0) {
+                    next[j] = score[j - 1] + e;
+                    back[i][j] = j - 1;
+                } else {
+                    double best = -1e18;
+                    int arg = 0;
+                    for (int b = 0; b < NM; b++) {
+                        double v = score[last[b]] - (b == a ? 0 : SECTION_CHANGE);
+                        if (v > best) {
+                            best = v;
+                            arg = last[b];
+                        }
+                    }
+                    next[j] = best + e;
+                    back[i][j] = arg;
+                }
+            }
+            double[] t = score;
+            score = next;
+            next = t;
+        }
+        int j = 0;
+        for (int q = 1; q < S; q++) if (score[q] > score[j]) j = q;
+        for (int i = n - 1; i >= 0; i--) {
+            meterOut[i] = SECTION_METERS[sa[j]];
+            posOut[i] = sk[j];
+            if (i > 0) j = back[i][j];
+        }
+        return new int[][] {meterOut, posOut};
     }
 
     /**
