@@ -74,6 +74,8 @@ public final class PcEngine {
                 for (int i = 0; i < t.length(); i++) in.add(t.getString(i));
                 return new JSONObject().put("texts", new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, r.optString("to", "en"))));
             }
+            case "rhythm":
+                return rhythm(r.getString("path"), r.getString("ffmpeg"), r.getString("models"));
             case "alignLyrics":
                 return alignLyrics(id, r.getString("path"), r.getString("ffmpeg"), r.getString("models"), r.getJSONArray("lines"));
             case "spotifyQuery":
@@ -170,6 +172,33 @@ public final class PcEngine {
             out.put(new JSONObject().put("a", Math.round(s.a * 100) / 100.0).put("b", Math.round(s.b * 100) / 100.0).put("text", s.text));
         }
         return new JSONObject().put("lang", language).put("segments", out).put("next", next).put("ended", y.length < 16000 * 29);
+    }
+
+    private static app.stemkitmobile.core.Rhythm rhythm;
+
+    /** beats and bars of an audio file: decoded by ffmpeg to 22.05 kHz mono, then core/Rhythm */
+    private static JSONObject rhythm(String path, String ffmpeg, String models) throws Exception {
+        File dir = app.stemkitmobile.core.ModelStore.rhythm(new File(models), f -> {});
+        Process p = new ProcessBuilder(ffmpeg, "-v", "error", "-i", path, "-ac", "1", "-ar", "22050", "-f", "f32le", "-")
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        byte[] raw = p.getInputStream().readAllBytes();
+        p.waitFor();
+        java.nio.FloatBuffer fb = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer();
+        float[] y = new float[fb.remaining()];
+        fb.get(y);
+        if (y.length == 0) throw new IllegalStateException("audio non leggibile");
+        app.stemkitmobile.core.Rhythm.Result r;
+        synchronized (PcEngine.class) {
+            if (rhythm == null) rhythm = new app.stemkitmobile.core.Rhythm(dir, 4);
+            r = rhythm.analyse(y, null);
+        }
+        org.json.JSONArray b = new org.json.JSONArray(), m = new org.json.JSONArray(), q = new org.json.JSONArray();
+        for (int i = 0; i < r.beats.length; i++) {
+            b.put(Math.round(r.beats[i] * 1000) / 1000.0);
+            m.put(r.meter[i]);
+            q.put(r.pos[i]);
+        }
+        return new JSONObject().put("version", 1).put("beats", b).put("meter", m).put("pos", q);
     }
 
     /** "Cattura" on the PC: 16 kHz mono via ffmpeg, Shazam signature, recognition */

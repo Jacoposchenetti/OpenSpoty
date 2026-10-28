@@ -275,6 +275,17 @@ export const engine = {
     }
   },
 
+  /** beats and bars of a song (core/Rhythm.java), with progress in percent */
+  async rhythm(songId: string, paths: string[], onProgress: (pct: number) => void): Promise<import('./rhythm').RhythmData> {
+    if (!isNative) return pc('rhythm', { paths })
+    const h = StemPlayer.addListener('rhythm', (e) => e.songId === songId && onProgress(e.pct))
+    try {
+      return await StemPlayer.rhythm({ songId, paths })
+    } finally {
+      void h.then((x) => x.remove())
+    }
+  },
+
   /** lines in another language (core/Translate.java) */
   async translate(texts: string[], to: string): Promise<string[]> {
     return (isNative ? await StemPlayer.translate({ texts, to }) : await pc<{ texts: string[] }>('translate', { texts, to })).texts

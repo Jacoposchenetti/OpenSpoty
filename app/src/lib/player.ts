@@ -67,6 +67,8 @@ export interface StemPlayerPlugin {
     ended: boolean
   }>
   translate(opts: { texts: string[]; to: string }): Promise<{ texts: string[] }>
+  rhythm(opts: { songId: string; paths: string[] }): Promise<import('./rhythm').RhythmData>
+  addListener(event: 'rhythm', cb: (e: { songId: string; pct: number }) => void): Promise<PluginListenerHandle>
   addListener(event: 'align', cb: (e: { songId: string; pct: number; downloading: boolean }) => void): Promise<PluginListenerHandle>
   addListener(event: 'chords', cb: (e: { songId: string; pct: number }) => void): Promise<PluginListenerHandle>
   state(): Promise<PlayerEvent>

@@ -3301,3 +3301,41 @@ input.with-ico {
   border-radius: 999px;
   font-size: 12px;
 }
+
+/* Suona: the meter and a light for every beat of the bar */
+.beat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 4px 6px;
+  font-size: 13px;
+}
+.beat-row .meter {
+  font-weight: 800;
+  font-size: 16px;
+  min-width: 40px;
+  color: var(--accent);
+}
+.beat-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.beat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background 0.06s, transform 0.06s;
+}
+.beat-dot.one {
+  width: 16px;
+  height: 16px;
+}
+.beat-dot.on {
+  background: var(--text);
+  transform: scale(1.25);
+}
+.beat-dot.one.on {
+  background: var(--accent);
+}

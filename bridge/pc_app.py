@@ -324,6 +324,24 @@ def chords(paths: list[str]) -> dict:
         return engine.call("chords", timeout=600, path=str(mix), ffmpeg=sb.find_ffmpeg(), model=str(CHORD_MODEL))
 
 
+def rhythm(paths: list[str]) -> dict:
+    """Beats and bars of a song (core/Rhythm.java): its original, or its stems mixed again."""
+    files = [stream_file(p[7:]) if p.startswith("stream:") else lib_path(p) for p in paths if not p.startswith("https://")]
+    if not files:
+        raise ValueError("nessun audio")
+    models = str(LIB / "models")
+    if len(files) == 1:
+        return engine.call("rhythm", timeout=600, path=str(files[0]), ffmpeg=sb.find_ffmpeg(), models=models)
+    with tempfile.TemporaryDirectory(prefix="stemkit-rhythm-") as tmp:
+        mix = Path(tmp) / "mix.wav"
+        args = [sb.find_ffmpeg(), "-y", "-v", "error"]
+        for f in files:
+            args += ["-i", str(f)]
+        args += ["-filter_complex", f"amix=inputs={len(files)}:normalize=0", "-ac", "1", "-ar", "22050", str(mix)]
+        subprocess.run(args, check=True, capture_output=True, **sb.no_window())
+        return engine.call("rhythm", timeout=600, path=str(mix), ffmpeg=sb.find_ffmpeg(), models=models)
+
+
 def align_lyrics(path: str, lines: list[str]) -> dict:
     """When each line of unsynced lyrics is sung (core/LyricsAligner.java); Whisper is downloaded once into the library."""
     f = stream_file(path[7:]) if path.startswith("stream:") else lib_path(path)
@@ -724,6 +742,8 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
             elif op in ("spSearch", "spArtist", "spAlbum"):
                 key = "query" if op == "spSearch" else "uri"
                 h.send_json(engine.call(op, timeout=60, **{key: str(b.get(key) or "")}))
+            elif op == "rhythm":
+                h.send_json(rhythm([str(x) for x in (b.get("paths") or [])]))
             elif op == "transcribe":
                 path = str(b.get("path") or "")
                 src = path if path.startswith("https://") else str(lib_path(path))

@@ -17,6 +17,7 @@ import {
   type Display
 } from '../lib/chords'
 import { errMsg } from '../lib/format'
+import { beatAt, bpmAt, getRhythm, type RhythmData } from '../lib/rhythm'
 import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
@@ -24,7 +25,7 @@ import { useStore } from '../store'
 import { t as tr, localeTag } from '../lib/i18n'
 import { fmtTime } from '../lib/format'
 import { isNative } from '../lib/native'
-import { STEM_META, type MixState, type StemId } from '../lib/types'
+import { STEM_META, type MixState, type Song, type StemId } from '../lib/types'
 import { TempoSheet } from './Player'
 
 function pref(key: string, fallback: string): string {
@@ -186,6 +187,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       <Mixer songId={songId} mix={mix} onChange={update} />
 
       <SpeedSlider value={speed} onChange={setSpeed} />
+      <BeatBar song={song} speed={speed} />
 
       <div className="chord-bar">
         <span className="stepper-mini">
@@ -468,6 +470,64 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
 }
 
 /** where the song is, the A-B loop to practise a passage, play/pause */
+/** the meter of the bar playing (4/4, 3/4, 7/4…), the beats per minute right now, and a light
+   for every beat of the bar: the one playing lit, the "one" bigger (core/Rhythm.java) */
+function BeatBar({ song, speed }: { song: Song; speed: number }) {
+  const pb = usePlayback()
+  const [r, setR] = useState<RhythmData | null>(null)
+  const [pct, setPct] = useState<number | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [beat, setBeat] = useState(-1)
+  useEffect(() => {
+    let alive = true
+    setPct(0)
+    getRhythm(song, (p) => alive && setPct(p))
+      .then((x) => alive && setR(x))
+      .catch((e) => alive && setErr(errMsg(e)))
+      .finally(() => alive && setPct(null))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [song.id])
+  useEffect(() => {
+    if (!r) return
+    let raf = 0
+    let last = -2
+    const tick = () => {
+      const i = beatAt(r, pb.position() + 0.03)
+      if (i !== last) {
+        last = i
+        setBeat(i)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [r, pb])
+  if (err) return <div className="beat-row muted small">{err}</div>
+  if (!r)
+    return (
+      <div className="beat-row muted small">
+        <Spinner size={14} /> {tr('Analizzo il ritmo…')} {pct ? `${pct}%` : ''}
+      </div>
+    )
+  const m = beat >= 0 ? r.meter[beat] : r.meter[0] ?? 4
+  const k = beat >= 0 ? r.pos[beat] : -1
+  const bpm = beat >= 0 ? Math.round(bpmAt(r, beat) * speed) : 0
+  return (
+    <div className="beat-row">
+      <span className="meter">{m}/4</span>
+      <span className="beat-dots">
+        {Array.from({ length: m }, (_, j) => (
+          <span key={j} className={`beat-dot ${j === 0 ? 'one' : ''} ${j === k ? 'on' : ''}`} />
+        ))}
+      </span>
+      <span className="muted small">{bpm ? `${bpm} BPM` : ''}</span>
+    </div>
+  )
+}
+
 /** the speed as a bar to drag (50–150%): the engine hears it at most every 120 ms while you drag,
    it snaps to 100% near it, and "100%" brings it back */
 function SpeedSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {

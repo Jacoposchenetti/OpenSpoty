@@ -39,6 +39,24 @@ public final class ModelStore {
         return dir;
     }
 
+    /** the Beat This! folder (core/Rhythm), with every file (downloaded now if missing) */
+    public static synchronized File rhythm(File root, Progress progress) throws Exception {
+        File dir = new File(root, "beat-this");
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IllegalStateException("cartella dei modelli non scrivibile");
+        String[] files = Rhythm.FILES;
+        double[] weight = {41, 0.3};
+        double done = 0, total = 41.3;
+        for (int i = 0; i < files.length; i++) {
+            File f = new File(dir, files[i]);
+            if (!f.isFile() || f.length() == 0) {
+                final double base = done, w = weight[i];
+                download(BASE + files[i], f, x -> progress.at((float) ((base + w * x) / total)));
+            }
+            done += weight[i];
+        }
+        return dir;
+    }
+
     private static void download(String url, File to, Progress progress) throws Exception {
         File part = new File(to.getPath() + ".part");
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();

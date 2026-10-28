@@ -254,6 +254,7 @@ const en: Record<string, string> = {
   "Più lenta": 'Slower',
   "Più veloce": 'Faster',
   "Velocità normale": 'Normal speed',
+  "Analizzo il ritmo…": 'Finding the beat…',
   "Originali": 'Original',
   "Tempo e count-in": 'Tempo and count-in',
   "Metà": 'Half',

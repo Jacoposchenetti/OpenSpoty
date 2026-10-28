@@ -297,6 +297,64 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         notifyListeners("align", e);
     }
 
+    private app.stemkitmobile.core.Rhythm rhythm;
+
+    /** beats and bars of a song (core/Rhythm): {beats: [s], meter: [beats per bar], pos: [place in the bar]} */
+    @PluginMethod
+    public void rhythm(PluginCall call) {
+        String songId = call.getString("songId", "");
+        try {
+            org.json.JSONArray a = call.getArray("paths", new com.getcapacitor.JSArray());
+            String[] paths = new String[a.length()];
+            for (int i = 0; i < paths.length; i++) {
+                String p = a.getString(i);
+                if (p.contains("..")) throw new IllegalArgumentException("percorso non valido");
+                paths[i] = p.startsWith("stream:") || p.startsWith("https://") ? p : new File(getContext().getFilesDir(), p).getAbsolutePath();
+            }
+            meter.execute(() -> {
+                try {
+                    File models = app.stemkitmobile.core.ModelStore.rhythm(new File(getContext().getFilesDir(), "models"),
+                        f -> rhythmProgress(songId, Math.round(f * 10)));
+                    for (int i = 0; i < paths.length; i++) {
+                        if (paths[i].startsWith("stream:")) paths[i] = StreamProxy.ensureCached(paths[i].substring(7)).getAbsolutePath();
+                    }
+                    rhythmProgress(songId, 12);
+                    float[] mono = Engine.decodeMono22k(paths);
+                    synchronized (this) {
+                        if (rhythm == null) rhythm = new app.stemkitmobile.core.Rhythm(models, 4);
+                    }
+                    app.stemkitmobile.core.Rhythm.Result r;
+                    synchronized (this) {
+                        r = rhythm.analyse(mono, f -> rhythmProgress(songId, 15 + Math.round(f * 85)));
+                    }
+                    org.json.JSONArray b = new org.json.JSONArray(), m = new org.json.JSONArray(), p = new org.json.JSONArray();
+                    for (int i = 0; i < r.beats.length; i++) {
+                        b.put(Math.round(r.beats[i] * 1000) / 1000.0);
+                        m.put(r.meter[i]);
+                        p.put(r.pos[i]);
+                    }
+                    JSObject out = new JSObject();
+                    out.put("version", 1);
+                    out.put("beats", new com.getcapacitor.JSArray(b.toString()));
+                    out.put("meter", new com.getcapacitor.JSArray(m.toString()));
+                    out.put("pos", new com.getcapacitor.JSArray(p.toString()));
+                    call.resolve(out);
+                } catch (Throwable e) {
+                    call.reject("Analisi del ritmo non riuscita: " + e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            call.reject(e.getMessage());
+        }
+    }
+
+    private void rhythmProgress(String songId, int pct) {
+        JSObject e = new JSObject();
+        e.put("songId", songId);
+        e.put("pct", pct);
+        notifyListeners("rhythm", e);
+    }
+
     private int lastPct = -1;
 
     private void progress(String songId, int pct) {
