@@ -23,7 +23,7 @@ CHANGE = 14.0
 def log_mel(y):
     fb = np.fromfile(f"{OUT}/beat_mel.bin", dtype="<f4").reshape(513, 128)
     win = 0.5 - 0.5 * np.cos(2 * np.pi * np.arange(NFFT) / NFFT)
-    norm = np.sqrt((win ** 2).sum())
+    norm = np.sqrt(NFFT)  # torchaudio's normalized='frame_length': divided by sqrt(n_fft)
     x = np.pad(y, (NFFT // 2, NFFT // 2), mode="reflect")
     n = 1 + (len(x) - NFFT) // HOP
     out = np.empty((n, 128), np.float32)

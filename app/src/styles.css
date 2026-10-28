@@ -3339,3 +3339,35 @@ input.with-ico {
 .beat-dot.one.on {
   background: var(--accent);
 }
+
+/* Suona: the meter can be fixed by hand */
+.beat-row button.meter {
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  min-height: 0;
+  padding: 2px 8px;
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 16px;
+}
+.beat-row button.beat-dots {
+  background: transparent;
+  border: 0;
+  min-height: 0;
+  padding: 6px 4px;
+}
+.meter-pick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.meter-pick button {
+  text-align: center;
+  padding: 8px 0;
+}
+.meter-pick button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}

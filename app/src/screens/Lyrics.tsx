@@ -17,7 +17,7 @@ import {
   type Display
 } from '../lib/chords'
 import { errMsg } from '../lib/format'
-import { beatAt, bpmAt, getRhythm, type RhythmData } from '../lib/rhythm'
+import { beatAt, bpmAt, getRhythm, nearestBeat, withEdits, type RhythmData } from '../lib/rhythm'
 import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
@@ -474,7 +474,10 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
    for every beat of the bar: the one playing lit, the "one" bigger (core/Rhythm.java) */
 function BeatBar({ song, speed }: { song: Song; speed: number }) {
   const pb = usePlayback()
-  const [r, setR] = useState<RhythmData | null>(null)
+  const store = useStore()
+  const [analysed, setR] = useState<RhythmData | null>(null)
+  const [fixing, setFixing] = useState(false)
+  const r = useMemo(() => (analysed ? withEdits(analysed, song.rhythmEdits) : null), [analysed, song.rhythmEdits])
   const [pct, setPct] = useState<number | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [beat, setBeat] = useState(-1)
@@ -515,15 +518,72 @@ function BeatBar({ song, speed }: { song: Song; speed: number }) {
   const m = beat >= 0 ? r.meter[beat] : r.meter[0] ?? 4
   const k = beat >= 0 ? r.pos[beat] : -1
   const bpm = beat >= 0 ? Math.round(bpmAt(r, beat) * speed) : 0
+  const edits = song.rhythmEdits ?? []
+  /** a correction: from beat i, bars of m (replacing one made on the same beat) */
+  const fix = (i: number, meter: number) => {
+    const t = Math.round(r.beats[i] * 1000) / 1000
+    const next = [...edits.filter((e) => Math.abs(e.t - t) > 0.05), { t, m: meter }]
+    store.updateSong(song.id, { rhythmEdits: next })
+  }
+  /** "the one is now": the beat just heard (a tap comes a little late) starts a bar */
+  const oneHere = () => {
+    const i = nearestBeat(r, pb.position() - 0.12)
+    fix(i, r.meter[i])
+    store.showToast(tr('Il «uno» è qui'))
+  }
+  // the bar playing starts at the last beat with place 0
+  let barStart = Math.max(0, beat)
+  while (barStart > 0 && r.pos[barStart] !== 0) barStart--
   return (
     <div className="beat-row">
-      <span className="meter">{m}/4</span>
-      <span className="beat-dots">
+      <button className="meter" onClick={() => setFixing(true)} aria-label={tr('Correggi il tempo')}>
+        {m}/4
+      </button>
+      <button className="beat-dots" onClick={oneHere} aria-label={tr('Il «uno» è adesso')}>
         {Array.from({ length: m }, (_, j) => (
           <span key={j} className={`beat-dot ${j === 0 ? 'one' : ''} ${j === k ? 'on' : ''}`} />
         ))}
-      </span>
+      </button>
       <span className="muted small">{bpm ? `${bpm} BPM` : ''}</span>
+      {fixing && (
+        <Sheet title={tr('Tempo')} onClose={() => setFixing(false)}>
+          <p className="muted small">{tr('Da questa battuta in poi (fino al prossimo cambio di sezione):')}</p>
+          <div className="meter-pick">
+            {[2, 3, 4, 5, 6, 7, 9, 11, 12].map((x) => (
+              <button
+                key={x}
+                className={x === m ? 'active' : ''}
+                onClick={() => {
+                  fix(barStart, x)
+                  setFixing(false)
+                }}
+              >
+                {x}/4
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => {
+              oneHere()
+              setFixing(false)
+            }}
+          >
+            {tr('Il «uno» è adesso')}
+          </button>
+          <p className="muted small">{tr('Oppure tocca i pallini mentre suona, sul «uno».')}</p>
+          {edits.length > 0 && (
+            <button
+              className="danger"
+              onClick={() => {
+                store.updateSong(song.id, { rhythmEdits: undefined })
+                setFixing(false)
+              }}
+            >
+              {tr('Torna al tempo automatico')}
+            </button>
+          )}
+        </Sheet>
+      )}
     </div>
   )
 }

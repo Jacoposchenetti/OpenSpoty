@@ -63,6 +63,9 @@ export interface Song {
   spotifyUri?: string
   /** chords corrected by hand: start time ("12.34") -> BTC label ("A:min7"), "" = no chord */
   chordEdits?: Record<string, string>
+  /** the meter set by hand (Suona): from the bar starting at t (s), m beats per bar, until the
+     next automatic change of meter or the next edit */
+  rhythmEdits?: Array<{ t: number; m: number }>
   bpm?: number // detected (or tapped) tempo, for the count-in
 }
 

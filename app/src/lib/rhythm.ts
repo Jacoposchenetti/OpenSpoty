@@ -48,6 +48,40 @@ export function beatAt(r: RhythmData, t: number): number {
   return lo
 }
 
+/** the beat nearest to t */
+export function nearestBeat(r: RhythmData, t: number): number {
+  let best = 0
+  for (let i = 1; i < r.beats.length; i++) if (Math.abs(r.beats[i] - t) < Math.abs(r.beats[best] - t)) best = i
+  return best
+}
+
+/**
+ * The corrections made by hand over the analysis: each one starts a bar of m beats at its beat and
+ * keeps that meter until the next automatic change of meter (the next section) or the next correction.
+ */
+export function withEdits(r: RhythmData, edits: Array<{ t: number; m: number }> | undefined): RhythmData {
+  if (!edits?.length || !r.beats.length) return r
+  const meter = [...r.meter]
+  const pos = [...r.pos]
+  const sorted = [...edits].sort((a, b) => a.t - b.t)
+  sorted.forEach((e, n) => {
+    const i = nearestBeat(r, e.t)
+    const stop = n + 1 < sorted.length ? nearestBeat(r, sorted[n + 1].t) : r.beats.length
+    let end = stop
+    for (let j = i + 1; j < stop; j++) {
+      if (r.meter[j] !== r.meter[j - 1]) {
+        end = j
+        break
+      }
+    }
+    for (let j = i; j < end; j++) {
+      meter[j] = e.m
+      pos[j] = (j - i) % e.m
+    }
+  })
+  return { ...r, meter, pos }
+}
+
 /** beats per minute around beat i (median of the nearby gaps: follows the song speeding up or slowing down) */
 export function bpmAt(r: RhythmData, i: number): number {
   const gaps: number[] = []

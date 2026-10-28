@@ -484,12 +484,8 @@ public final class Rhythm implements AutoCloseable {
         }
         int n = 1 + (len - NFFT) / HOP;
         double[] win = new double[NFFT];
-        double norm = 0;
-        for (int i = 0; i < NFFT; i++) {
-            win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / NFFT);
-            norm += win[i] * win[i];
-        }
-        norm = Math.sqrt(norm);
+        for (int i = 0; i < NFFT; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / NFFT);
+        double norm = Math.sqrt(NFFT); // torchaudio's normalized="frame_length": divided by sqrt(n_fft)
         Fft fft = new Fft(NFFT);
         double[] re = new double[NFFT], im = new double[NFFT], mag = new double[BINS];
         float[][] out = new float[n][MELS];
