@@ -75,8 +75,10 @@ public final class Rhythm implements AutoCloseable {
             pdown[i] = best;
         }
         // one meter for the whole song; only where the "one" falls may move (a pickup, a short bar)
-        int m = meterOf(pdown);
-        int[] pos = phases(pdown, m);
+        int m = meterOf(pdown, spect, beats);
+        // an odd meter found by repetition: the network is unsure of its "one" too, so the bar keeps
+        // one place all song long, where the sound changes most (bars start with a new chord)
+        int[] pos = fromRepetition ? steadyPhases(pdown, novelty(spect, beats), m) : phases(pdown, m);
         int[] meter = new int[beats.length];
         Arrays.fill(meter, m);
         if (progress != null) progress.at(1f);
@@ -141,10 +143,21 @@ public final class Rhythm implements AutoCloseable {
         return s[s.length / 2];
     }
 
-    /** the meter that best puts strong "one"s every m beats (4 and 3 preferred, 2 and 6 only if clearly better) */
-    static int meterOf(double[] pdown) {
-        double[] score = new double[8];
-        for (int m = 2; m <= 7; m++) {
+    /** meters looked for: 2–7, 9, 11, 12 beats per bar */
+    private static boolean fromRepetition; // set by meterOf: the meter came from the repetition clue
+    private static final int[] METERS = {2, 3, 4, 5, 6, 7, 9, 11, 12};
+
+    /**
+     * The meter of the song from two clues. The network's "one"s: how much stronger they are every m
+     * beats than elsewhere; it is sure of itself on 4/4 and 3/4 (contrast above 0.2) and then decides.
+     * Otherwise (odd meters, which it rarely saw) the music's own repetition: how alike each beat is
+     * to the one m and 2m beats later (what repeats every 5 beats is a bar of 5).
+     */
+    static int meterOf(double[] pdown, float[][] spect, double[] beats) {
+        fromRepetition = false;
+        double[] net = new double[13];
+        double conf = 0;
+        for (int m : METERS) {
             double best = -1;
             for (int ph = 0; ph < m; ph++) {
                 double on = 0, off = 0;
@@ -161,15 +174,119 @@ public final class Rhythm implements AutoCloseable {
                 if (non == 0 || noff == 0) continue;
                 best = Math.max(best, on / non - off / noff);
             }
-            score[m] = best;
+            net[m] = best;
+            conf = Math.max(conf, best);
         }
-        double[] weight = {0, 0, 0.85, 1.0, 1.06, 0.8, 0.85, 0.8};
+        if (conf >= 0.2) {
+            double[] weight = new double[13];
+            Arrays.fill(weight, 0.75);
+            weight[2] = 0.85;
+            weight[3] = 1.0;
+            weight[4] = 1.06;
+            weight[5] = 0.8;
+            weight[6] = 0.85;
+            weight[7] = 0.8;
+            int pick = 4;
+            for (int m : METERS) if (net[m] * weight[m] > net[pick] * weight[pick]) pick = m;
+            return simplest(pick, net, 0.75);
+        }
+        fromRepetition = true;
+        double[] rep = repetition(spect, beats);
         int pick = 4;
-        for (int m = 2; m <= 7; m++) if (score[m] * weight[m] > score[pick] * weight[pick]) pick = m;
-        // a bar of 2 is half a bar of 4 (and 6 is two of 3): the longer one unless clearly worse
-        if (pick == 2 && score[4] > 0.75 * score[2]) pick = 4;
-        if (pick == 6 && score[3] > 0.8 * score[6]) pick = 3;
+        for (int m : METERS) if (m > 2 && rep[m] > rep[pick]) pick = m;
+        return simplest(pick, rep, 0.8);
+    }
+
+    /** a bar that is two of a shorter one (2 in 4, 6 in 3, 12 in 6 or 4…) counts as the shorter one unless clearly better */
+    private static int simplest(int pick, double[] score, double share) {
+        if (pick == 2 && score[4] > share * score[2]) return 4;
+        for (int d : METERS) {
+            if (d < 3 || d >= pick || pick % d != 0) continue;
+            if (score[d] > share * score[pick]) return d == 2 ? 4 : d;
+        }
         return pick;
+    }
+
+    /** for every m, how alike each beat's sound is to the beats m and 2m later (beat-averaged spectra, local mean removed) */
+    private static double[] repetition(float[][] spect, double[] beats) {
+        int n = beats.length - 1, M = 128;
+        double[] out = new double[13];
+        if (n < 30) return out;
+        double[][] f = new double[n][M];
+        for (int i = 0; i < n; i++) {
+            int a = Math.min(spect.length - 1, (int) (beats[i] * FPS)), b = Math.min(spect.length, Math.max(a + 1, (int) (beats[i + 1] * FPS)));
+            for (int r = a; r < b; r++) for (int k = 0; k < M; k++) f[i][k] += spect[r][k];
+            for (int k = 0; k < M; k++) f[i][k] /= (b - a);
+        }
+        double[][] g = new double[n][M];
+        for (int i = 0; i < n; i++) {
+            int lo = Math.max(0, i - 16), hi = Math.min(n - 1, i + 16);
+            double norm = 0;
+            for (int k = 0; k < M; k++) {
+                double mean = 0;
+                for (int j = lo; j <= hi; j++) mean += f[j][k];
+                g[i][k] = f[i][k] - mean / (hi - lo + 1);
+                norm += g[i][k] * g[i][k];
+            }
+            norm = Math.sqrt(norm) + 1e-9;
+            for (int k = 0; k < M; k++) g[i][k] /= norm;
+        }
+        double[] sim = new double[25];
+        for (int L = 1; L <= 24; L++) {
+            double s = 0;
+            for (int i = 0; i + L < n; i++) for (int k = 0; k < M; k++) s += g[i][k] * g[i + L][k];
+            sim[L] = s / Math.max(1, n - L);
+        }
+        for (int m : METERS) out[m] = (sim[m] + sim[Math.min(24, 2 * m)]) / 2;
+        return out;
+    }
+
+    /** how much the sound changes on each beat (1 - likeness to the beat before) */
+    private static double[] novelty(float[][] spect, double[] beats) {
+        int n = beats.length;
+        double[] out = new double[n];
+        double[] prev = null;
+        for (int i = 0; i < n; i++) {
+            int a = Math.min(spect.length - 1, (int) (beats[i] * FPS));
+            int b = Math.min(spect.length, Math.max(a + 1, i + 1 < n ? (int) (beats[i + 1] * FPS) : a + 10));
+            double[] v = new double[128];
+            double norm = 0;
+            for (int r = a; r < b; r++) for (int k = 0; k < 128; k++) v[k] += spect[r][k];
+            for (int k = 0; k < 128; k++) norm += v[k] * v[k];
+            norm = Math.sqrt(norm) + 1e-9;
+            for (int k = 0; k < 128; k++) v[k] /= norm;
+            if (prev != null) {
+                double c = 0;
+                for (int k = 0; k < 128; k++) c += v[k] * prev[k];
+                out[i] = 1 - c;
+            }
+            prev = v;
+        }
+        return out;
+    }
+
+    /** one place for the "one" all song long: the phase where "one"s and changes of sound are strongest */
+    private static int[] steadyPhases(double[] pdown, double[] novelty, int m) {
+        int n = pdown.length;
+        double nmax = 1e-9;
+        for (double x : novelty) nmax = Math.max(nmax, x);
+        int best = 0;
+        double top = -1;
+        for (int ph = 0; ph < m; ph++) {
+            double s = 0;
+            int c = 0;
+            for (int i = ph; i < n; i += m) {
+                s += pdown[i] + novelty[i] / nmax;
+                c++;
+            }
+            if (c > 0 && s / c > top) {
+                top = s / c;
+                best = ph;
+            }
+        }
+        int[] pos = new int[n];
+        for (int i = 0; i < n; i++) pos[i] = ((i - best) % m + m) % m;
+        return pos;
     }
 
     /** the place of each beat in its bar of m: Viterbi, a bar may restart early at a cost (pickups, a short bar) */
