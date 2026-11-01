@@ -230,6 +230,8 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Aggiunta alla Jam": "Added to the Jam",
+  "Per aggiungere i tuoi brani: ⋮ → “Aggiungi alla Jam”. “Metti in coda” resta la tua coda, che suona quando quella della Jam è finita.": "To add your own songs: ⋮ → “Add to the Jam”. “Add to queue” stays your own queue, played once the Jam's queue is over.",
   "Come si ferma la musica": 'How the music stops',
   "Finisci il brano": 'Finish the song',
   "Allo scadere del tempo, il brano in corso arriva alla fine e poi la musica si ferma.": 'When the time is up, the current song plays to its end, then the music stops.',

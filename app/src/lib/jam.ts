@@ -105,6 +105,26 @@ export const jamAddSpec = (spec: PlayerSpec) => StemPlayer.jamAdd({ spec, by: ja
 
 /* ------------------------------------------------------------ joining someone's Jam */
 
+const JOINED_KEY = 'stemkit:jam-joined'
+
+/** the link of the friend's Jam this app joined (null: none) */
+export function joinedJam(): string | null {
+  try {
+    return localStorage.getItem(JOINED_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setJoinedJam(url: string | null) {
+  try {
+    if (url) localStorage.setItem(JOINED_KEY, url)
+    else localStorage.removeItem(JOINED_KEY)
+  } catch {
+    /* private mode */
+  }
+}
+
 export interface FoundJam {
   name: string
   url: string

@@ -3520,3 +3520,15 @@ body.search-open .search .icon-btn {
   min-height: 40px;
   min-width: 40px;
 }
+/* search suggestions right under the field (not the playlists' .suggestions spacing) */
+.search ~ .suggestions {
+  margin-top: -6px;
+}
+body.search-open .sugg-main {
+  min-height: 44px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+body.search-open .sugg-row .icon-btn {
+  min-height: 40px;
+}

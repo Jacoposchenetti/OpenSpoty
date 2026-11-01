@@ -7,37 +7,18 @@ import { Sheet, Spinner } from '../components/ui'
 import { engine, type SpTrack } from '../lib/engine'
 import { fmtTime, errMsg } from '../lib/format'
 import { t as tr } from '../lib/i18n'
-import { JamClient, jamName, parseJamLink, refreshJam, setJamName, startJam, stopJam, useHostedJam, type FoundJam, type JamItem, type JamNow, type JamState } from '../lib/jam'
+import { JamClient, jamName, joinedJam, setJoinedJam, parseJamLink, refreshJam, setJamName, startJam, stopJam, useHostedJam, type FoundJam, type JamItem, type JamNow, type JamState } from '../lib/jam'
 import { StemPlayer } from '../lib/player'
 import { useStore } from '../store'
 
 /* Jam, like Spotify's (lib/jam.ts): start one (QR and link for friends, the
    shared queue), or join a friend's, found on the Wi-Fi or from its link. */
 
-const JOINED_KEY = 'stemkit:jam-joined'
-
-function loadJoined(): string | null {
-  try {
-    return localStorage.getItem(JOINED_KEY)
-  } catch {
-    return null
-  }
-}
-
-function saveJoined(url: string | null) {
-  try {
-    if (url) localStorage.setItem(JOINED_KEY, url)
-    else localStorage.removeItem(JOINED_KEY)
-  } catch {
-    /* private mode */
-  }
-}
-
 export function JamSheet({ onClose }: { onClose: () => void }) {
   const hosted = useHostedJam()
-  const [joined, setJoined] = useState(loadJoined)
+  const [joined, setJoined] = useState(joinedJam)
   const join = (url: string | null) => {
-    saveJoined(url)
+    setJoinedJam(url)
     setJoined(url)
   }
   return (
@@ -180,7 +161,7 @@ function HostView({ jam }: { jam: JamState }) {
       <NowCard now={jam.now} art={localArt} />
       <div className="q-head">{tr('Coda della Jam')}</div>
       <QueueList items={q} canEdit={() => true} onEdit={edit} art={localArt} host={jam.host ?? ''} />
-      <p className="muted small">{tr('Anche il tuo “Metti in coda” finisce qui finché la Jam è attiva.')}</p>
+      <p className="muted small">{tr('Per aggiungere i tuoi brani: ⋮ → “Aggiungi alla Jam”. “Metti in coda” resta la tua coda, che suona quando quella della Jam è finita.')}</p>
       {ending ? (
         <div className="jam-actions">
           <button className="danger" onClick={() => void stopJam()}>

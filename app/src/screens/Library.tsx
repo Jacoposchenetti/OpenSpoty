@@ -12,7 +12,8 @@ import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { t } from '../lib/i18n'
 import { isNative } from '../lib/native'
-import { useHostedJam } from '../lib/jam'
+import { joinedJam, useHostedJam } from '../lib/jam'
+import { errMsg } from '../lib/format'
 import { JamSheet } from './Jam'
 
 export { StemDots } from '../components/ui'
@@ -436,6 +437,7 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
   const openArtist = useOpenArtist()
   const openAlbum = useOpenAlbum()
   const playback = usePlayback()
+  const jam = useHostedJam()
   const [mode, setMode] = useState<null | 'add' | 'move' | 'rename' | 'delete' | 'artists'>(null)
   const artists = artistsOf(song)
   // a song only heard (search, artist pages, autoplay): saved first when you keep it somewhere
@@ -505,6 +507,19 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
       {!inLib && (
         <button onClick={() => (store.addToLibrary(song), onClose())}>
           <Plus /> {t('Aggiungi alla libreria')}
+        </button>
+      )}
+      {(jam.active || joinedJam()) && (
+        <button
+          onClick={() => {
+            onClose()
+            playback
+              .addToJam(song.id)
+              .then(() => store.showToast(t('Aggiunta alla Jam')))
+              .catch((e) => store.showToast(errMsg(e)))
+          }}
+        >
+          <Users /> {t('Aggiungi alla Jam')}
         </button>
       )}
       <button onClick={() => (playback.enqueue(song.id), store.showToast(t('Aggiunta alla coda')), onClose())}><ListEnd /> {t('Metti in coda')}</button>

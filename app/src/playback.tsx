@@ -9,7 +9,7 @@ import { resumeAt, saveProgress } from './lib/podcasts'
 import { isLocalPath, nameParts, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
 import { StemPlayer, type PlayerEvent, type PlayerSpec } from './lib/player'
-import { jamActive, jamAddSpec } from './lib/jam'
+import { JamClient, jamActive, jamAddSpec, jamName, joinedJam } from './lib/jam'
 import { readAudio } from './lib/storage'
 import { DEFAULT_MIX, type MixState, type Song } from './lib/types'
 import { useStore } from './store'
@@ -84,6 +84,8 @@ interface Playback {
   /** sleep timer: wall-clock end (ms), or "end of song" */
   sleep: { at: number; atEnd: boolean }
   setSleep(minutes: number, opts?: { fade?: number; finishSong?: boolean }): void
+  /** "Aggiungi alla Jam": to the Jam this phone hosts, or to the friend's Jam it joined */
+  addToJam(songId: string): Promise<void>
   countingIn: boolean
 }
 
@@ -762,9 +764,6 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const enqueue = useCallback(
     (songId: string) => {
-      const song = storeRef.current.getSong(songId)
-      // during a Jam the shared queue is the queue: everyone sees the host's songs too
-      if (isNative && jamActive() && song) return void jamAddSpec(nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, false))
       if (!nowRef.current) return playSong(songId)
       setQueueBoth([...queueRef.current, songId])
       if (backend.native) syncUpcoming()
@@ -925,7 +924,22 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       if (isNative) void StemPlayer.setSleep({ minutes, fade: opts?.fade ?? 0, finishSong: !!opts?.finishSong })
       setSleepState({ at: minutes > 0 ? Date.now() + minutes * 60000 : 0, atEnd: minutes < 0 })
     },
-    countingIn
+    countingIn,
+    addToJam: async (songId) => {
+      const song = storeRef.current.getSong(songId)
+      if (!song) return
+      if (isNative && jamActive()) return jamAddSpec(nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, false))
+      const url = joinedJam()
+      if (!url) throw new Error('Nessuna Jam attiva')
+      const parts = nameParts(song.title)
+      await new JamClient(url, jamName() || 'Ospite').add({
+        videoId: youtubeIdOf(song.id) ?? undefined,
+        title: parts.name,
+        artists: song.artists?.map((a) => a.name) ?? (parts.artist ? [parts.artist] : []),
+        duration: song.duration,
+        image: song.art
+      })
+    }
   }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
