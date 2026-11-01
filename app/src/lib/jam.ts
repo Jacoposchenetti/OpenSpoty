@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { isNative } from './native'
 import { StemPlayer, type PlayerSpec } from './player'
+import { getProfile, setProfile } from './profile'
 
 /* "Jam", like Spotify's: this phone hosts a shared queue (android/.../Jam.java)
    that friends on the same Wi-Fi fill, from the browser (QR / link) or from
@@ -75,21 +76,9 @@ export const refreshJam = () =>
     .then(publish)
     .catch(() => undefined)
 
-const NAME_KEY = 'stemkit:jam-name'
-export function jamName(): string {
-  try {
-    return localStorage.getItem(NAME_KEY) || ''
-  } catch {
-    return ''
-  }
-}
-export function setJamName(n: string) {
-  try {
-    localStorage.setItem(NAME_KEY, n)
-  } catch {
-    /* private mode */
-  }
-}
+/** your name in Jams: the profile's */
+export const jamName = () => getProfile().name
+export const setJamName = (name: string) => setProfile({ name })
 
 export async function startJam(host: string, allowControl: boolean) {
   publish(await StemPlayer.jamStart({ host, allowControl }))

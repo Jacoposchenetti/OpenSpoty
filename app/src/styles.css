@@ -3544,3 +3544,140 @@ body.search-open .sugg-row .icon-btn {
   position: absolute;
   inset: -14px -60px; /* a bigger target to grab */
 }
+
+/* Home / Profilo (screens/Home.tsx, screens/Profile.tsx) */
+.top[hidden] {
+  display: none;
+}
+.top {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+.top-gap {
+  flex: 1;
+}
+.avatar {
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.home,
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 16px 24px;
+}
+.home-hello {
+  font-size: 24px;
+  margin: 4px 0 6px;
+}
+.home .q-head,
+.profile .q-head {
+  margin-top: 10px;
+}
+.thumb.round {
+  border-radius: 50%;
+}
+.tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.tool {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.tool-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 14px 14px;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  min-height: 112px;
+}
+.tool-main > .lucide {
+  width: 28px;
+  height: 28px;
+  margin: 0 0 6px;
+  color: var(--accent);
+}
+.tool-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+.tool-sub {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+.tool-pin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+.tool-pin.on {
+  color: var(--accent);
+}
+.tool-pin .lucide {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+}
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.profile-head h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.profile-avatar {
+  align-self: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  margin: 6px 0 10px;
+}
+.profile .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.profile .jam-qr {
+  margin: 4px 0;
+}

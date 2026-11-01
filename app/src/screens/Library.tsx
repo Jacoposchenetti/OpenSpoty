@@ -47,30 +47,11 @@ function Overview() {
   const [menu, setMenu] = useState<Playlist | null>(null)
   const [renaming, setRenaming] = useState<Playlist | null>(null)
   const [deleting, setDeleting] = useState<Playlist | null>(null)
-  const playback = usePlayback()
   const byId = new Map(store.songs.map((s) => [s.id, s]))
   const liked = store.songs.filter((s) => s.liked)
-  const recent = store.songs
-    .filter((s) => s.playedAt)
-    .sort((a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0))
-    .slice(0, 10)
 
   return (
     <div className="lib">
-      {recent.length > 0 && (
-        <>
-          <div className="q-head">{t('Ascoltati di recente')}</div>
-          <div className="recent">
-            {recent.map((s) => (
-              <button key={s.id} className="recent-item" onClick={() => playback.playSong(s.id)}>
-                <SongThumb song={s} size={96} />
-                <span className="recent-title">{nameParts(s.title).name}</span>
-                <span className="recent-artist">{nameParts(s.title).artist}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
       <div className="lib-head">
         <h1>{t('La tua libreria')}</h1>
         <span className="lib-head-actions">

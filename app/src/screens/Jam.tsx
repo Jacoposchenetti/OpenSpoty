@@ -63,10 +63,14 @@ function StartView({ onJoin }: { onJoin: (url: string) => void }) {
   return (
     <div className="jam">
       <p className="muted small">{tr('Ascoltate insieme: gli amici sullo stesso Wi-Fi aggiungono brani a una coda comune, che suona su questo telefono.')}</p>
-      <label className="field">
-        <span>{tr('Il tuo nome')}</span>
-        <input value={name} maxLength={30} placeholder="OpenSpoty" onChange={(e) => setName(e.target.value)} />
-      </label>
+      {jamName() ? (
+        <p className="muted small">{tr('Partecipi come {name} (dal tuo profilo).', { name: jamName() })}</p>
+      ) : (
+        <label className="field">
+          <span>{tr('Il tuo nome')}</span>
+          <input value={name} maxLength={30} placeholder="OpenSpoty" onChange={(e) => setName(e.target.value)} />
+        </label>
+      )}
       <label className="switch-row">
         <span>
           {tr('Gli ospiti possono controllare')}

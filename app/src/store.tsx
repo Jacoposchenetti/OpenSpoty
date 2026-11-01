@@ -34,7 +34,7 @@ import { findPc, mergeDeleted, mergeItems, pingPc, syncWithPc } from './lib/sync
 import type { FollowedArtist, MixState, Playlist, Song } from './lib/types'
 import { t } from './lib/i18n'
 
-export type Tab = 'library' | 'add' | 'tuner' | 'alarm' | 'capture'
+export type Tab = 'home' | 'library' | 'add' | 'tuner' | 'alarm' | 'capture' | 'profile'
 
 /** pages opened on top of a tab (artist, album), like Spotify */
 export type Page = { kind: 'artist' | 'album' | 'playlist' | 'podcast'; uri: string; name?: string }
@@ -149,7 +149,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [songs, setSongs] = useState<Song[]>([])
   const [playlists, setPlaylistsState] = useState<Playlist[]>([])
   const [bridgeCfg, setBridgeState] = useState<BridgeConfig | null>(null)
-  const [tab, setTabState] = useState<Tab>('library')
+  const [tab, setTabState] = useState<Tab>('home')
   const [pages, setPages] = useState<Page[]>([])
   const setTab = useCallback((t: Tab) => {
     setTabState(t)

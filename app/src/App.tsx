@@ -1,4 +1,4 @@
-import { AlarmClock, AudioLines, Guitar, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
+import { House, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
 import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef, useState } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
@@ -6,7 +6,11 @@ import { SyncButton, SyncSheet } from './components/SyncSheet'
 import { UpdateBanner } from './components/UpdateBanner'
 import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
-import { t, useLocale } from './lib/i18n'
+import { t } from './lib/i18n'
+import { usePinned } from './lib/pins'
+import { useProfile } from './lib/profile'
+import { Home, TOOLS } from './screens/Home'
+import { ProfilePage } from './screens/Profile'
 import { Add } from './screens/Add'
 import { Library } from './screens/Library'
 import { CatalogPage } from './screens/Catalog'
@@ -16,17 +20,18 @@ import { CapturePage } from './screens/Capture'
 import { TunerPage } from './screens/Tuner'
 import { useStore, type Tab } from './store'
 
+// the bar: Home, Libreria, Cerca, then the tools pinned from Home
 const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
+  { id: 'home', label: 'Home', icon: House },
   { id: 'library', label: 'Libreria', icon: LibraryBig },
-  { id: 'add', label: 'Cerca', icon: Search },
-  { id: 'tuner', label: 'Accorda', icon: Guitar },
-  { id: 'alarm', label: 'Sveglia', icon: AlarmClock },
-  { id: 'capture', label: 'Cattura', icon: AudioLines }
+  { id: 'add', label: 'Cerca', icon: Search }
 ]
 
 export function App() {
   const store = useStore()
-  const { language, setLanguage } = useLocale()
+  const pinned = usePinned()
+  const profile = useProfile()
+  const tabs = [...TABS, ...TOOLS.filter((x) => pinned.includes(x.id))]
   const storeRef = useRef(store)
   storeRef.current = store
   const [syncOpen, setSyncOpen] = useState(false)
@@ -38,7 +43,7 @@ export function App() {
     const h = CapApp.addListener('backButton', () => {
       if (popBack()) return
       const s = storeRef.current
-      if (s.tab !== 'library') s.setTab('library')
+      if (s.tab !== 'home') s.setTab('home')
       else void CapApp.minimizeApp()
     })
     return () => {
@@ -54,25 +59,18 @@ export function App() {
         <Player />
       ) : (
         <>
-          <header className="top">
-            <span className="logo">
-              <b>OpenSpoty</b>
-            </span>
+          {/* only on Home: the profile, a split running, the PC */}
+          <header className="top" hidden={store.tab !== 'home' || store.pages.length > 0}>
+            <button className="avatar" onClick={() => store.setTab('profile')} aria-label={t('Profilo')}>
+              {(profile.name || '?').trim().charAt(0).toUpperCase()}
+            </button>
             {store.deviceJob?.state === 'running' && (
               <button className="pill" onClick={() => store.setTab('add')}>
                 <SlidersVertical /> {Math.round(store.deviceJob.pct)}%
                 {store.deviceJob.queue?.length ? ` · +${store.deviceJob.queue.length} ${t('in coda')}` : ''}
               </button>
             )}
-            <select
-              className="language-select"
-              aria-label={t('Lingua')}
-              value={language}
-              onChange={(event) => setLanguage(event.target.value === 'it' ? 'it' : 'en')}
-            >
-              <option value="it">{t('Italiano')}</option>
-              <option value="en">{t('English')}</option>
-            </select>
+            <span className="top-gap" />
             <SyncButton onClick={() => setSyncOpen(true)} />
           </header>
           <UpdateBanner />
@@ -80,6 +78,8 @@ export function App() {
             {store.pages.length > 0 && <CatalogPage page={store.pages[store.pages.length - 1]} />}
             {/* tabs stay mounted under a page: the search results are still there when you come back */}
             <div hidden={store.pages.length > 0}>
+              {store.tab === 'home' && <Home />}
+              {store.tab === 'profile' && <ProfilePage />}
               {store.tab === 'library' && <Library />}
               {store.tab === 'add' && <Add />}
               {store.tab === 'tuner' && <TunerPage />}
@@ -88,8 +88,8 @@ export function App() {
             </div>
           </main>
           <MiniPlayer />
-          <nav className="tabs" hidden={typing}>
-            {TABS.map((tab) => (
+          <nav className="tabs" hidden={typing} style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+            {tabs.map((tab) => (
               <button
                 key={tab.id}
                 className={store.tab === tab.id ? 'active' : ''}

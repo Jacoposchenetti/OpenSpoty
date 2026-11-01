@@ -4,6 +4,7 @@ import { errMsg } from './lib/format'
 import { Mixer } from './lib/mixer'
 import { engine } from './lib/engine'
 import { logListen } from './lib/listens'
+import { pushHistory } from './lib/history'
 import { similarSongs } from './lib/radio'
 import { resumeAt, saveProgress } from './lib/podcasts'
 import { isLocalPath, nameParts, originalRef, youtubeIdOf } from './lib/media'
@@ -560,6 +561,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       loadedFor.current = song.id
     }
     if (song && !song.episode) logListen(song.title)
+    if (song) pushHistory(song)
     nowRef.current = np
     setNow(np)
     if (song) {
@@ -582,6 +584,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       setNow(np)
       storeRef.current.updateSong(song.id, { playedAt: Date.now() })
       if (!song.episode) logListen(song.title)
+      pushHistory(song)
       // an episode starts where you left it
       if (song.episode && !startAt) startAt = resumeAt(song.id)
       setMixState(m)
