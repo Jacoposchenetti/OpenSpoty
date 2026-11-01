@@ -5,6 +5,7 @@ import { Share } from '@capacitor/share'
 import { t, useLocale } from '../lib/i18n'
 import { setProfile, useProfile } from '../lib/profile'
 import { useStore } from '../store'
+import { SyncButton, SyncSheet } from '../components/SyncSheet'
 
 /* Profilo: name (also used in Jams), where you are, language, and a QR code
    friends scan to download the app. */
@@ -17,6 +18,7 @@ export function ProfilePage() {
   const { language, setLanguage } = useLocale()
   const [name, setName] = useState(profile.name)
   const [place, setPlace] = useState(profile.location)
+  const [syncOpen, setSyncOpen] = useState(false)
   const svg = useMemo(() => {
     const q = qrcode(0, 'M')
     q.addData(DOWNLOAD)
@@ -50,6 +52,14 @@ export function ProfilePage() {
         <span>{t('Dove sei')}</span>
         <input value={place} maxLength={60} placeholder={t('Città')} onChange={(e) => (setPlace(e.target.value), setProfile({ location: e.target.value.trim() }))} />
       </label>
+      <div className="field">
+        <span>{t('PC')}</span>
+        <span className="profile-sync">
+          <SyncButton onClick={() => setSyncOpen(true)} />
+          <small className="muted">{t('Libreria e playlist in sincronia con OpenSpoty sul computer.')}</small>
+        </span>
+      </div>
+      {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
       <label className="field">
         <span>{t('Lingua')}</span>
         <select value={language} onChange={(e) => setLanguage(e.target.value === 'it' ? 'it' : 'en')}>

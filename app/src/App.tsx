@@ -1,8 +1,7 @@
 import { House, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
 import { App as CapApp } from '@capacitor/app'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
-import { SyncButton, SyncSheet } from './components/SyncSheet'
 import { UpdateBanner } from './components/UpdateBanner'
 import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
@@ -34,7 +33,6 @@ export function App() {
   const tabs = [...TABS, ...TOOLS.filter((x) => pinned.includes(x.id))]
   const storeRef = useRef(store)
   storeRef.current = store
-  const [syncOpen, setSyncOpen] = useState(false)
   const typing = useKeyboardOpen() // the tabs make room for the keyboard, like Spotify
 
   // Android back: close sheets / player / playlist first, never quit by accident
@@ -70,8 +68,6 @@ export function App() {
                 {store.deviceJob.queue?.length ? ` · +${store.deviceJob.queue.length} ${t('in coda')}` : ''}
               </button>
             )}
-            <span className="top-gap" />
-            <SyncButton onClick={() => setSyncOpen(true)} />
           </header>
           <UpdateBanner />
           <main className="content">
@@ -106,7 +102,6 @@ export function App() {
           </nav>
         </>
       )}
-      {syncOpen && <SyncSheet onClose={() => setSyncOpen(false)} />}
       <AlarmRinging />
       {store.toast && <div className="toast">{store.toast}</div>}
     </div>

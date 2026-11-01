@@ -3752,3 +3752,11 @@ button.link {
   text-decoration: underline;
   font-size: inherit;
 }
+.profile-sync {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.profile-sync > button {
+  flex: none;
+}

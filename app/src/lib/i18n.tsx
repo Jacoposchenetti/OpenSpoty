@@ -230,6 +230,7 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Libreria e playlist in sincronia con OpenSpoty sul computer.": "Library and playlists in sync with OpenSpoty on your computer.",
   "Concerti vicino a te": "Concerts near you",
   "Scrivi la tua città nel profilo per vedere i concerti dei tuoi artisti.": "Add your city to your profile to see your artists' concerts.",
   "Vai al profilo": "Go to profile",
