@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Gauge, Podcast as PodcastIcon, Share2, CircleCheck, ScrollText } from 'lucide-react'
+import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Gauge, Podcast as PodcastIcon, Share2, CircleCheck, ScrollText, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -14,6 +14,8 @@ import { saveProgress } from '../lib/podcasts'
 import { SongMenu } from './Library'
 import { useStore } from '../store'
 import { localeTag, t as tr } from '../lib/i18n'
+import { useHostedJam } from '../lib/jam'
+import { JamSheet } from './Jam'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
 export function Player() {
@@ -319,6 +321,8 @@ export function TempoSheet({ song, mix, onChange, onClose }: { song: Song; mix: 
 function QueueSheet({ onClose }: { onClose: () => void }) {
   const store = useStore()
   const pb = usePlayback()
+  const jam = useHostedJam()
+  const [jamOpen, setJamOpen] = useState(false)
   const byId = new Map(store.allSongs.map((s) => [s.id, s]))
   const ctx = pb.now!
   const auto = ctx.autoFrom ?? ctx.contextIds.length
@@ -335,6 +339,26 @@ function QueueSheet({ onClose }: { onClose: () => void }) {
           <span className="pill">{tr('ora')}</span>
         </div>
       )}
+      {jam.active && (
+        <>
+          <div className="q-head">
+            {tr('Coda della Jam')} ({jam.queue?.length ?? 0})
+          </div>
+          {(jam.queue ?? []).map((it) => (
+            <div key={it.key} className="q-row">
+              {it.art && !it.art.startsWith('/') ? <img className="thumb" src={it.art} alt="" style={{ width: 40, height: 40 }} /> : <span className="thumb ph" style={{ width: 40, height: 40 }} />}
+              <span className="pick-title">
+                {it.name || it.title}
+                <small className="muted block">{tr('da {name}', { name: it.by || jam.host || '' })}</small>
+              </span>
+            </div>
+          ))}
+          <button className="small" onClick={() => setJamOpen(true)}>
+            <Users /> {tr('Apri la Jam')}
+          </button>
+        </>
+      )}
+      {jamOpen && <JamSheet onClose={() => setJamOpen(false)} />}
       <div className="q-head">{tr('Prossime in coda')}</div>
       {pb.queue.length === 0 && <p className="muted small">{tr('Vuota: usa “Metti in coda” dal menu ⋮ di un brano.')}</p>}
       {pb.queue.map((id, i) => {

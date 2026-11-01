@@ -248,6 +248,47 @@ public final class Engine {
     // ------------------------------------------------------------ playlist (works with the app in background)
 
     private final List<Spec> upcoming = new ArrayList<>();
+
+    /** songs that come before the list (the Jam's shared queue); called with the engine's lock held */
+    public interface NextSource {
+        Spec peek();
+
+        Spec poll();
+    }
+
+    private volatile NextSource nextSource;
+
+    public void setNextSource(NextSource s) {
+        nextSource = s;
+    }
+
+    /** the state as the app sees it (title, position, artwork…) */
+    public JSONObject snapshot() {
+        synchronized (lock) {
+            return stateLocked();
+        }
+    }
+
+    /** nothing loaded, or the last song played to its end: a new song can start right away */
+    public boolean finished() {
+        synchronized (lock) {
+            if (deck == null) return true;
+            if (playing || loading) return false;
+            return deck.durationFrames > 0 && pos >= deck.durationFrames - RATE;
+        }
+    }
+
+    /** opens the song that comes next (the Jam's first, else the list's) */
+    public void preloadNext() {
+        NextSource ns = nextSource;
+        Spec a = ns != null ? ns.peek() : null;
+        if (a == null) {
+            synchronized (lock) {
+                a = upcoming.isEmpty() ? null : upcoming.get(0);
+            }
+        }
+        if (a != null) preload(a);
+    }
     private Spec prevSpec, currentSpec;
     private boolean autoAdvance = true;
     private boolean repeatOne;
@@ -365,7 +406,7 @@ public final class Engine {
             upcoming.addAll(next);
             prevSpec = previous;
         }
-        if (!next.isEmpty()) preload(next.get(0));
+        preloadNext();
     }
 
     public void setAutoAdvance(boolean on) {
@@ -376,20 +417,20 @@ public final class Engine {
 
     /** Next song, natively: also from the notification / lock screen, also with the app asleep. */
     public void next() {
-        Spec s;
+        NextSource ns = nextSource;
+        Spec s = ns != null ? ns.poll() : null;
+        boolean fromJam = s != null;
         synchronized (lock) {
-            if (upcoming.isEmpty()) return;
-            s = upcoming.remove(0);
+            if (s == null) {
+                if (upcoming.isEmpty()) return;
+                s = upcoming.remove(0);
+            }
             prevSpec = currentSpec;
         }
         s.startAt = 0;
         load(s, true);
-        emitAdvanced(s.songId, "next");
-        Spec after;
-        synchronized (lock) {
-            after = upcoming.isEmpty() ? null : upcoming.get(0);
-        }
-        if (after != null) preload(after);
+        emitAdvanced(s, "next", fromJam);
+        preloadNext();
     }
 
     /** Back to the start of the song, or (in its first 3 seconds) the previous song. */
@@ -410,15 +451,22 @@ public final class Engine {
         }
         s.startAt = 0;
         load(s, true);
-        emitAdvanced(s.songId, "prev");
+        emitAdvanced(s, "prev", false);
     }
 
-    private void emitAdvanced(String songId, String dir) {
+    private void emitAdvanced(Spec s, String dir, boolean fromJam) {
         try {
             JSONObject e = new JSONObject();
             e.put("type", "advanced");
-            e.put("songId", songId);
+            e.put("songId", s.songId);
             e.put("dir", dir);
+            if (fromJam) {
+                // a song the app may not know (a friend's): what it needs to show it
+                e.put("fromJam", true);
+                e.put("title", s.title);
+                e.put("duration", s.durationHint);
+                if (s.art != null && s.art.startsWith("https://")) e.put("art", s.art);
+            }
             emit(e);
         } catch (Exception ignored) {
         }
@@ -1201,7 +1249,8 @@ public final class Engine {
                         boolean sleepNow = sleepAtEnd;
                         if (sleepNow) sleepAtEnd = false;
                         again = !sleepNow && repeatOne;
-                        advance = !sleepNow && !again && autoAdvance && !upcoming.isEmpty();
+                        NextSource ns = nextSource;
+                        advance = !sleepNow && !again && autoAdvance && (!upcoming.isEmpty() || (ns != null && ns.peek() != null));
                         // let the last ~120 ms in the buffer play out, then release the output
                         if (!advance && !again && track != null) {
                             final AudioTrack endTrack = track;

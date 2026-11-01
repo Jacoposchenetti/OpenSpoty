@@ -1,4 +1,4 @@
-import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3 } from 'lucide-react'
+import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3, Users } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PromptSheet, Sheet, SongThumb, SortableList, Spinner, StemDots, useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
@@ -11,6 +11,9 @@ import type { Playlist, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { t } from '../lib/i18n'
+import { isNative } from '../lib/native'
+import { useHostedJam } from '../lib/jam'
+import { JamSheet } from './Jam'
 
 export { StemDots } from '../components/ui'
 
@@ -38,6 +41,8 @@ export function Library() {
 function Overview() {
   const store = useStore()
   const [creating, setCreating] = useState(false)
+  const [jamOpen, setJamOpen] = useState(false)
+  const jam = useHostedJam()
   const [menu, setMenu] = useState<Playlist | null>(null)
   const [renaming, setRenaming] = useState<Playlist | null>(null)
   const [deleting, setDeleting] = useState<Playlist | null>(null)
@@ -67,10 +72,18 @@ function Overview() {
       )}
       <div className="lib-head">
         <h1>{t('La tua libreria')}</h1>
-        <button className="small" onClick={() => setCreating(true)}>
-          <Plus /> {t('Playlist')}
-        </button>
+        <span className="lib-head-actions">
+          {isNative && (
+            <button className="small" onClick={() => setJamOpen(true)}>
+              <Users /> Jam{jam.active ? ` · ${(jam.guests?.length ?? 0) + 1}` : ''}
+            </button>
+          )}
+          <button className="small" onClick={() => setCreating(true)}>
+            <Plus /> {t('Playlist')}
+          </button>
+        </span>
       </div>
+      {jamOpen && <JamSheet onClose={() => setJamOpen(false)} />}
 
       <button className="lib-row" onClick={() => store.setLibView('all')}>
         <span className="thumb ph all" style={{ width: 56, height: 56 }}>

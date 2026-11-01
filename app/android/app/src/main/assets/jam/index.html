@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121212">
+<title>Jam · OpenSpoty</title>
+<style>
+  :root { --bg: #121212; --card: #1e1e1e; --line: #2c2c2c; --text: #f2f2f2; --muted: #a7a7a7; --accent: #a970ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 40px; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  h2 { font-size: 17px; margin: 22px 0 8px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  button { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+  button:disabled { opacity: .4; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  input { font: inherit; width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; }
+  .now { display: flex; gap: 14px; align-items: center; background: var(--card); border-radius: 14px; padding: 12px; margin-top: 14px; }
+  .now img, .now .ph { width: 84px; height: 84px; border-radius: 8px; object-fit: cover; background: #333; flex: none; }
+  .now .t { font-weight: 600; font-size: 16px; }
+  .bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--text); width: 0; }
+  .ctrl { display: flex; justify-content: center; gap: 12px; margin-top: 12px; }
+  .ctrl button { width: 52px; height: 52px; padding: 0; font-size: 20px; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .row img, .row .ph { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #333; flex: none; }
+  .row .txt { flex: 1; min-width: 0; }
+  .row .txt div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row button { padding: 6px 10px; flex: none; }
+  .who { color: var(--accent); }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #333; padding: 10px 16px; border-radius: 10px; max-width: 90vw; }
+  .people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .people span { background: var(--card); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+<main id="app"><p class="muted">Caricamento…</p></main>
+<script>
+"use strict";
+const K = new URLSearchParams(location.search).get("k") || "";
+let who = "";
+try { who = localStorage.getItem("jam-name") || ""; } catch (e) {}
+let st = null, results = null, searching = false, adding = {}, toastT = 0;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const api = (p) => p + (p.includes("?") ? "&" : "?") + "k=" + encodeURIComponent(K) + "&who=" + encodeURIComponent(who);
+const art = (a, id) => !a ? "" : a.startsWith("/") ? api("/api/art?id=" + encodeURIComponent(id || "")) : a;
+const time = (s) => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+function toast(msg) {
+  let t = $(".toast");
+  if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.remove(), 2600);
+}
+
+async function call(path, body) {
+  const r = await fetch(api(path), body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "Errore " + r.status);
+  return j;
+}
+
+function askName() {
+  $("#app").innerHTML = `<h1>Unisciti alla Jam</h1><p class="muted">Come ti chiami? Gli altri vedranno chi ha aggiunto ogni brano.</p>
+    <form id="nf"><input id="nm" maxlength="30" placeholder="Il tuo nome" autofocus><p><button class="primary">Entra</button></p></form>`;
+  $("#nf").onsubmit = (e) => {
+    e.preventDefault();
+    who = $("#nm").value.trim().slice(0, 30);
+    if (!who) return;
+    try { localStorage.setItem("jam-name", who); } catch (e) {}
+    render(); poll();
+  };
+}
+
+function render() {
+  if (!st) return;
+  if (!st.active) { $("#app").innerHTML = `<h1>La Jam è finita</h1><p class="muted">Chiedi un nuovo link a chi la ospita.</p>`; return; }
+  const n = st.now || {};
+  const pct = n.dur ? Math.min(100, (n.pos / n.dur) * 100) : 0;
+  const ctl = st.allowControl;
+  const q = st.queue || [];
+  const active = document.activeElement && document.activeElement.id === "q" ? document.activeElement : null;
+  const typed = active ? active.value : ($("#q") ? $("#q").value : "");
+  $("#app").innerHTML = `
+    <h1>Jam di ${esc(st.host)}</h1>
+    <div class="muted small">Sei dentro come <b>${esc(who)}</b> · <a href="#" id="ren" style="color:var(--muted)">cambia nome</a></div>
+    ${n.songId ? `<div class="now">
+      ${n.art ? `<img src="${esc(art(n.art, n.songId))}" alt="">` : `<span class="ph"></span>`}
+      <div style="flex:1;min-width:0">
+        <div class="t">${esc(n.name || n.title)}</div>
+        <div class="muted">${esc(n.artist)}</div>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="muted small" style="display:flex;justify-content:space-between"><span>${time(n.pos)}</span><span>${n.loading ? "carico…" : time(n.dur)}</span></div>
+      </div></div>` : `<p class="muted">Non suona ancora niente: aggiungi il primo brano!</p>`}
+    ${ctl && n.songId ? `<div class="ctrl"><button data-c="prev" aria-label="Precedente">⏮</button><button data-c="${n.playing ? "pause" : "play"}" aria-label="Play/Pausa">${n.playing ? "⏸" : "▶"}</button><button data-c="next" aria-label="Successivo">⏭</button></div>` : ""}
+    ${(st.guests || []).length ? `<div class="people">${st.guests.map((g) => `<span>${esc(g)}</span>`).join("")}</div>` : ""}
+    <h2>Aggiungi un brano</h2>
+    <form id="sf"><input id="q" placeholder="Cerca brani o artisti" value="${esc(typed)}" autocomplete="off"></form>
+    <div id="res">${searching ? `<p class="muted">Cerco…</p>` : results ? (results.length ? results.map((t, i) => `
+      <div class="row">${t.image ? `<img src="${esc(t.image)}" alt="" loading="lazy">` : `<span class="ph"></span>`}
+        <div class="txt"><div>${esc(t.title)}</div><div class="muted small">${esc((t.artists || []).join(", "))} · ${time(t.duration)}</div></div>
+        <button data-add="${i}" ${adding[t.uri] ? "disabled" : ""}>${adding[t.uri] === "ok" ? "✓" : adding[t.uri] ? "…" : "+"}</button></div>`).join("") : `<p class="muted">Nessun risultato.</p>`) : ""}</div>
+    <h2>In coda</h2>
+    ${q.length ? q.map((it, i) => `
+      <div class="row">${it.art ? `<img src="${esc(art(it.art, it.songId))}" alt="" loading="lazy">` : `<span class="ph"></span>`}
+        <div class="txt"><div>${esc(it.name || it.title)}</div><div class="muted small">${esc(it.artist)} · aggiunto da <span class="who">${esc(it.by || st.host)}</span></div></div>
+        ${ctl ? `<button data-e="up" data-k="${it.key}" ${i === 0 ? "disabled" : ""} aria-label="Su">↑</button><button data-e="down" data-k="${it.key}" ${i === q.length - 1 ? "disabled" : ""} aria-label="Giù">↓</button>` : ""}
+        ${ctl || it.by === who ? `<button data-e="remove" data-k="${it.key}" aria-label="Togli">✕</button>` : ""}
+      </div>`).join("") : `<p class="muted">La coda è vuota.</p>`}
+    <p class="muted small center" style="margin-top:28px">OpenSpoty · la musica suona sul telefono di ${esc(st.host)}</p>`;
+  if (active) { const el = $("#q"); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  $("#ren").onclick = (e) => { e.preventDefault(); askName(); };
+  $("#sf").onsubmit = (e) => { e.preventDefault(); search($("#q").value); };
+  document.querySelectorAll("[data-c]").forEach((b) => (b.onclick = () => control({ action: b.dataset.c })));
+  document.querySelectorAll("[data-e]").forEach((b) => (b.onclick = () => control({ action: b.dataset.e, key: b.dataset.k })));
+  document.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => add(results[+b.dataset.add])));
+}
+
+async function search(q) {
+  q = q.trim();
+  if (!q) return;
+  searching = true; render();
+  try { results = (await call("/api/search?q=" + encodeURIComponent(q))).tracks || []; }
+  catch (e) { toast(e.message); results = null; }
+  searching = false; render();
+}
+
+async function add(t) {
+  adding[t.uri] = "busy"; render();
+  try {
+    await call("/api/add", { title: t.title, artists: t.artists, duration: t.duration, image: t.image });
+    adding[t.uri] = "ok"; toast("Aggiunto: " + t.title);
+    await refresh();
+  } catch (e) { delete adding[t.uri]; toast(e.message); render(); }
+}
+
+async function control(b) {
+  try { await call("/api/control", b); await refresh(); } catch (e) { toast(e.message); }
+}
+
+async function refresh() {
+  try { st = await call("/api/state"); } catch (e) { st = { active: false }; }
+  // don't redraw under the finger while typing
+  if (!(document.activeElement && document.activeElement.id === "q")) render();
+}
+
+let timer = 0;
+function poll() { clearInterval(timer); refresh(); timer = setInterval(refresh, 2000); }
+
+if (!K) $("#app").innerHTML = `<h1>Link non valido</h1>`;
+else if (!who) askName();
+else poll();
+</script>
+</body>
+</html>

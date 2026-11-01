@@ -24,7 +24,7 @@ export interface PlayerSpec {
 }
 
 export interface PlayerEvent {
-  type: 'state' | 'tick' | 'ended' | 'offset' | 'remote' | 'advanced'
+  type: 'state' | 'tick' | 'ended' | 'offset' | 'remote' | 'advanced' | 'jam' | 'jamFound' | 'jamLost'
   dir?: 'next' | 'prev'
   title?: string
   songId?: string | null
@@ -42,6 +42,13 @@ export interface PlayerEvent {
   offset?: number
   confidence?: number
   action?: 'next' | 'prev'
+  /** 'advanced' to a song of the Jam's queue (maybe one a friend added: what it takes to show it) */
+  fromJam?: boolean
+  duration?: number
+  art?: string
+  /** 'jamFound' / 'jamLost': a Jam on this network */
+  name?: string
+  url?: string
 }
 
 export interface StemPlayerPlugin {
@@ -62,6 +69,17 @@ export interface StemPlayerPlugin {
   setBpm(opts: { songId: string; bpm: number }): Promise<void>
   /** fade: seconds of fade-out before the stop; finishSong: when the time is up, stop at the end of the song */
   setSleep(opts: { minutes: number; fade?: number; finishSong?: boolean }): Promise<void>
+  /** Jam (Jam.java): this phone hosts a shared queue friends add to */
+  jamStart(opts: { host: string; allowControl: boolean }): Promise<import('./jam').JamState>
+  jamStop(): Promise<void>
+  jamState(): Promise<import('./jam').JamState>
+  jamAdd(opts: { spec: PlayerSpec; by: string }): Promise<void>
+  jamEdit(opts: { key: string; action: 'remove' | 'up' | 'down' }): Promise<{ ok: boolean }>
+  jamSetControl(opts: { allowControl: boolean }): Promise<void>
+  /** Jams of other phones on this Wi-Fi: 'jamFound' / 'jamLost' events */
+  jamDiscover(opts: { on: boolean }): Promise<void>
+  /** a request to another phone's Jam */
+  jamRequest(opts: { base: string; path: string; method?: 'GET' | 'POST'; body?: string }): Promise<{ text: string }>
   detectBpm(opts: { path: string }): Promise<{ bpm: number | null }>
   measureLoudness(opts: { paths: string[] }): Promise<{ lufs: number | null }>
   chords(opts: { songId: string; paths: string[] }): Promise<import('./chords').ChordData>

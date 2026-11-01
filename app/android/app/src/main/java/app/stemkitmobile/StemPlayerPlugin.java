@@ -37,6 +37,97 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         engine.removeListener(this);
     }
 
+    // ------------------------------------------------------------ Jam (Jam.java)
+
+    private final java.util.concurrent.ExecutorService jamPool = java.util.concurrent.Executors.newCachedThreadPool();
+
+    private Jam jam() {
+        Jam j = Jam.get(getContext());
+        j.setListener(this::onEvent);
+        return j;
+    }
+
+    @PluginMethod
+    public void jamStart(PluginCall call) {
+        jamPool.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(jam().start(call.getString("host", ""), call.getBoolean("allowControl", true))));
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
+    @PluginMethod
+    public void jamStop(PluginCall call) {
+        jamPool.execute(() -> {
+            jam().stop();
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void jamState(PluginCall call) {
+        jamPool.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(jam().state(null)));
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
+    /** the host's own song ("Metti in coda" during a Jam) */
+    @PluginMethod
+    public void jamAdd(PluginCall call) {
+        JSONObject s = call.getObject("spec");
+        if (s == null) {
+            call.reject("spec mancante");
+            return;
+        }
+        jamPool.execute(() -> {
+            jam().addSpec(spec(s), call.getString("by", ""));
+            call.resolve();
+        });
+    }
+
+    @PluginMethod
+    public void jamEdit(PluginCall call) {
+        jamPool.execute(() -> {
+            JSObject r = new JSObject();
+            r.put("ok", jam().edit(call.getString("key", ""), call.getString("action", ""), null));
+            call.resolve(r);
+        });
+    }
+
+    @PluginMethod
+    public void jamSetControl(PluginCall call) {
+        jam().setAllowControl(call.getBoolean("allowControl", true));
+        call.resolve();
+    }
+
+    /** Jams nearby (other phones): 'jamFound' / 'jamLost' events on the "player" channel */
+    @PluginMethod
+    public void jamDiscover(PluginCall call) {
+        jam().discover(call.getBoolean("on", true), this::onEvent);
+        call.resolve();
+    }
+
+    /** a call to someone else's Jam: {base: its link, path: "/api/state?k=…", method, body} */
+    @PluginMethod
+    public void jamRequest(PluginCall call) {
+        jamPool.execute(() -> {
+            try {
+                String text = Jam.request(call.getString("base", ""), call.getString("path", "/"), call.getString("method", "GET"), call.getString("body"));
+                JSObject r = new JSObject();
+                r.put("text", text);
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
     @Override
     public void onEvent(JSONObject e) {
         try {

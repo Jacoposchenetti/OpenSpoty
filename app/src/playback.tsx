@@ -8,7 +8,8 @@ import { similarSongs } from './lib/radio'
 import { resumeAt, saveProgress } from './lib/podcasts'
 import { isLocalPath, nameParts, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
-import { StemPlayer, type PlayerSpec } from './lib/player'
+import { StemPlayer, type PlayerEvent, type PlayerSpec } from './lib/player'
+import { jamActive, jamAddSpec } from './lib/jam'
 import { readAudio } from './lib/storage'
 import { DEFAULT_MIX, type MixState, type Song } from './lib/types'
 import { useStore } from './store'
@@ -126,7 +127,7 @@ interface BackendEvents {
   offset(songId: string, frames: number): void
   remote(action: 'next' | 'prev'): void
   /** the native engine moved to another song by itself */
-  advanced(songId: string, dir: 'next' | 'prev'): void
+  advanced(songId: string, dir: 'next' | 'prev', e?: PlayerEvent): void
 }
 
 interface Backend {
@@ -207,7 +208,7 @@ function nativeBackend(ev: BackendEvents): Backend {
     if (e.type === 'remote' && e.action) return ev.remote(e.action)
     if (e.type === 'advanced' && e.songId && e.dir) {
       current = e.songId
-      return ev.advanced(e.songId, e.dir)
+      return ev.advanced(e.songId, e.dir, e)
     }
     if (e.type === 'offset' && e.songId && typeof e.offset === 'number') return ev.offset(e.songId, e.offset)
     if (e.type === 'ended') return // the engine itself moves on (or stops)
@@ -445,7 +446,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const repeatRef = useRef<Repeat>('off')
   const unshuffled = useRef<string[] | null>(null) // list order before "casuale"
   const backendRef = useRef<Backend | null>(null)
-  const handlers = useRef<{ next(): void; prev(): void; again(): void; advanced(songId: string, dir: 'next' | 'prev'): void }>({
+  const handlers = useRef<{ next(): void; prev(): void; again(): void; advanced(songId: string, dir: 'next' | 'prev', e?: PlayerEvent): void }>({
     next: () => undefined,
     prev: () => undefined,
     again: () => undefined,
@@ -480,8 +481,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
       remote(action) {
         handlers.current[action]()
       },
-      advanced(songId, dir) {
-        handlers.current.advanced(songId, dir)
+      advanced(songId, dir, e) {
+        handlers.current.advanced(songId, dir, e)
       }
     }
     backendRef.current = isNative ? nativeBackend(ev) : webBackend(ev, () => storeRef.current.bridgeCfg)
@@ -640,9 +641,18 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   }, [start, backend])
   // the engine changed song on its own (end of song, notification, lock screen):
   // move the queue / list position the same way it did
-  const advanced = (songId: string, dir: 'next' | 'prev') => {
+  const advanced = (songId: string, dir: 'next' | 'prev', e?: PlayerEvent) => {
     const cur = nowRef.current
     const q = queueRef.current
+    if (e?.fromJam) {
+      // a song of the Jam (maybe a friend's, unknown here): played like the queue, the list goes on after it
+      if (!storeRef.current.getSong(songId)) {
+        storeRef.current.addTemp([
+          { id: songId, title: e.title ?? '', duration: e.duration ?? 0, stems: [], files: {}, source: 'device', addedAt: Date.now(), art: e.art }
+        ])
+      }
+      return adopt(cur ? { ...cur, songId, fromQueue: true } : { songId, contextIds: [songId], contextName: 'Jam', index: 0, fromQueue: false })
+    }
     if (!cur) return adopt({ songId, contextIds: [songId], contextName: '', index: 0, fromQueue: false })
     if (dir === 'next') {
       if (q.length && q[0] === songId) {
@@ -752,6 +762,9 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
 
   const enqueue = useCallback(
     (songId: string) => {
+      const song = storeRef.current.getSong(songId)
+      // during a Jam the shared queue is the queue: everyone sees the host's songs too
+      if (isNative && jamActive() && song) return void jamAddSpec(nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, false))
       if (!nowRef.current) return playSong(songId)
       setQueueBoth([...queueRef.current, songId])
       if (backend.native) syncUpcoming()

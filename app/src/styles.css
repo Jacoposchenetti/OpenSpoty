@@ -3386,3 +3386,123 @@ input.with-ico {
   margin-top: 2px;
   font-size: 13px;
 }
+
+/* Jam (screens/Jam.tsx) */
+.lib-head-actions {
+  display: flex;
+  gap: 8px;
+}
+.jam {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.jam .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.jam-start {
+  align-self: center;
+  min-width: 200px;
+  border-radius: 999px;
+}
+.jam-qr {
+  align-self: center;
+  width: min(240px, 70vw);
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px;
+  line-height: 0;
+}
+.jam-qr svg {
+  width: 100%;
+  height: auto;
+}
+.jam-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.jam-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.jam-people span {
+  background: var(--card, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 13px;
+}
+.jam-people .me {
+  color: var(--accent);
+}
+.jam-now {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.jam-now img,
+.jam-now .thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
+.jam-now-text {
+  flex: 1;
+  min-width: 0;
+}
+.jam-bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  margin-top: 8px;
+  overflow: hidden;
+}
+.jam-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text);
+}
+.jam-ctrl {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+.jam-ctrl .big svg {
+  width: 30px;
+  height: 30px;
+}
+.jam-link {
+  display: flex;
+  gap: 8px;
+}
+.jam-link input {
+  flex: 1;
+  min-width: 0;
+}
+.jam-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  flex: none;
+}
+.jam-guest-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.q-row .pick-title small {
+  font-weight: 400;
+}
