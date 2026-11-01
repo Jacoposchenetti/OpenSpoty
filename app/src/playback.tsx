@@ -6,7 +6,7 @@ import { engine } from './lib/engine'
 import { logListen } from './lib/listens'
 import { similarSongs } from './lib/radio'
 import { resumeAt, saveProgress } from './lib/podcasts'
-import { isLocalPath, originalRef, youtubeIdOf } from './lib/media'
+import { isLocalPath, nameParts, originalRef, youtubeIdOf } from './lib/media'
 import { isNative } from './lib/native'
 import { StemPlayer, type PlayerSpec } from './lib/player'
 import { readAudio } from './lib/storage'
@@ -82,7 +82,7 @@ interface Playback {
   setLoop(l: { a: number; b: number } | null): void
   /** sleep timer: wall-clock end (ms), or "end of song" */
   sleep: { at: number; atEnd: boolean }
-  setSleep(minutes: number): void
+  setSleep(minutes: number, opts?: { fade?: number; finishSong?: boolean }): void
   countingIn: boolean
 }
 
@@ -181,7 +181,20 @@ function nativeSpec(song: Song, mix: MixState, startAt = 0, autoplay = true): Pl
     startAt,
     autoplay,
     gainDb: gainFor(song, normalizeOn),
-    bpm: song.bpm || 0
+    bpm: song.bpm || 0,
+    ...mediaInfo(song)
+  }
+}
+
+/** title, artist and artwork for the lock screen and the quick settings */
+function mediaInfo(song: Song): Pick<PlayerSpec, 'name' | 'artist' | 'cover' | 'art'> {
+  const parts = nameParts(song.title)
+  const vid = youtubeIdOf(song.id)
+  return {
+    name: parts.name,
+    artist: song.episode?.podcast || song.artists?.map((a) => a.name).join(', ') || parts.artist,
+    cover: song.cover,
+    art: song.art || (vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : undefined)
   }
 }
 
@@ -895,8 +908,8 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     },
     setLoop,
     sleep,
-    setSleep: (minutes) => {
-      if (isNative) void StemPlayer.setSleep({ minutes })
+    setSleep: (minutes, opts) => {
+      if (isNative) void StemPlayer.setSleep({ minutes, fade: opts?.fade ?? 0, finishSong: !!opts?.finishSong })
       setSleepState({ at: minutes > 0 ? Date.now() + minutes * 60000 : 0, atEnd: minutes < 0 })
     },
     countingIn

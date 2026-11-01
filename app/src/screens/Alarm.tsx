@@ -1,5 +1,5 @@
 import { App as CapApp } from '@capacitor/app'
-import { AlarmClock, BellRing, Heart, ListMusic, Music, Pause, Play, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AlarmClock, BellRing, EllipsisVertical, Heart, ListMusic, Music, Pause, Play, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
 import { Alarms, dayNames, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, months, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
@@ -150,9 +150,53 @@ export function AlarmPage() {
 
 /* ------------------------------------------------------------- sleep timer */
 
+type SleepOpts = { fade: number; finishSong: boolean }
+const FADES = [0, 10, 30, 60, 120, 300, 600]
+
+function loadSleepOpts(): SleepOpts {
+  try {
+    const o = JSON.parse(localStorage.getItem('stemkit:sleep-opts') ?? '{}')
+    return { fade: typeof o.fade === 'number' ? o.fade : 30, finishSong: !!o.finishSong }
+  } catch {
+    return { fade: 30, finishSong: false }
+  }
+}
+
+function fadeLabel(s: number) {
+  return s === 0 ? tr('No') : s < 60 ? `${s} s` : `${s / 60} min`
+}
+
+/** ⋮ of the sleep timer: how the music stops */
+function SleepOptions({ opts, onChange, onClose }: { opts: SleepOpts; onChange: (o: SleepOpts) => void; onClose: () => void }) {
+  return (
+    <Sheet title={tr('Come si ferma la musica')} onClose={onClose}>
+      <label className="switch-row">
+        <span>
+          {tr('Finisci il brano')}
+          <small className="muted block">{tr('Allo scadere del tempo, il brano in corso arriva alla fine e poi la musica si ferma.')}</small>
+        </span>
+        <input type="checkbox" checked={opts.finishSong} onChange={(e) => onChange({ ...opts, finishSong: e.target.checked })} />
+      </label>
+      <h3 className={opts.finishSong ? 'muted' : ''}>{tr('Dissolvenza')}</h3>
+      <p className="muted small">
+        {opts.finishSong ? tr('Con «Finisci il brano» la musica si ferma alla fine naturale della canzone.') : tr('Il volume scende piano piano fino al silenzio allo scadere del tempo.')}
+      </p>
+      <div className="day-chips">
+        {FADES.map((f) => (
+          <button key={f} disabled={opts.finishSong} className={!opts.finishSong && opts.fade === f ? 'active' : ''} onClick={() => onChange({ ...opts, fade: f })}>
+            {fadeLabel(f)}
+          </button>
+        ))}
+      </div>
+    </Sheet>
+  )
+}
+
 function SleepTimer() {
   const pb = usePlayback()
   const [, tick] = useState(0)
+  const [opts, setOptsState] = useState(loadSleepOpts)
+  const [showOpts, setShowOpts] = useState(false)
   const [dur, setDur] = useState(() => {
     try {
       return Number(localStorage.getItem('stemkit:sleep-last')) || 20 * 60
@@ -191,7 +235,7 @@ function SleepTimer() {
       /* private mode */
     }
     setPaused(null)
-    pb.setSleep(dur / 60)
+    pb.setSleep(dur / 60, opts)
   }
   const left = paused ?? Math.max(0, Math.round((pb.sleep.at - Date.now()) / 1000))
   const pause = () => {
@@ -199,7 +243,7 @@ function SleepTimer() {
     pb.setSleep(0)
   }
   const resume = () => {
-    if (paused) pb.setSleep(paused / 60)
+    if (paused) pb.setSleep(paused / 60, opts)
     setPaused(null)
   }
   const cancel = () => {
@@ -207,12 +251,28 @@ function SleepTimer() {
     pb.setSleep(0)
   }
   const active = running || paused !== null
+  const setOpts = (o: SleepOpts) => {
+    setOptsState(o)
+    try {
+      localStorage.setItem('stemkit:sleep-opts', JSON.stringify(o))
+    } catch {
+      /* private mode */
+    }
+    // a running timer takes the new options at once, same end time
+    if (pb.sleep.at > Date.now() && !paused) pb.setSleep((pb.sleep.at - Date.now()) / 60000, o)
+  }
   const h = Math.floor(dur / 3600), m = Math.floor((dur % 3600) / 60), sec = dur % 60
   return (
     <section className="card sleep-card">
-      <h2>
-        <Timer className="inline-ico" /> {tr('Timer di spegnimento')}
-      </h2>
+      <div className="sleep-head">
+        <h2>
+          <Timer className="inline-ico" /> {tr('Timer di spegnimento')}
+        </h2>
+        <button className="icon-btn" onClick={() => setShowOpts(true)} aria-label={tr('Impostazioni del timer')}>
+          <EllipsisVertical />
+        </button>
+      </div>
+      {showOpts && <SleepOptions opts={opts} onChange={setOpts} onClose={() => setShowOpts(false)} />}
       {active ? (
         <div className={`timer-count ${paused ? 'paused' : ''}`}>
           {pb.sleep.atEnd && !paused ? tr('Fine brano') : `${pad(Math.floor(left / 3600))} : ${pad(Math.floor((left % 3600) / 60))} : ${pad(left % 60)}`}
@@ -226,7 +286,11 @@ function SleepTimer() {
           <Wheel max={59} value={sec} onChange={(v) => setDur(h * 3600 + m * 60 + v)} label={tr('secondi')} />
         </div>
       )}
-      <p className="muted small center">{paused ? tr('In pausa.') : running ? tr('Poi la musica si ferma.') : tr('La musica si ferma dopo questo tempo.')}</p>
+      <p className="muted small center">{paused
+          ? tr('In pausa.')
+          : pb.sleep.atEnd
+            ? tr('La musica si ferma alla fine di questo brano.')
+            : `${running ? tr('Poi la musica si ferma') : tr('La musica si ferma dopo questo tempo')}${opts.finishSong ? ` ${tr('a fine brano')}` : opts.fade ? `, ${tr('in dissolvenza')}` : ''}.`}</p>
       {active ? (
         <div className="sleep-actions">
           {paused ? (

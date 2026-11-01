@@ -3371,3 +3371,18 @@ input.with-ico {
   color: var(--accent-ink);
   border-color: var(--accent);
 }
+
+.sleep-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sleep-head h2 {
+  margin: 0;
+}
+.block {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+}

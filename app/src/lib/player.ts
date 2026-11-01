@@ -16,6 +16,11 @@ export interface PlayerSpec {
   gainDb?: number
   bpm?: number
   countIn?: boolean
+  /** for the system's media controls (lock screen, quick settings) */
+  name?: string
+  artist?: string
+  cover?: string // local artwork, path under the app's data folder
+  art?: string // artwork address, when there is no local copy
 }
 
 export interface PlayerEvent {
@@ -55,7 +60,8 @@ export interface StemPlayerPlugin {
   setGain(opts: { db: number }): Promise<void>
   setCountIn(opts: { beats: number }): Promise<void>
   setBpm(opts: { songId: string; bpm: number }): Promise<void>
-  setSleep(opts: { minutes: number }): Promise<void>
+  /** fade: seconds of fade-out before the stop; finishSong: when the time is up, stop at the end of the song */
+  setSleep(opts: { minutes: number; fade?: number; finishSong?: boolean }): Promise<void>
   detectBpm(opts: { path: string }): Promise<{ bpm: number | null }>
   measureLoudness(opts: { paths: string[] }): Promise<{ lufs: number | null }>
   chords(opts: { songId: string; paths: string[] }): Promise<import('./chords').ChordData>

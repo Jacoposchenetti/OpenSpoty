@@ -55,6 +55,12 @@ public class PlaybackService extends Service implements Engine.Listener {
     private boolean noisyRegistered;
     private boolean lastPlaying;
     private String lastTitle = "";
+    // artwork for the lock screen / quick settings: loaded off the main thread, the last one kept
+    private final java.util.concurrent.ExecutorService artLoader = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private volatile String artKey; // engine events arrive on its threads
+    private volatile android.graphics.Bitmap artBitmap;
+    private volatile String metaName = "", metaArtist = "";
+    private volatile long metaDur;
     private boolean pausedByFocus;
 
     private final BroadcastReceiver noisy = new BroadcastReceiver() {
@@ -179,11 +185,17 @@ public class PlaybackService extends Service implements Engine.Listener {
             .setState(playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED, posMs, playing ? 1f : 0f)
             .build());
         if (!t.equals(lastTitle) || "state".equals(type)) {
-            session.setMetadata(new MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, t)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, "OpenSpoty")
-                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durMs)
-                .build());
+            String name = e.optString("name", "");
+            metaName = name.isEmpty() ? t : name;
+            metaArtist = e.optString("artist", "");
+            metaDur = durMs;
+            String art = e.optString("art", "");
+            if (!art.equals(artKey == null ? "" : artKey)) {
+                artKey = art;
+                artBitmap = null;
+                if (!art.isEmpty()) loadArt(art);
+            }
+            publishMetadata();
         }
         if (playing != lastPlaying || !t.equals(lastTitle)) {
             lastPlaying = playing;
@@ -192,6 +204,54 @@ public class PlaybackService extends Service implements Engine.Listener {
             if (playing) registerNoisy();
             else unregisterNoisy();
         }
+    }
+
+    private void publishMetadata() {
+        MediaMetadataCompat.Builder b = new MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, metaName)
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, metaArtist.isEmpty() ? "OpenSpoty" : metaArtist)
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, metaDur);
+        if (artBitmap != null) b.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artBitmap);
+        session.setMetadata(b.build());
+    }
+
+    /** the artwork, at most 512 px, then the metadata and the notification again */
+    private void loadArt(String art) {
+        artLoader.execute(() -> {
+            android.graphics.Bitmap bm = null;
+            try {
+                byte[] data;
+                if (art.startsWith("https://")) {
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(art).openConnection();
+                    c.setConnectTimeout(8000);
+                    c.setReadTimeout(8000);
+                    try (java.io.InputStream in = c.getInputStream()) {
+                        data = in.readAllBytes();
+                    } finally {
+                        c.disconnect();
+                    }
+                } else {
+                    data = java.nio.file.Files.readAllBytes(new java.io.File(art).toPath());
+                }
+                android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                o.inJustDecodeBounds = true;
+                android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+                int sample = 1;
+                while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 512) sample *= 2;
+                o = new android.graphics.BitmapFactory.Options();
+                o.inSampleSize = sample;
+                bm = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            } catch (Exception ex) {
+                android.util.Log.w("StemKitPlayback", "artwork " + art, ex);
+            }
+            final android.graphics.Bitmap got = bm;
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (got == null || !art.equals(artKey)) return; // a newer song meanwhile
+                artBitmap = got;
+                publishMetadata();
+                nm.notify(NOTIF_ID, build(lastPlaying));
+            });
+        });
     }
 
     private void registerNoisy() {
@@ -221,8 +281,9 @@ public class PlaybackService extends Service implements Engine.Listener {
         PendingIntent content = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(title.isEmpty() ? "OpenSpoty" : title)
-            .setContentText(playing ? "In riproduzione" : "In pausa")
+            .setContentTitle(!metaName.isEmpty() ? metaName : title.isEmpty() ? "OpenSpoty" : title)
+            .setContentText(!metaArtist.isEmpty() ? metaArtist : playing ? "In riproduzione" : "In pausa")
+            .setLargeIcon(artBitmap)
             .setContentIntent(content)
             .setOngoing(playing)
             .setSilent(true)
@@ -240,6 +301,7 @@ public class PlaybackService extends Service implements Engine.Listener {
     @Override
     public void onDestroy() {
         engine.removeListener(this);
+        artLoader.shutdownNow();
         unregisterNoisy();
         if (focusRequest != null) am.abandonAudioFocusRequest(focusRequest);
         session.release();

@@ -66,6 +66,8 @@ public final class Engine {
         public double gainDb; // loudness normalization
         public double bpm; // for the count-in (0 = unknown)
         public boolean countIn; // start with "1, 2, 3, 4"
+        public String name = "", artist = ""; // for the system's media controls
+        public String art; // artwork: a local file or an https address (null = none)
 
         boolean sameSongAs(Spec o) {
             return o != null && songId.equals(o.songId) && java.util.Objects.equals(original, o.original)
@@ -262,6 +264,7 @@ public final class Engine {
     private java.util.concurrent.ScheduledFuture<?> sleepTask;
     private boolean sleepAtEnd;
     private long sleepAt; // wall clock ms, 0 = none
+    private long sleepFadeMs; // the volume goes down over this time before sleepAt
 
     /** tempo of the current song changed (detected later, or tapped by hand) */
     public void setBpm(String songId, double bpm) {
@@ -278,21 +281,42 @@ public final class Engine {
 
     /** Pause after {@code minutes}, or at the end of the current song (minutes < 0), or cancel (0). */
     public void setSleep(double minutes) {
+        setSleep(minutes, 0, false);
+    }
+
+    /**
+     * Sleep timer. {@code fadeSeconds}: the music fades out over that time, silent at the end.
+     * {@code finishSong}: when the time is up the song playing goes on to its end, then the pause.
+     */
+    public void setSleep(double minutes, double fadeSeconds, boolean finishSong) {
         synchronized (lock) {
             if (sleepTask != null) sleepTask.cancel(false);
             sleepTask = null;
             sleepAtEnd = minutes < 0;
             sleepAt = minutes > 0 ? System.currentTimeMillis() + Math.round(minutes * 60_000) : 0;
+            sleepFadeMs = finishSong ? 0 : Math.round(Math.max(0, fadeSeconds) * 1000);
             if (minutes > 0) {
                 sleepTask = timer.schedule(() -> {
+                    boolean stop;
                     synchronized (lock) {
                         sleepAt = 0;
+                        sleepFadeMs = 0;
+                        stop = !finishSong || !playing;
+                        if (!stop) sleepAtEnd = true; // the pause comes with the end of this song
                     }
-                    pause();
+                    if (stop) pause();
+                    else emitState();
                 }, Math.round(minutes * 60_000), java.util.concurrent.TimeUnit.MILLISECONDS);
             }
         }
         emitState();
+    }
+
+    /** the sleep timer's fade at wall-clock time t: 1 = full volume, 0 = silent */
+    private float sleepGainLocked(long t) {
+        if (sleepAt <= 0 || sleepFadeMs <= 0) return 1f;
+        float x = Math.max(0f, Math.min(1f, (sleepAt - t) / (float) sleepFadeMs));
+        return x * x; // heard as an even fade
     }
 
     /** arm the "1, 2, 3, 4" if wanted and the tempo is known */
@@ -1110,10 +1134,15 @@ public final class Engine {
                     }
                 }
                 // ---- original <-> stems crossfade, master volume
-                float nFrom = normGainCur, nTo;
+                float nFrom = normGainCur, nTo, zFrom, zTo;
                 synchronized (lock) {
                     nTo = normGain;
                     normGainCur = nTo;
+                    // the time this block will be heard: after what is already queued in the output
+                    long heardAt = System.currentTimeMillis()
+                        + (written - ((track.getPlaybackHeadPosition() & 0xFFFFFFFFL) - headBase)) * 1000 / RATE;
+                    zFrom = sleepGainLocked(heardAt);
+                    zTo = sleepGainLocked(heardAt + frames * 1000L / RATE);
                 }
                 float w = origW;
                 float wTarget = !hasS ? 1f : (!hasO ? 0f : (wantOrig ? 1f : 0f));
@@ -1122,7 +1151,7 @@ public final class Engine {
                 for (int i = 0; i < frames; i++) {
                     if (w < wTarget) w = Math.min(wTarget, w + 1f / XFADE);
                     else if (w > wTarget) w = Math.max(wTarget, w - 1f / XFADE);
-                    float m = (mFrom + (mTo - mFrom) * i / frames) * (nFrom + (nTo - nFrom) * i / frames);
+                    float m = (mFrom + (mTo - mFrom) * i / frames) * (nFrom + (nTo - nFrom) * i / frames) * (zFrom + (zTo - zFrom) * i / frames);
                     out[2 * i] = m * (w * o[2 * i] + (1 - w) * s[2 * i]);
                     out[2 * i + 1] = m * (w * o[2 * i + 1] + (1 - w) * s[2 * i + 1]);
                 }
@@ -1300,6 +1329,11 @@ public final class Engine {
             e.put("type", "state");
             e.put("songId", deck != null ? deck.spec.songId : JSONObject.NULL);
             e.put("title", deck != null ? deck.spec.title : "");
+            if (deck != null) {
+                e.put("name", deck.spec.name);
+                e.put("artist", deck.spec.artist);
+                if (deck.spec.art != null) e.put("art", deck.spec.art);
+            }
             e.put("playing", playing);
             e.put("loading", loading);
             e.put("pos", reportedPosLocked() / (double) RATE);

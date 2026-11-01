@@ -80,6 +80,13 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         s.gainDb = data.optDouble("gainDb", 0.0);
         s.bpm = data.optDouble("bpm", 0.0);
         s.countIn = data.optBoolean("countIn", false);
+        s.name = data.optString("name", "");
+        s.artist = data.optString("artist", "");
+        String cover = data.optString("cover", "");
+        File coverFile = cover.isEmpty() || cover.contains("..") ? null : new File(base, cover);
+        String art = data.optString("art", "");
+        if (coverFile != null && coverFile.isFile()) s.art = coverFile.getAbsolutePath();
+        else if (art.startsWith("https://")) s.art = art;
         s.mix = data.optJSONObject("mix") != null ? data.optJSONObject("mix") : new JSONObject();
         return s;
     }
@@ -114,7 +121,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
 
     @PluginMethod
     public void setSleep(PluginCall call) {
-        engine.setSleep(call.getDouble("minutes", 0.0));
+        engine.setSleep(call.getDouble("minutes", 0.0), call.getDouble("fade", 0.0), Boolean.TRUE.equals(call.getBoolean("finishSong", false)));
         call.resolve();
     }
 
