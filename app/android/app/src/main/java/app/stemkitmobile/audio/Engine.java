@@ -1,9 +1,13 @@
 package app.stemkitmobile.audio;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
+import android.os.PowerManager;
 import android.util.Log;
 
 import org.json.JSONArray;
@@ -28,6 +32,10 @@ import app.stemkitmobile.core.OffsetFinder;
  * (better quality: no separation artifacts); otherwise the stems, mixed with
  * their gains. Switching is a 46 ms crossfade at the exact same position.
  * The next song can be opened in advance so it starts instantly.
+ *
+ * Battery: the source not heard (the original, or the stems) stops decoding
+ * until it is needed again; with the screen off the output buffer grows to
+ * about a second and is filled in bursts, so the CPU sleeps in between.
  */
 public final class Engine {
     private static final String TAG = "StemKitEngine";
@@ -37,6 +45,9 @@ public final class Engine {
     private static final int PREBUFFER = RATE / 10; // 100 ms before starting
     private static final double RING_SECONDS = 5;
     private static final int LOOP_CACHE = 2 * RATE;
+    private static final int BUF_SCREEN_ON = RATE / 8; // ~125 ms: mutes are heard quickly
+    private static final int BUF_SCREEN_OFF = RATE * 3 / 2; // nothing to toggle with the screen off
+    private static final int WAKE_LEAD = RATE * 3 / 10; // a parked source restarts this far ahead
 
     public interface Listener {
         void onEvent(JSONObject e);
@@ -73,9 +84,35 @@ public final class Engine {
         // (offset found after loading, or a decoder that fell behind)
         int origAdj;
         int[] stemAdj = new int[0];
+        // the source not heard is "parked" (not read, so its decoder sleeps); woken, it is read
+        // again from frame *At on (-1: not waking), the other one heard meanwhile
+        boolean origParked, stemsParked;
+        long origAt = -1, stemsAt = -1;
 
         Deck(Spec spec) {
             this.spec = spec;
+        }
+
+        /** every source decoding from the current spot again (after a seek) */
+        void unpark() {
+            origParked = stemsParked = false;
+            origAt = stemsAt = -1;
+        }
+
+        void wakeOriginal(long at) {
+            original.seek(at);
+            origAdj = 0;
+            origParked = false;
+            origAt = at;
+        }
+
+        void wakeStems(long at) {
+            long sf = at + offset;
+            for (FrameSource s : stems) s.seek(Math.max(0, sf));
+            stemAdj = new int[stems.length];
+            java.util.Arrays.fill(stemAdj, sf < 0 ? (int) sf : 0);
+            stemsParked = false;
+            stemsAt = at;
         }
 
         void seek(long frame) {
@@ -85,6 +122,7 @@ public final class Engine {
             stemAdj = new int[stems.length];
             java.util.Arrays.fill(stemAdj, sf < 0 ? (int) sf : 0); // stems start later than frame 0
             origAdj = 0;
+            unpark();
         }
 
         void close() {
@@ -140,7 +178,28 @@ public final class Engine {
     private long headBase;
     private boolean primed = true; // false right after a seek/load: wait for all sources once
 
-    private Engine(Context ctx) {}
+    private volatile boolean screenOff;
+
+    private Engine(Context ctx) {
+        PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        screenOff = pm != null && !pm.isInteractive();
+        IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        f.addAction(Intent.ACTION_SCREEN_ON);
+        ctx.registerReceiver(new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context c, Intent i) {
+                screenOff = Intent.ACTION_SCREEN_OFF.equals(i.getAction());
+                synchronized (lock) {
+                    applyBufferLocked();
+                    lock.notifyAll(); // screen on: out of the long sleep between bursts
+                }
+            }
+        }, f, Context.RECEIVER_NOT_EXPORTED);
+    }
+
+    private void applyBufferLocked() {
+        if (track != null) track.setBufferSizeInFrames(screenOff ? BUF_SCREEN_OFF : BUF_SCREEN_ON);
+    }
 
     public void addListener(Listener l) {
         synchronized (listeners) {
@@ -382,6 +441,7 @@ public final class Engine {
             if (!playing) return;
             playing = false;
             if (track != null) track.pause();
+            lock.notifyAll();
         }
         emitState();
     }
@@ -837,9 +897,10 @@ public final class Engine {
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build())
             .setAudioFormat(fmt)
-            .setBufferSizeInBytes(Math.max(min, (RATE / 8) * 8)) // ~125 ms (whole frames): mutes are heard quickly
+            .setBufferSizeInBytes(Math.max(min, BUF_SCREEN_OFF * 8)) // capacity; the size in use: applyBufferLocked
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build();
+        applyBufferLocked();
         renderThread = new Thread(this::renderLoop, "stemkit-render");
         renderThread.setPriority(Thread.MAX_PRIORITY);
         renderThread.start();
@@ -902,6 +963,7 @@ public final class Engine {
         stretchDirty = true; // a discontinuity: the stretcher starts afresh
         markLocked(songFrame);
         if (was) track.play();
+        lock.notifyAll(); // out of a sleep between bursts: the new audio goes out now
     }
 
     private long reportedPosLocked() {
@@ -925,6 +987,7 @@ public final class Engine {
         float[] s = new float[2 * BLOCK];
         float[] t = new float[2 * BLOCK];
         long lastTick = 0;
+        long pausedAt = 0;
         while (true) {
             Deck d;
             int frames = BLOCK;
@@ -934,11 +997,15 @@ public final class Engine {
             boolean wantOrig;
             int cIdx;
             long blockPos;
+            boolean loopOn, readO, readS;
             try {
                 synchronized (lock) {
+                    if (!playing || deck == null) pausedAt = System.currentTimeMillis();
                     while (!playing || deck == null) {
-                        lock.wait(200);
-                        if (System.currentTimeMillis() - lastTick > 500) {
+                        // a few ticks right after pausing, then asleep until play/load (notifyAll)
+                        boolean fresh = System.currentTimeMillis() - pausedAt < 3000;
+                        lock.wait(fresh ? 200 : 0);
+                        if (fresh && System.currentTimeMillis() - lastTick > 500) {
                             lastTick = System.currentTimeMillis();
                             emitTickLater();
                         }
@@ -956,6 +1023,25 @@ public final class Engine {
                     wantOrig = useOriginal;
                     cIdx = cacheIdx;
                     blockPos = pos;
+                    loopOn = loopB > loopA && loopA >= 0;
+                    if (hasO && hasS) {
+                        boolean keep = loopOn || cIdx >= 0; // loops: both stay ready
+                        if (d.stemsParked && (!wantOrig || keep)) d.wakeStems(pos + WAKE_LEAD);
+                        else if (!d.stemsParked && d.stemsAt < 0 && wantOrig && origW >= 1f && !keep) d.stemsParked = true;
+                        if (d.origParked && (wantOrig || keep)) d.wakeOriginal(pos + WAKE_LEAD);
+                        else if (!d.origParked && d.origAt < 0 && !wantOrig && origW <= 0f && !keep) d.origParked = true;
+                    }
+                    if (d.stemsAt >= 0 && pos >= d.stemsAt) {
+                        int late = (int) (pos - d.stemsAt); // block edges: drop what was decoded before pos
+                        for (int k = 0; k < d.stemAdj.length; k++) d.stemAdj[k] += late;
+                        d.stemsAt = -1;
+                    }
+                    if (d.origAt >= 0 && pos >= d.origAt) {
+                        d.origAdj += (int) (pos - d.origAt);
+                        d.origAt = -1;
+                    }
+                    readO = hasO && !d.origParked && d.origAt < 0;
+                    readS = hasS && !d.stemsParked && d.stemsAt < 0;
                 }
                 int clicks;
                 synchronized (lock) {
@@ -976,8 +1062,8 @@ public final class Engine {
                     // after a seek every decoder restarts: wait for all of them together
                     long end = System.currentTimeMillis() + 600;
                     while (System.currentTimeMillis() < end) {
-                        boolean ok = !hasO || d.original.buffered() >= frames || d.original.ended();
-                        for (FrameSource x : d.stems) ok &= x.buffered() >= frames || x.ended();
+                        boolean ok = !readO || d.original.buffered() >= frames || d.original.ended();
+                        if (readS) for (FrameSource x : d.stems) ok &= x.buffered() >= frames || x.ended();
                         if (ok) break;
                         Thread.sleep(2);
                     }
@@ -987,7 +1073,7 @@ public final class Engine {
                 }
                 java.util.Arrays.fill(out, 0, 2 * frames, 0f);
                 // ---- original
-                if (hasO) {
+                if (readO) {
                     java.util.Arrays.fill(o, 0, 2 * frames, 0f);
                     int adj;
                     synchronized (lock) {
@@ -1000,7 +1086,7 @@ public final class Engine {
                     }
                 }
                 // ---- stems
-                if (hasS) {
+                if (readS) {
                     java.util.Arrays.fill(s, 0, 2 * frames, 0f);
                     int[] adj;
                     synchronized (lock) {
@@ -1031,6 +1117,8 @@ public final class Engine {
                 }
                 float w = origW;
                 float wTarget = !hasS ? 1f : (!hasO ? 0f : (wantOrig ? 1f : 0f));
+                if (!readS && hasO) wTarget = 1f; // stems parked or still waking: the original goes on
+                else if (!readO && hasS) wTarget = 0f;
                 for (int i = 0; i < frames; i++) {
                     if (w < wTarget) w = Math.min(wTarget, w + 1f / XFADE);
                     else if (w > wTarget) w = Math.max(wTarget, w - 1f / XFADE);
@@ -1061,6 +1149,7 @@ public final class Engine {
                         long resume = cached ? loopA + cacheLen : loopA;
                         if (d.original != null) d.original.seek(resume);
                         for (FrameSource x : d.stems) x.seek(Math.max(0, resume + d.offset));
+                        d.unpark();
                         cacheIdx = cached ? 0 : -1;
                         pos = loopA;
                         stretchDirty = true;
@@ -1069,7 +1158,8 @@ public final class Engine {
                     boolean oEnd = !hasO || d.original.ended();
                     boolean sEnd = true;
                     for (FrameSource x : d.stems) sEnd &= x.ended();
-                    ended = cacheIdx < 0 && (hasO ? oEnd : sEnd) && !(loopB > loopA && loopA >= 0);
+                    // the end of what is being read (with the original parked, the end of the stems)
+                    ended = cacheIdx < 0 && (hasO && (readO || !hasS) ? oEnd : sEnd) && !loopOn;
                     if (ended) playing = false;
                 }
                 if (ended) {
@@ -1109,9 +1199,17 @@ public final class Engine {
                     } else if (advance) next();
                     else emitState();
                 }
-                if (System.currentTimeMillis() - lastTick > 150) {
+                boolean off = screenOff;
+                if (System.currentTimeMillis() - lastTick > (off ? 2000 : 150)) {
                     lastTick = System.currentTimeMillis();
                     emitTick();
+                }
+                if (off) {
+                    // the buffer holds ~1.5 s: past a second queued, sleep until ~0.4 s are left
+                    synchronized (lock) {
+                        long queued = written - ((track.getPlaybackHeadPosition() & 0xFFFFFFFFL) - headBase);
+                        if (playing && screenOff && queued > RATE) lock.wait((queued - RATE * 2 / 5) * 1000 / RATE);
+                    }
                 }
             } catch (InterruptedException ie) {
                 return;

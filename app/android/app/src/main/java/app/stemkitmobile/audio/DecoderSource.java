@@ -42,6 +42,9 @@ public final class DecoderSource implements FrameSource {
     private int gen; // bumped by every seek: stale decoder output is dropped
     private boolean decoderDone; // output EOS reached for the current generation
     private long firstPtsUs = Long.MIN_VALUE;
+    // decoding in bursts: once the ring is full the thread sleeps until half of it has been read
+    private final int refillAt;
+    private boolean refilling = true; // guarded by lock
 
     public DecoderSource(String path, double bufferSeconds) throws Exception {
         this.path = path;
@@ -68,6 +71,7 @@ public final class DecoderSource implements FrameSource {
         codec.start();
         capFrames = (int) Math.max(8192, Math.round(bufferSeconds * Math.max(rate, 44100)));
         ring = new float[capFrames * 2];
+        refillAt = Math.max(8192, capFrames / 2);
         thread = new Thread(this::run, "stemkit-decode");
         thread.setPriority(Thread.MAX_PRIORITY - 1);
         thread.start();
@@ -103,7 +107,8 @@ public final class DecoderSource implements FrameSource {
             }
             rFrame = (rFrame + n) % capFrames;
             count -= n;
-            if (n > 0) lock.notifyAll();
+            // wake the decoder only when it has something to do (not at every block: battery)
+            if (n > 0 && (refilling || capFrames - count >= refillAt)) lock.notifyAll();
             return n;
         }
     }
@@ -115,6 +120,7 @@ public final class DecoderSource implements FrameSource {
             gen++;
             rFrame = wFrame = count = 0;
             decoderDone = false;
+            refilling = true;
             lock.notifyAll();
         }
     }
@@ -181,8 +187,10 @@ public final class DecoderSource implements FrameSource {
                 synchronized (lock) {
                     // full, finished, or waiting for the first PTS before seeking: sleep
                     boolean waitingFirst = pendingSeek >= 0 && firstPtsUs == Long.MIN_VALUE;
-                    if (!waitingFirst && (capFrames - count < 8192 || decoderDone) && pendingSeek < 0) {
-                        lock.wait(decoderDone ? 200 : 10);
+                    if (capFrames - count < 8192) refilling = false;
+                    else if (capFrames - count >= refillAt) refilling = true;
+                    if (!waitingFirst && (!refilling || decoderDone) && pendingSeek < 0) {
+                        lock.wait(1000); // read() and seek() wake it
                         continue;
                     }
                 }

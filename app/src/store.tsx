@@ -392,7 +392,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isNative || !ready || !bridgeCfg) return
     void runSync()
-    const t = setInterval(() => void runSync(), 60_000)
+    // in background only on resume (and after local edits): no network every minute in the pocket
+    const t = setInterval(() => {
+      if (!document.hidden) void runSync()
+    }, 60_000)
     const h = CapApp.addListener('resume', () => void runSync())
     return () => {
       clearInterval(t)

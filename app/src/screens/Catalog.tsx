@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, RefreshCw, Download, Play, Plus, Shuffle, Share2 } from 'lucide-react'
+import { Check, ChevronLeft, RefreshCw, Download, EllipsisVertical, Play, Plus, Shuffle, Share2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Spinner, useBackHandler } from '../components/ui'
 import { isMatched, matchTrack, songsFor } from '../lib/catalog'
@@ -9,7 +9,7 @@ import { shareSpotify } from '../lib/share'
 import { artistOf, nameParts } from '../lib/media'
 import type { Playlist, Song } from '../lib/types'
 import { libraryKeys, playlistPool, trackKey } from '../lib/home'
-import { PlaylistPicker } from './Library'
+import { PlaylistPicker, SongMenu } from './Library'
 import { usePlayback } from '../playback'
 import { useStore, type Page } from '../store'
 import { localeTag, t as tr } from '../lib/i18n'
@@ -135,14 +135,33 @@ function TrackRow({ t, i, onPlay, busy, showArt, onAdd }: { t: SpTrack; i: numbe
   const id = vid ? `yt-${vid}` : null
   const inLib = id ? store.songs.some((s) => s.id === id) : false
   const current = id && pb.now?.songId === id
-  const add = async () => {
+  const [menu, setMenu] = useState<Song | null>(null)
+  const [opening, setOpening] = useState(false)
+  const resolve = async () => {
     const v = vid ?? (await matchTrack(t))
-    if (!v) return store.showToast(tr('Non trovata su YouTube'))
+    if (!v) {
+      store.showToast(tr('Non trovata su YouTube'))
+      return null
+    }
     setVid(v)
     const [song] = await songsFor([t], store.getSong)
-    if (!song) return
-    if (onAdd) onAdd(song)
-    else store.addToLibrary(song)
+    return song ?? null
+  }
+  const add = async () => {
+    const song = await resolve()
+    if (song && onAdd) onAdd(song)
+  }
+  // ⋮ as in the search results: the whole song menu (playlist, album, artists, split…)
+  const openMenu = async () => {
+    setOpening(true)
+    try {
+      const song = await resolve()
+      if (!song) return
+      store.addTemp([song])
+      setMenu(song)
+    } finally {
+      setOpening(false)
+    }
   }
   return (
     <div className={`song-row ${current ? 'current' : ''}`}>
@@ -164,9 +183,19 @@ function TrackRow({ t, i, onPlay, busy, showArt, onAdd }: { t: SpTrack; i: numbe
           </span>
         </span>
       </button>
-      <button className={`icon-btn ${inLib ? 'in-lib' : ''}`} onClick={() => void add()} aria-label={inLib ? tr('Nella libreria') : tr('Aggiungi alla libreria')} disabled={inLib}>
-        {inLib ? <Check /> : <Plus />}
-      </button>
+      {onAdd ? (
+        <button className={`icon-btn ${inLib ? 'in-lib' : ''}`} onClick={() => void add()} aria-label={inLib ? tr('Nella libreria') : tr('Aggiungi alla libreria')} disabled={inLib}>
+          {inLib ? <Check /> : <Plus />}
+        </button>
+      ) : (
+        <>
+          {inLib && <Check className="in-lib-mark" aria-label={tr('In libreria')} />}
+          <button className="icon-btn" onClick={() => void openMenu()} aria-label={`${tr('Opzioni')} ${t.title}`} disabled={opening}>
+            {opening ? <Spinner /> : <EllipsisVertical />}
+          </button>
+        </>
+      )}
+      {menu && <SongMenu song={store.getSong(menu.id) ?? menu} index={0} playlist={null} onClose={() => setMenu(null)} />}
     </div>
   )
 }
