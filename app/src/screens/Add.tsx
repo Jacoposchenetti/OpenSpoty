@@ -189,6 +189,8 @@ function Search() {
 
   const typing = focused && !!query.trim()
   return (
+    <>
+      {(focused || !!results) && <HideTopBar />}
     <section className="card">
       <div className={`search ${focused ? 'focused' : ''}`}>
         {(focused || results) && (
@@ -274,7 +276,17 @@ function Search() {
       )}
       {err && <div className="notice error">{err}</div>}
     </section>
+    </>
   )
+}
+
+/** while searching, the app's top bar (logo, language, PC) goes away: more room for results */
+function HideTopBar() {
+  useEffect(() => {
+    document.body.classList.add('search-open')
+    return () => document.body.classList.remove('search-open')
+  }, [])
+  return null
 }
 
 /* ------------------------------------------------------------- results, like Spotify */

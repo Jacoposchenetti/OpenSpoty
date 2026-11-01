@@ -3506,3 +3506,17 @@ input.with-ico {
 .q-row .pick-title small {
   font-weight: 400;
 }
+
+/* Cerca open: no top bar, a slimmer field (screens/Add.tsx HideTopBar) */
+body.search-open .top {
+  display: none;
+}
+body.search-open .search-field input {
+  min-height: 40px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+body.search-open .search .icon-btn {
+  min-height: 40px;
+  min-width: 40px;
+}
