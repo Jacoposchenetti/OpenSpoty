@@ -101,5 +101,9 @@ export async function nearbyConcerts(place: string, artists: Array<{ uri: string
   return found.filter((c) => !seen.has(c.uri) && seen.add(c.uri)).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
-/** the concert's Spotify page (tickets) */
-export const concertUrl = (uri: string) => `https://open.spotify.com/concert/${uri.split(':').pop()}`
+/** a web search for the concert's tickets */
+export const ticketsUrl = (c: NearConcert) =>
+  `https://www.google.com/search?q=${encodeURIComponent(`${c.artist} ${c.venue} ${c.city} ${c.date.slice(0, 10)} biglietti`)}`
+
+/** the venue on a map */
+export const mapUrl = (c: NearConcert) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${c.venue}, ${c.city}`)}`

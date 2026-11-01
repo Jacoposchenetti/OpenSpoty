@@ -1,5 +1,6 @@
-import { AlarmClock, AudioLines, Guitar, MapPin, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
-import { concertArtists, concertUrl, nearbyConcerts, RADIUS_KM, type NearConcert } from '../lib/concerts'
+import { AlarmClock, AudioLines, Guitar, MapPin, Map as MapIcon, Ticket, Mic2, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
+import { concertArtists, mapUrl, nearbyConcerts, RADIUS_KM, ticketsUrl, type NearConcert } from '../lib/concerts'
+import { Sheet } from '../components/ui'
 import { localeTag } from '../lib/i18n'
 import { useEffect, useMemo, useState } from 'react'
 import { SongThumb } from '../components/ui'
@@ -192,6 +193,7 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
   const store = useStore()
   const [list, setList] = useState<NearConcert[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [open, setOpen] = useState<NearConcert | null>(null)
   const artists = useMemo(
     () => concertArtists(store.songs, store.artists, recent),
     // the library changes often; the artists to look at much less
@@ -236,7 +238,7 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
           {list.map((c) => {
             const d = new Date(c.date)
             return (
-              <a key={c.uri} className="concert" href={concertUrl(c.uri)} target="_blank" rel="noopener noreferrer">
+              <button key={c.uri} className="concert" onClick={() => setOpen(c)}>
                 <span className="concert-date">{fmt.format(d)}</span>
                 <span className="concert-when">{wd.format(d)}</span>
                 <span className="recent-title">{c.artist}</span>
@@ -244,11 +246,40 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
                   {c.city} · {c.venue}
                 </span>
                 <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>
-              </a>
+              </button>
             )
           })}
         </div>
       )}
+      {open && <ConcertSheet c={open} onClose={() => setOpen(null)} />}
     </>
+  )
+}
+
+function ConcertSheet({ c, onClose }: { c: NearConcert; onClose: () => void }) {
+  const store = useStore()
+  const when = new Intl.DateTimeFormat(localeTag(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(c.date))
+  return (
+    <Sheet title={c.title || c.artist} onClose={onClose}>
+      <div className="concert-info">
+        <span className="concert-when-full">{when}</span>
+        <span>
+          {c.venue} · {c.city}
+        </span>
+        <span className="muted small">
+          {c.km < 5 ? t('in città') : t('a {km} km da te', { km: c.km })}
+          {c.festival ? ` · ${t('Festival')}` : ''}
+        </span>
+      </div>
+      <a className="sheet-link" href={ticketsUrl(c)} target="_blank" rel="noopener noreferrer">
+        <Ticket /> {t('Cerca i biglietti')}
+      </a>
+      <a className="sheet-link" href={mapUrl(c)} target="_blank" rel="noopener noreferrer">
+        <MapIcon /> {t('Apri nella mappa')}
+      </a>
+      <button onClick={() => (onClose(), store.openPage({ kind: 'artist', uri: c.artistUri, name: c.artist }))}>
+        <Mic2 /> {t("Vai all'artista")}
+      </button>
+    </Sheet>
   )
 }
