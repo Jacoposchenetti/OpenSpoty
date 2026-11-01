@@ -1,4 +1,6 @@
-import { AlarmClock, AudioLines, Guitar, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
+import { AlarmClock, AudioLines, Guitar, MapPin, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
+import { concertArtists, concertUrl, nearbyConcerts, RADIUS_KM, type NearConcert } from '../lib/concerts'
+import { localeTag } from '../lib/i18n'
 import { useEffect, useMemo, useState } from 'react'
 import { SongThumb } from '../components/ui'
 import { engine } from '../lib/engine'
@@ -85,6 +87,20 @@ export function Home() {
         </>
       )}
 
+      {profile.location ? (
+        <Concerts place={profile.location} recent={artists} />
+      ) : (
+        <button className="concert-banner" onClick={() => store.setTab('profile')}>
+          <MapPin />
+          <span>
+            <b>{t('Concerti vicino a te')}</b>
+            <small className="block">
+              {t('Scrivi la tua città nel profilo per vedere i concerti dei tuoi artisti.')} <u>{t('Vai al profilo')}</u>
+            </small>
+          </span>
+        </button>
+      )}
+
       {podcasts.length > 0 && (
         <>
           <div className="q-head">{t('Podcast ascoltati di recente')}</div>
@@ -168,5 +184,71 @@ function ArtistTile({ uri, name }: { uri: string; name: string }) {
       <span className="recent-title">{name}</span>
       <span className="recent-artist">{t('Artista')}</span>
     </button>
+  )
+}
+
+/** "Concerti vicino a te": your artists' concerts near the place in your profile */
+function Concerts({ place, recent }: { place: string; recent: Array<{ uri: string; name: string }> }) {
+  const store = useStore()
+  const [list, setList] = useState<NearConcert[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const artists = useMemo(
+    () => concertArtists(store.songs, store.artists, recent),
+    // the library changes often; the artists to look at much less
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store.songs.length, store.artists.length, recent.map((a) => a.uri).join(',')]
+  )
+  useEffect(() => {
+    let live = true
+    setErr(null)
+    const t0 = window.setTimeout(() => {
+      nearbyConcerts(place, artists)
+        .then((l) => live && setList(l))
+        .catch((e) => live && setErr(e instanceof Error && e.message === 'place' ? 'place' : 'net'))
+    }, 400) // the place is typed in the profile: not at every letter
+    return () => {
+      live = false
+      clearTimeout(t0)
+    }
+  }, [place, artists])
+  const fmt = new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short' })
+  const wd = new Intl.DateTimeFormat(localeTag(), { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+  return (
+    <>
+      <div className="q-head">
+        {t('Concerti vicino a te')} · {place}
+      </div>
+      {err === 'place' ? (
+        <p className="muted small">
+          {t('Non trovo «{place}»: controlla la città nel profilo.', { place })}{' '}
+          <button className="link" onClick={() => store.setTab('profile')}>
+            {t('Vai al profilo')}
+          </button>
+        </p>
+      ) : err ? (
+        <p className="muted small">{t('Concerti non disponibili ora (sei offline?).')}</p>
+      ) : !list ? (
+        <p className="muted small">{t('Cerco i concerti dei tuoi artisti…')}</p>
+      ) : !list.length ? (
+        <p className="muted small">{t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: RADIUS_KM })}</p>
+      ) : (
+        <div className="recent">
+          {list.map((c) => {
+            const d = new Date(c.date)
+            return (
+              <a key={c.uri} className="concert" href={concertUrl(c.uri)} target="_blank" rel="noopener noreferrer">
+                <span className="concert-date">{fmt.format(d)}</span>
+                <span className="concert-when">{wd.format(d)}</span>
+                <span className="recent-title">{c.artist}</span>
+                <span className="recent-artist">
+                  {c.city} · {c.venue}
+                </span>
+                <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>
+              </a>
+            )
+          })}
+        </div>
+      )}
+    </>
   )
 }

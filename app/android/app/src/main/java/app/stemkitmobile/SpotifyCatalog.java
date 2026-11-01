@@ -147,6 +147,18 @@ final class SpotifyCatalog {
             out.put("playlists", pls);
         }
         out.put("related", related);
+        // upcoming concerts (Home: "Concerti vicino a te")
+        JSONArray concerts = new JSONArray();
+        JSONObject goods = a.optJSONObject("goods");
+        for (JSONObject c : items(goods != null ? goods.optJSONObject("concerts") : null)) {
+            JSONObject d = c.optJSONObject("data");
+            if (d == null) continue;
+            JSONObject loc = d.optJSONObject("location");
+            concerts.put(new JSONObject().put("uri", d.optString("uri")).put("title", d.optString("title"))
+                .put("date", d.optString("startDateIsoString")).put("festival", d.optBoolean("festival"))
+                .put("city", loc != null ? loc.optString("city") : "").put("venue", loc != null ? loc.optString("name") : ""));
+        }
+        out.put("concerts", concerts);
         return out;
     }
 

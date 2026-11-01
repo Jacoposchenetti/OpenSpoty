@@ -57,6 +57,15 @@ export interface SpPlaylistRef {
   description?: string
 }
 
+export interface SpConcert {
+  uri: string
+  title: string
+  date: string // ISO, with the local offset
+  festival: boolean
+  city: string
+  venue: string
+}
+
 export interface SpArtist extends SpArtistRef {
   header: string
   listeners?: number
@@ -68,6 +77,7 @@ export interface SpArtist extends SpArtistRef {
   latest?: SpRelease
   related: SpArtistRef[]
   appearsOn?: SpRelease[]
+  concerts?: SpConcert[]
   playlists?: SpPlaylistRef[]
 }
 
@@ -234,6 +244,9 @@ export const engine = {
   spSearch: (query: string): Promise<SpSearch> =>
     remember(`sp2:${query.toLowerCase()}`, 86400_000, () => (isNative ? StemKitNative.spSearch({ query }) : pc('spSearch', { query }))),
   spArtist: (uri: string): Promise<SpArtist> => remember(uri, 86400_000, () => (isNative ? StemKitNative.spArtist({ uri }) : pc('spArtist', { uri }))),
+  /** an artist's upcoming concerts only (kept apart: the whole page is too big to keep for many artists) */
+  spConcerts: (uri: string): Promise<SpConcert[]> =>
+    remember(`concerts:${uri}`, 12 * 3600_000, async () => ((await (isNative ? StemKitNative.spArtist({ uri }) : pc<SpArtist>('spArtist', { uri }))) as SpArtist).concerts ?? []),
   spAlbum: (uri: string): Promise<SpAlbum> => remember(uri, 7 * 86400_000, () => (isNative ? StemKitNative.spAlbum({ uri }) : pc('spAlbum', { uri }))),
 
   /** chords of a song (core/ChordRecognizer.java), with progress in percent */
