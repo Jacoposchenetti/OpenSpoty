@@ -70,11 +70,62 @@ export function popBack(): boolean {
 
 /* ---------------------------------------------------------------- sheet */
 
+/**
+ * A sheet follows the finger down and closes past a quarter of its height (or on a quick flick).
+ * From the grip / title always; from its content only when scrolled to the top, so lists still scroll.
+ */
+function useSwipeDown(onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null)
+  const d = useRef<{ y0: number; dy: number; t: number; on: boolean; handle: boolean } | null>(null)
+  const start = (e: React.TouchEvent) => {
+    const el = ref.current
+    const target = e.target as HTMLElement
+    if (!el || e.touches.length !== 1) return
+    const handle = !!target.closest('.sheet-grip, .sheet-title')
+    // controls that move sideways or scroll on their own keep the gesture
+    if (!handle && (el.scrollTop > 0 || target.closest('input[type=range], textarea, .wheel, .shelf-row'))) return
+    d.current = { y0: e.touches[0].clientY, dy: 0, t: performance.now(), on: false, handle }
+  }
+  const move = (e: React.TouchEvent) => {
+    const g = d.current
+    const el = ref.current
+    if (!g || !el) return
+    const y = e.touches[0].clientY
+    if (!g.on) {
+      if (y - g.y0 < -4 || (!g.handle && el.scrollTop > 0)) return void (d.current = null) // scrolling the content
+      if (y - g.y0 < 8) return
+      g.on = true
+      g.y0 = y
+      g.t = performance.now()
+    }
+    g.dy = Math.max(0, y - g.y0)
+    el.style.transition = 'none'
+    el.style.transform = `translateY(${g.dy}px)`
+  }
+  const end = () => {
+    const g = d.current
+    const el = ref.current
+    d.current = null
+    if (!g?.on || !el) return
+    const fast = g.dy > 40 && g.dy / Math.max(1, performance.now() - g.t) > 0.6
+    if (fast || g.dy > el.offsetHeight * 0.25) {
+      el.style.transition = 'transform .16s ease-in'
+      el.style.transform = `translateY(${el.offsetHeight}px)`
+      window.setTimeout(onClose, 150)
+    } else {
+      el.style.transition = 'transform .2s ease-out'
+      el.style.transform = ''
+    }
+  }
+  return { ref, start, move, end }
+}
+
 export function Sheet({ title, onClose, children }: { title?: ReactNode; onClose: () => void; children: ReactNode }) {
   useBackHandler(onClose)
+  const swipe = useSwipeDown(onClose)
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" ref={swipe.ref} onClick={(e) => e.stopPropagation()} onTouchStart={swipe.start} onTouchMove={swipe.move} onTouchEnd={swipe.end} onTouchCancel={swipe.end}>
         <div className="sheet-grip" />
         {title && <div className="sheet-title">{title}</div>}
         {children}

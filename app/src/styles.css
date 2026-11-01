@@ -3532,3 +3532,15 @@ body.search-open .sugg-main {
 body.search-open .sugg-row .icon-btn {
   min-height: 40px;
 }
+/* sheets close by dragging down (components/ui.tsx useSwipeDown) */
+.sheet {
+  overscroll-behavior-y: contain;
+}
+.sheet-grip {
+  position: relative;
+}
+.sheet-grip::after {
+  content: '';
+  position: absolute;
+  inset: -14px -60px; /* a bigger target to grab */
+}
