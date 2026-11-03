@@ -649,6 +649,10 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   const advanced = (songId: string, dir: 'next' | 'prev', e?: PlayerEvent) => {
     const cur = nowRef.current
     const q = queueRef.current
+    if (e?.contextIds?.length) {
+      // a list started in the car (Android Auto): the engine plays it, the app follows
+      return adopt({ songId, contextIds: e.contextIds, contextName: e.contextName ?? '', index: e.contextIndex ?? 0, fromQueue: false })
+    }
     if (e?.fromJam) {
       // a song of the Jam (maybe a friend's, unknown here): played like the queue, the list goes on after it
       if (!storeRef.current.getSong(songId)) {

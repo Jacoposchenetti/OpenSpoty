@@ -4,7 +4,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -14,7 +13,6 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Build;
-import android.os.IBinder;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -30,8 +28,10 @@ import app.stemkitmobile.audio.Engine;
  * notification + lock-screen controls (MediaSession), audio focus (a phone
  * call pauses), and "becoming noisy" (pulling the headphone/amp adapter
  * pauses instead of blasting from the speaker).
+ * It is also the app's media browser: Android Auto lists the library through
+ * it (AutoLibrary) and plays from it, with the app itself closed.
  */
-public class PlaybackService extends Service implements Engine.Listener {
+public class PlaybackService extends androidx.media.MediaBrowserServiceCompat implements Engine.Listener {
     private static final String CHANNEL = "playback";
     private static final int NOTIF_ID = 7;
     static final String ACTION_PLAY = "app.stemkitmobile.PLAY";
@@ -117,12 +117,36 @@ public class PlaybackService extends Service implements Engine.Listener {
             public void onSkipToNext() {
                 Remote r = remote;
                 if (r != null) r.onRemote("next");
+                else engine.next(); // the app isn't running (Android Auto started us)
             }
 
             @Override
             public void onSkipToPrevious() {
                 Remote r = remote;
                 if (r != null) r.onRemote("prev");
+                else engine.prev();
+            }
+
+            @Override
+            public void onPlayFromMediaId(String mediaId, android.os.Bundle extras) {
+                autoPool.execute(() -> {
+                    try {
+                        playStart(library.start(mediaId));
+                    } catch (Exception e) {
+                        android.util.Log.w("StemKitPlayback", "play " + mediaId, e);
+                    }
+                });
+            }
+
+            @Override
+            public void onPlayFromSearch(String query, android.os.Bundle extras) {
+                autoPool.execute(() -> {
+                    try {
+                        playStart(library.search(query));
+                    } catch (Exception e) {
+                        android.util.Log.w("StemKitPlayback", "search " + query, e);
+                    }
+                });
             }
 
             @Override
@@ -131,8 +155,54 @@ public class PlaybackService extends Service implements Engine.Listener {
             }
         });
         session.setActive(true);
+        setSessionToken(session.getSessionToken());
+        library = new AutoLibrary(this);
         engine.addListener(this);
-        startForegroundCompat(build(engine.isPlaying()));
+        try {
+            startForegroundCompat(build(engine.isPlaying()));
+        } catch (Exception e) {
+            // created by a media browser (Android Auto) with the app in background: foreground when playing
+            android.util.Log.w("StemKitPlayback", "foreground later", e);
+        }
+    }
+
+    // ------------------------------------------------------------ media browser (Android Auto)
+
+    private final java.util.concurrent.ExecutorService autoPool = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private AutoLibrary library;
+    // who may browse the library: the car, the system's media controls, the assistant, this app
+    private static final java.util.Set<String> BROWSERS = new java.util.HashSet<>(java.util.Arrays.asList(
+        "com.google.android.projection.gearhead", "com.google.android.carassistant", "com.google.android.googlequicksearchbox",
+        "com.google.android.apps.automotive.media", "com.android.systemui", "android", "com.google.android.wearable.app"));
+
+    @Override
+    public BrowserRoot onGetRoot(String clientPackageName, int clientUid, android.os.Bundle rootHints) {
+        boolean ok = BROWSERS.contains(clientPackageName) || getPackageName().equals(clientPackageName);
+        return new BrowserRoot(ok ? AutoLibrary.ROOT : AutoLibrary.EMPTY, AutoLibrary.rootExtras());
+    }
+
+    @Override
+    public void onLoadChildren(String parentId, Result<java.util.List<android.support.v4.media.MediaBrowserCompat.MediaItem>> result) {
+        if (AutoLibrary.EMPTY.equals(parentId)) {
+            result.sendResult(new java.util.ArrayList<>());
+            return;
+        }
+        result.detach();
+        autoPool.execute(() -> result.sendResult(library.children(parentId)));
+    }
+
+    /** a list chosen in the car: plays natively, the app shows it when it opens */
+    private void playStart(AutoLibrary.Start st) {
+        if (st == null) return;
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            requestFocus();
+            title = st.song.title;
+            try {
+                startForegroundCompat(build(true));
+            } catch (Exception ignored) {
+            }
+            engine.playFrom(st.song, st.next, st.previous, st.ids, st.index, st.name);
+        });
     }
 
     private void startForegroundCompat(Notification n) {
@@ -181,7 +251,8 @@ public class PlaybackService extends Service implements Engine.Listener {
         long durMs = Math.round(e.optDouble("dur", 0) * 1000);
         session.setPlaybackState(new PlaybackStateCompat.Builder()
             .setActions(PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PAUSE | PlaybackStateCompat.ACTION_PLAY_PAUSE
-                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS | PlaybackStateCompat.ACTION_SEEK_TO)
+                | PlaybackStateCompat.ACTION_SKIP_TO_NEXT | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS | PlaybackStateCompat.ACTION_SEEK_TO
+                | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID | PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH)
             .setState(playing ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED, posMs, playing ? 1f : 0f)
             .build());
         if (!t.equals(lastTitle) || "state".equals(type)) {
@@ -302,14 +373,11 @@ public class PlaybackService extends Service implements Engine.Listener {
     public void onDestroy() {
         engine.removeListener(this);
         artLoader.shutdownNow();
+        autoPool.shutdownNow();
         unregisterNoisy();
         if (focusRequest != null) am.abandonAudioFocusRequest(focusRequest);
         session.release();
         super.onDestroy();
     }
 
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
 }

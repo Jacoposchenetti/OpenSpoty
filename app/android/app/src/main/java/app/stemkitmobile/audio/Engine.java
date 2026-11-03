@@ -433,6 +433,27 @@ public final class Engine {
         preloadNext();
     }
 
+    /**
+     * A list started from outside the app (Android Auto, voice): plays it here; the app,
+     * when it wakes, shows that list (an "advanced" event with the list's songs).
+     */
+    public void playFrom(Spec s, List<Spec> next, Spec previous, List<String> contextIds, int index, String name) {
+        setUpcoming(next, previous);
+        s.startAt = 0;
+        load(s, true);
+        try {
+            JSONObject e = new JSONObject();
+            e.put("type", "advanced");
+            e.put("songId", s.songId);
+            e.put("dir", "next");
+            e.put("contextIds", new JSONArray(contextIds));
+            e.put("contextIndex", index);
+            e.put("contextName", name);
+            emit(e);
+        } catch (Exception ignored) {
+        }
+    }
+
     /** Back to the start of the song, or (in its first 3 seconds) the previous song. */
     public void prev() {
         Spec s;

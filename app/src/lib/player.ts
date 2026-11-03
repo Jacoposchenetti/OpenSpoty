@@ -46,6 +46,10 @@ export interface PlayerEvent {
   fromJam?: boolean
   duration?: number
   art?: string
+  /** 'advanced' to a list started outside the app (Android Auto): the list to show */
+  contextIds?: string[]
+  contextIndex?: number
+  contextName?: string
   /** 'jamFound' / 'jamLost': a Jam on this network */
   name?: string
   url?: string

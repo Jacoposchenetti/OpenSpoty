@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto: OpenSpoty is a media app (PlaybackService is its media browser) -->
+<automotiveApp>
+    <uses name="media" />
+</automotiveApp>
