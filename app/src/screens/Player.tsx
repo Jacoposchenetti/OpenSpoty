@@ -1,5 +1,5 @@
 import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, CirclePlus, Heart, ListMusic, Users } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { PromptSheet, Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
 import { fmtTime } from '../lib/format'
@@ -490,6 +490,20 @@ function useCoverVideo(song: Song | null) {
   return { video, shown: shown && !!url }
 }
 
+/** Spotify's "saved": a green disc with the tick cut out (what is behind shows through) */
+function SavedTick({ className }: { className?: string }) {
+  const id = useId()
+  return (
+    <svg className={`lucide saved-tick ${className ?? ''}`} viewBox="0 0 24 24" aria-hidden="true">
+      <mask id={id}>
+        <rect width="24" height="24" fill="#fff" />
+        <path d="m7.5 12.2 3 3 6-6.4" fill="none" stroke="#000" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </mask>
+      <circle cx="12" cy="12" r="10.5" fill="#1ed760" mask={`url(#${id})`} />
+    </svg>
+  )
+}
+
 /** like Spotify's: + saves the song in "Brani che ti piacciono"; the green tick (saved somewhere) opens "Salvato in" */
 function SaveButton({ song }: { song: Song }) {
   const store = useStore()
@@ -504,7 +518,7 @@ function SaveButton({ song }: { song: Song }) {
   return (
     <>
       <button className={`save-btn ${saved ? 'on' : ''}`} onClick={() => (saved ? setOpen(true) : save())} aria-label={saved ? tr('Salvato in…') : tr('Salva')}>
-        {saved ? <CircleCheck /> : <CirclePlus />}
+        {saved ? <SavedTick /> : <CirclePlus />}
       </button>
       {open && <SavedIn song={song} onClose={() => setOpen(false)} />}
     </>
@@ -546,7 +560,7 @@ function SavedIn({ song, onClose }: { song: Song; onClose: () => void }) {
           <Heart fill="currentColor" />
         </span>
         <span className="saved-name">{tr('Brani che ti piacciono')}</span>
-        {song.liked ? <CircleCheck className="saved-mark on" /> : <CirclePlus className="saved-mark" />}
+        {song.liked ? <SavedTick className="saved-mark" /> : <CirclePlus className="saved-mark" />}
       </button>
       {store.playlists.map((p) => {
         const i = p.songIds.indexOf(song.id)
@@ -555,7 +569,7 @@ function SavedIn({ song, onClose }: { song: Song; onClose: () => void }) {
           <button key={p.id} className="saved-row" onClick={() => (i >= 0 ? store.removeFromPlaylist(p.id, i) : (keep(), store.addToPlaylist(p.id, [song.id])))}>
             {first ? <SongThumb song={first} size={52} /> : <span className="saved-cover"><ListMusic /></span>}
             <span className="saved-name">{p.name}</span>
-            {i >= 0 ? <CircleCheck className="saved-mark on" /> : <CirclePlus className="saved-mark" />}
+            {i >= 0 ? <SavedTick className="saved-mark" /> : <CirclePlus className="saved-mark" />}
           </button>
         )
       })}

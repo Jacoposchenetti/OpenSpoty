@@ -4147,10 +4147,8 @@ button.concert {
   height: 34px;
   margin: 0;
 }
-.save-btn.on .lucide,
-.saved-mark.on {
-  color: #111;
-  fill: #1ed760;
+.saved-tick {
+  stroke: none;
 }
 .saved-in-head {
   display: flex;
