@@ -2,6 +2,7 @@ import { AlarmClock, AudioLines, EllipsisVertical, Guitar, LocateFixed, MapPin, 
 import {
   concertArtists,
   currentPosition,
+  findCity,
   homeCountry,
   mapUrl,
   nearbyConcerts,
@@ -283,6 +284,31 @@ function Concerts({ city }: { city: string }) {
   )
 }
 
+/** under the city: what it was found as, so a typo shows ("Londons" -> Londons, Stati Uniti) */
+function FoundCity({ city }: { city: string }) {
+  const [found, setFound] = useState<{ name?: string; area?: string; country: string } | null | 'none'>(null)
+  useEffect(() => {
+    if (!city.trim()) return setFound(null)
+    let live = true
+    const t0 = window.setTimeout(() => {
+      findCity(city)
+        .then((p) => live && setFound(p ?? 'none'))
+        .catch(() => live && setFound(null))
+    }, 500)
+    return () => {
+      live = false
+      clearTimeout(t0)
+    }
+  }, [city])
+  if (!found) return null
+  if (found === 'none') return <p className="located">{t('Non trovo questa città: controlla come l’hai scritta.')}</p>
+  return (
+    <p className="located">
+      <MapPin /> {t('Trovata: {place}', { place: [found.name, found.area, countryName(found.country)].filter(Boolean).join(', ') })}
+    </p>
+  )
+}
+
 /** the country of the place the concerts are measured from ('' while unknown) */
 function useHomeCountry(cs: ConcertSettings, city: string): string {
   const [c, setC] = useState('')
@@ -357,11 +383,14 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
         </button>
       </div>
       {!cs.useGps && (
-        <input
-          value={city}
-          placeholder={t('Città')}
-          onChange={(e) => (setCity(e.target.value), setProfile({ location: e.target.value.trim() }))}
-        />
+        <>
+          <input
+            value={city}
+            placeholder={t('Città')}
+            onChange={(e) => (setCity(e.target.value), setProfile({ location: e.target.value.trim() }))}
+          />
+          <FoundCity city={city} />
+        </>
       )}
       {locating && <p className="muted small">{locating}</p>}
       {off && (

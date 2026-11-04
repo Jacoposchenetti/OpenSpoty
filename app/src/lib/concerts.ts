@@ -78,9 +78,9 @@ export function currentPosition(): Promise<{ lat: number; lon: number; name?: st
 
 /* ------------------------------------------------------------ places */
 
-type Place = { lat: number; lon: number; country: string } | null
+type Place = { lat: number; lon: number; country: string; name?: string; area?: string } | null
 
-const GEO_KEY = 'stemkit:geo3'
+const GEO_KEY = 'stemkit:geo4'
 let geo: Record<string, Place> = (() => {
   try {
     return JSON.parse(localStorage.getItem(GEO_KEY) ?? '{}') as Record<string, Place>
@@ -97,9 +97,9 @@ async function locate(place: string): Promise<Place> {
   const name = place.split(',')[0].trim() // "Roma, Italia" -> "Roma"
   const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=it&format=json`)
   if (!r.ok) throw new Error(`geocoding ${r.status}`)
-  const j = (await r.json()) as { results?: Array<{ latitude: number; longitude: number; country_code?: string }> }
+  const j = (await r.json()) as { results?: Array<{ latitude: number; longitude: number; country_code?: string; name?: string; admin1?: string }> }
   const x = j.results?.[0]
-  const p = x ? { lat: x.latitude, lon: x.longitude, country: (x.country_code ?? '').toUpperCase() } : null
+  const p = x ? { lat: x.latitude, lon: x.longitude, country: (x.country_code ?? '').toUpperCase(), name: x.name, area: x.admin1 } : null
   geo = { ...geo, [key]: p }
   try {
     localStorage.setItem(GEO_KEY, JSON.stringify(geo))
@@ -171,6 +171,9 @@ export async function concertArtists(
 }
 
 /* ------------------------------------------------------------ the concerts */
+
+/** what a typed city was found as ("Londons" -> Londons, Stati Uniti): null if not found */
+export const findCity = (city: string) => locate(city)
 
 /** the place the concerts are measured from (your position, or the profile's city) and its country */
 export async function home(s: ConcertSettings, city: string): Promise<{ lat: number; lon: number; country: string } | null> {
