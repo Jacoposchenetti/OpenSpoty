@@ -51,14 +51,14 @@ function useTranslation(songId: string, texts: string[], on: boolean): Tr {
   useEffect(() => {
     if (!on || !texts.length) return setTr({ map: null, state: 'off' })
     let live = true
-    const file = `lyrics-tr/${songId}.${language}.json`
+    const file = `lyrics-tr/${songId}.${language}.v2.json` // v2: lines already in your language are left out
     void (async () => {
       let m = (await readCacheJson<Record<string, string>>(file).catch(() => null)) ?? {}
       const missing = [...new Set(texts.filter((x) => !(x in m)))]
       if (missing.length) {
         if (live) setTr({ map: m, state: 'busy' })
         try {
-          const out = await engine.translate(missing, language)
+          const out = await engine.translate(missing, language, true)
           m = { ...m }
           missing.forEach((x, i) => (m[x] = out[i] ?? ''))
           void writeCacheJson(file, m)
@@ -78,10 +78,12 @@ function useTranslation(songId: string, texts: string[], on: boolean): Tr {
   return tr
 }
 
-/** a translation worth showing: not empty, not the line itself (already in your language) */
+const bare = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+/** a translation worth showing: not empty, not (nearly) the line itself */
 const shown = (map: Record<string, string> | null, line: string) => {
   const x = map?.[line]?.trim()
-  return x && x.toLowerCase() !== line.trim().toLowerCase() ? x : null
+  return x && bare(x) !== bare(line) ? x : null
 }
 
 type Palette = { bg: string; text: string }

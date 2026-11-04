@@ -94,7 +94,8 @@ export interface StemPlayerPlugin {
     next: number
     ended: boolean
   }>
-  translate(opts: { texts: string[]; to: string }): Promise<{ texts: string[] }>
+  /** skipSame: lines already in `to` come back empty */
+  translate(opts: { texts: string[]; to: string; skipSame?: boolean }): Promise<{ texts: string[] }>
   rhythm(opts: { songId: string; paths: string[] }): Promise<import('./rhythm').RhythmData>
   addListener(event: 'rhythm', cb: (e: { songId: string; pct: number }) => void): Promise<PluginListenerHandle>
   addListener(event: 'align', cb: (e: { songId: string; pct: number; downloading: boolean }) => void): Promise<PluginListenerHandle>

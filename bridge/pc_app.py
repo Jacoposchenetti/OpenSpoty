@@ -751,7 +751,7 @@ def route(h, method: str, p: list[str], q: dict) -> bool:
                                         **{"from": float(b.get("from") or 0), "lang": str(b.get("lang") or "")}))
             elif op == "translate":
                 h.send_json(engine.call("translate", timeout=120, texts=[str(x) for x in (b.get("texts") or [])],
-                                        to=str(b.get("to") or "en")))
+                                        to=str(b.get("to") or "en"), skipSame=bool(b.get("skipSame"))))
             elif op == "podcastSearch":
                 h.send_json(engine.call(op, timeout=60, query=str(b.get("query") or "")))
             elif op == "podcastFeed":

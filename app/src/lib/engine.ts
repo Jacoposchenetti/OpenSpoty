@@ -300,8 +300,8 @@ export const engine = {
   },
 
   /** lines in another language (core/Translate.java) */
-  async translate(texts: string[], to: string): Promise<string[]> {
-    return (isNative ? await StemPlayer.translate({ texts, to }) : await pc<{ texts: string[] }>('translate', { texts, to })).texts
+  async translate(texts: string[], to: string, skipSame = false): Promise<string[]> {
+    return (isNative ? await StemPlayer.translate({ texts, to, skipSame }) : await pc<{ texts: string[] }>('translate', { texts, to, skipSame })).texts
   },
 
   /** saves the YouTube artwork next to the song, for offline use */

@@ -367,6 +367,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
     @PluginMethod
     public void translate(PluginCall call) {
         String to = call.getString("to", "en");
+        boolean skipSame = Boolean.TRUE.equals(call.getBoolean("skipSame", false));
         try {
             org.json.JSONArray a = call.getArray("texts", new com.getcapacitor.JSArray());
             List<String> in = new ArrayList<>();
@@ -374,7 +375,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
             translator.execute(() -> { // its own thread: never behind a transcription
                 try {
                     JSObject r = new JSObject();
-                    r.put("texts", new com.getcapacitor.JSArray(new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, to)).toString()));
+                    r.put("texts", new com.getcapacitor.JSArray(new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, to, skipSame)).toString()));
                     call.resolve(r);
                 } catch (Throwable e) {
                     call.reject("Traduzione non riuscita: " + e.getMessage());

@@ -72,7 +72,7 @@ public final class PcEngine {
                 java.util.List<String> in = new java.util.ArrayList<>();
                 org.json.JSONArray t = r.getJSONArray("texts");
                 for (int i = 0; i < t.length(); i++) in.add(t.getString(i));
-                return new JSONObject().put("texts", new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, r.optString("to", "en"))));
+                return new JSONObject().put("texts", new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, r.optString("to", "en"), r.optBoolean("skipSame"))));
             }
             case "rhythm":
                 return rhythm(r.getString("path"), r.getString("ffmpeg"), r.getString("models"));

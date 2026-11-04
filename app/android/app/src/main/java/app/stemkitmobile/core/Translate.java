@@ -19,24 +19,29 @@ public final class Translate {
     private Translate() {}
 
     public static List<String> lines(List<String> in, String to) throws Exception {
+        return lines(in, to, false);
+    }
+
+    /** skipSame: a line already in the target language comes back empty (lyrics: nothing to show under it) */
+    public static List<String> lines(List<String> in, String to, boolean skipSame) throws Exception {
         List<String> out = new ArrayList<>();
         List<String> batch = new ArrayList<>();
         int size = 0;
         for (String line : in) {
             String l = line.replace('\n', ' ').trim();
             if (size + l.length() > 1800 && !batch.isEmpty()) {
-                out.addAll(request(batch, to));
+                out.addAll(request(batch, to, skipSame));
                 batch.clear();
                 size = 0;
             }
             batch.add(l);
             size += l.length();
         }
-        if (!batch.isEmpty()) out.addAll(request(batch, to));
+        if (!batch.isEmpty()) out.addAll(request(batch, to, skipSame));
         return out;
     }
 
-    private static List<String> request(List<String> lines, String to) throws Exception {
+    private static List<String> request(List<String> lines, String to, boolean skipSame) throws Exception {
         StringBuilder url = new StringBuilder("https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=")
             .append(URLEncoder.encode(to, "UTF-8"));
         for (String l : lines) url.append("&q=").append(URLEncoder.encode(l.isEmpty() ? " " : l, "UTF-8"));
@@ -58,7 +63,9 @@ public final class Translate {
             List<String> res = new ArrayList<>();
             for (int i = 0; i < lines.size(); i++) {
                 Object x = i < a.length() ? a.get(i) : "";
-                res.add((x instanceof JSONArray ? ((JSONArray) x).optString(0) : String.valueOf(x)).trim());
+                // each answer is [translation, detected language]
+                boolean same = x instanceof JSONArray && to.equalsIgnoreCase(((JSONArray) x).optString(1));
+                res.add(skipSame && same ? "" : (x instanceof JSONArray ? ((JSONArray) x).optString(0) : String.valueOf(x)).trim());
             }
             return res;
         } finally {
