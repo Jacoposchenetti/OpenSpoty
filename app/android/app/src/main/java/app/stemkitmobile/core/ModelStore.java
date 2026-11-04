@@ -32,9 +32,9 @@ public final class ModelStore {
             if (!f.isFile() || f.length() == 0) {
                 final double base = done, w = weight[i], all = total;
                 download(BASE + files[i], f, x -> progress.at((float) ((base + w * x) / all)));
+                progress.at((float) ((done + weight[i]) / total)); // only when something was fetched: no "downloading" for files already here
             }
             done += weight[i];
-            progress.at((float) (done / total));
         }
         return dir;
     }
