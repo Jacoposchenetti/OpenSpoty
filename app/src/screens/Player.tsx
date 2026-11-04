@@ -77,6 +77,7 @@ export function Player() {
       {/* behind the whole player, fixed: the lyrics card scrolls over it */}
       {cover.video}
       {cover.shown && <div className="backdrop-shade" />}
+      <div className="player-scroll">
       <div className={`player-main ${cover.shown ? 'has-video' : ''}`}>
       <header className="player-head">
         <button className="icon-btn" onClick={close} aria-label={tr('Chiudi il player')}>
@@ -217,6 +218,7 @@ export function Player() {
         <NotesSheet initial={song.notes ?? ''} onSave={(t) => store.updateSong(song.id, { notes: t.trim() || undefined })} onClose={() => setShowNotes(false)} />
       )}
       {showTempo && <TempoSheet song={song} mix={mix} onChange={update} onClose={() => setShowTempo(false)} />}
+      </div>
     </div>
   )
 }

@@ -4232,12 +4232,12 @@ button.concert {
 }
 .player > .backdrop-video,
 .player > .backdrop-shade {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 0;
 }
-.player > .player-main,
-.player > .lyrics-card {
+.player-scroll > .player-main,
+.player-scroll > .lyrics-card {
   /* over the video (only these: Suona and the other overlays keep their own position) */
   position: relative;
   z-index: 1;
@@ -4278,7 +4278,7 @@ button.concert {
 .player.immersive .song-notes {
   display: none;
 }
-.player.immersive {
+.player.immersive .player-scroll {
   overflow-y: hidden;
 }
 /* Suona in the lyrics card's look: Figtree, the lines in the cover's tint, the sung one white */
@@ -4294,4 +4294,25 @@ button.concert {
 }
 .ly-style .lyric.chorded.now {
   color: #fff;
+}
+
+/* the player: a still layer (the video) and, over it, the content that scrolls.
+   Never a fixed layer inside the scrolling one: Android's WebView left ghost copies of it */
+.player:has(> .player-scroll) {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+}
+.player-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+.player-scroll > * {
+  flex-shrink: 0;
 }
