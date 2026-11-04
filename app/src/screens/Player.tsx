@@ -1,5 +1,6 @@
 import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, CirclePlus, Heart, ListMusic, Users } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PromptSheet, Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
 import { fmtTime } from '../lib/format'
@@ -212,8 +213,9 @@ export function Player() {
       <LyricsCard key={song.id} song={song} />
 
       {showQueue && <QueueSheet onClose={() => setShowQueue(false)} />}
-      {pb.countingIn && <div className="countin">1 · 2 · 3 · 4</div>}
-      {showLyrics && <LyricsView key={song.id} songId={song.id} onClose={() => setShowLyrics(false)} />}
+      {pb.countingIn && createPortal(<div className="countin">1 · 2 · 3 · 4</div>, document.body)}
+      {/* full-screen layers go on top of the page, never inside the scrolling player (ghost copies in the WebView) */}
+      {showLyrics && createPortal(<LyricsView key={song.id} songId={song.id} onClose={() => setShowLyrics(false)} />, document.body)}
       {showNotes && (
         <NotesSheet initial={song.notes ?? ''} onSave={(t) => store.updateSong(song.id, { notes: t.trim() || undefined })} onClose={() => setShowNotes(false)} />
       )}

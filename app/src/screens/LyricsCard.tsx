@@ -1,6 +1,7 @@
 import { ChevronDown, Languages, Maximize2, Pause, Play, Share2 } from 'lucide-react'
 import { Share } from '@capacitor/share'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
 import { errMsg, fmtTime } from '../lib/format'
@@ -340,7 +341,7 @@ export function LyricsCard({ song }: { song: Song }) {
       {words && !timed && <p className="lyrics-card-note">{tr('Testo senza tempi: non segue la canzone.')}</p>}
       {song.episode && words && <TranscribeNote work={ep.work} err={ep.err} />}
       <TrNote state={trans.state} />
-      {full && words && <LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trans={trans} onClose={() => setFull(false)} />}
+      {full && words && createPortal(<LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trans={trans} onClose={() => setFull(false)} />, document.body)}
     </section>
   )
 }
