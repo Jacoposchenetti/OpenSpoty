@@ -4113,3 +4113,126 @@ button.concert {
 .cover-video video.on {
   opacity: 1;
 }
+
+/* player: where it plays from on top; title, artist and the save button under the cover (like Spotify) */
+.player-title.from {
+  flex: 1;
+  text-align: center;
+}
+.player-title.from .sub {
+  font-size: 12px;
+}
+.player-title.from .title {
+  font-size: 15px;
+}
+.now-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px 0;
+}
+.now-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.now-text b {
+  font-size: 24px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.now-text span {
+  color: var(--muted);
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+.save-btn .lucide {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+}
+.save-btn.on .lucide,
+.saved-mark.on {
+  color: #111;
+  fill: #1ed760;
+}
+.saved-in-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.sheet-title:has(.saved-in-head) {
+  font-size: 20px;
+}
+.link-green {
+  min-height: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: #1ed760;
+  font-weight: 700;
+  font-size: 14px;
+}
+.saved-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  min-height: 0;
+}
+.saved-row .thumb,
+.saved-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  flex: none;
+}
+.saved-cover {
+  display: grid;
+  place-items: center;
+  background: var(--panel-2);
+}
+.saved-cover.liked {
+  background: linear-gradient(135deg, #4a3ad8, #b9e3d6);
+  color: #fff;
+}
+.saved-cover .lucide {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+.saved-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saved-mark {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  flex: none;
+  color: var(--muted);
+}

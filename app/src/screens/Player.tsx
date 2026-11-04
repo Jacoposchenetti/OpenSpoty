@@ -1,6 +1,6 @@
-import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, Users } from 'lucide-react'
+import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, CirclePlus, Heart, ListMusic, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
+import { PromptSheet, Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
 import { fmtTime } from '../lib/format'
 import { isNative } from '../lib/native'
@@ -74,14 +74,9 @@ export function Player() {
         <button className="icon-btn" onClick={close} aria-label={tr('Chiudi il player')}>
           <ChevronDown />
         </button>
-        <SongThumb song={song} size={40} />
-        <div className="player-title" onClick={() => void openArtist(song)} role="button">
-          <div className="title">{nameParts(song.title).name}</div>
-          <div className="sub artist-link">{nameParts(song.title).artist || (ctx.fromQueue ? tr('Dalla coda') : ctx.contextName || tr('In riproduzione'))}</div>
-          <div className="sub">
-            {nameParts(song.title).artist ? (ctx.fromQueue ? tr('Dalla coda') : ctx.contextName || tr('In riproduzione')) : ''}
-            {nextUp ? `${nameParts(song.title).artist ? ' · ' : ''}${tr('poi:')} ${nameParts(nextUp.title).name}` : ''}
-          </div>
+        <div className="player-title from">
+          <div className="sub">{ctx.fromQueue ? tr('Dalla coda') : song.episode ? 'Podcast' : tr('In riproduzione da')}</div>
+          <div className="title">{ctx.fromQueue ? '' : ctx.contextName || tr('In riproduzione')}</div>
         </div>
         {!song.episode && (
           <button className="head-pill suona" onClick={() => setShowLyrics(true)} aria-label={tr('Suona')}>
@@ -123,6 +118,14 @@ export function Player() {
 
       <div className="listen">
         <CoverVideo song={song} />
+      </div>
+
+      <div className="now-title">
+        <span className="now-text" onClick={() => void openArtist(song)} role="button">
+          <b>{nameParts(song.title).name}</b>
+          <span>{nameParts(song.title).artist || (song.episode ? song.episode.podcast : '')}</span>
+        </span>
+        {!song.episode && <SaveButton song={song} />}
       </div>
 
       <div className="seek">
@@ -475,5 +478,78 @@ function CoverVideo({ song }: { song: Song }) {
         />
       )}
     </div>
+  )
+}
+
+/** like Spotify's: + saves the song in "Brani che ti piacciono"; the green tick (saved somewhere) opens "Salvato in" */
+function SaveButton({ song }: { song: Song }) {
+  const store = useStore()
+  const [open, setOpen] = useState(false)
+  const inLib = store.songs.some((s) => s.id === song.id)
+  const saved = inLib && (!!song.liked || store.playlists.some((p) => p.songIds.includes(song.id)))
+  const save = () => {
+    if (!inLib) store.addToLibrary(song, true)
+    store.updateSong(song.id, { liked: true, likedAt: Date.now() })
+    store.showToast(tr('Aggiunta a “Brani che ti piacciono”'))
+  }
+  return (
+    <>
+      <button className={`save-btn ${saved ? 'on' : ''}`} onClick={() => (saved ? setOpen(true) : save())} aria-label={saved ? tr('Salvato in…') : tr('Salva')}>
+        {saved ? <CircleCheck /> : <CirclePlus />}
+      </button>
+      {open && <SavedIn song={song} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/** where the song is saved: the liked songs and every playlist, each one a tap to add or remove */
+function SavedIn({ song, onClose }: { song: Song; onClose: () => void }) {
+  const store = useStore()
+  const [creating, setCreating] = useState(false)
+  const keep = () => {
+    if (!store.songs.some((s) => s.id === song.id)) store.addToLibrary(song, true)
+  }
+  if (creating) {
+    return (
+      <PromptSheet
+        title={tr('Nuova playlist')}
+        placeholder={tr('Nome della playlist')}
+        confirm={tr('Crea')}
+        onDone={(name) => (keep(), store.createPlaylist(name, [song.id]), setCreating(false))}
+        onClose={() => setCreating(false)}
+      />
+    )
+  }
+  return (
+    <Sheet
+      title={
+        <span className="saved-in-head">
+          {tr('Salvato in')}
+          <button className="link-green" onClick={() => setCreating(true)}>
+            {tr('Nuova playlist')}
+          </button>
+        </span>
+      }
+      onClose={onClose}
+    >
+      <button className="saved-row" onClick={() => (keep(), store.updateSong(song.id, song.liked ? { liked: false } : { liked: true, likedAt: Date.now() }))}>
+        <span className="saved-cover liked">
+          <Heart fill="currentColor" />
+        </span>
+        <span className="saved-name">{tr('Brani che ti piacciono')}</span>
+        {song.liked ? <CircleCheck className="saved-mark on" /> : <CirclePlus className="saved-mark" />}
+      </button>
+      {store.playlists.map((p) => {
+        const i = p.songIds.indexOf(song.id)
+        const first = p.songIds.length ? store.getSong(p.songIds[0]) : undefined
+        return (
+          <button key={p.id} className="saved-row" onClick={() => (i >= 0 ? store.removeFromPlaylist(p.id, i) : (keep(), store.addToPlaylist(p.id, [song.id])))}>
+            {first ? <SongThumb song={first} size={52} /> : <span className="saved-cover"><ListMusic /></span>}
+            <span className="saved-name">{p.name}</span>
+            {i >= 0 ? <CircleCheck className="saved-mark on" /> : <CirclePlus className="saved-mark" />}
+          </button>
+        )
+      })}
+    </Sheet>
   )
 }
