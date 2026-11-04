@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, ScrollText, Users } from 'lucide-react'
+import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -9,7 +9,6 @@ import type { MixState, Song } from '../lib/types'
 import { usePlayback } from '../playback'
 import { useOpenArtist } from './Catalog'
 import { LyricsView } from './Lyrics'
-import { TranscriptView } from './Transcript'
 import { saveProgress } from '../lib/podcasts'
 import { SongMenu } from './Library'
 import { useStore } from '../store'
@@ -30,7 +29,6 @@ export function Player() {
   const [showNotes, setShowNotes] = useState(false)
   const [showLyrics, setShowLyrics] = useState(false)
   const [menu, setMenu] = useState(false)
-  const [showTranscript, setShowTranscript] = useState(false)
   const scrubbing = useRef(false)
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
@@ -83,12 +81,7 @@ export function Player() {
             {nextUp ? `${nameParts(song.title).artist ? ' · ' : ''}${tr('poi:')} ${nameParts(nextUp.title).name}` : ''}
           </div>
         </div>
-        {song.episode ? (
-          <button className="head-pill" onClick={() => setShowTranscript(true)} aria-label={tr('Testo')}>
-            <ScrollText />
-            <small>{tr('Testo')}</small>
-          </button>
-        ) : (
+        {!song.episode && (
           <button className="head-pill suona" onClick={() => setShowLyrics(true)} aria-label={tr('Suona')}>
             <Guitar />
             <small>{tr('Suona')}</small>
@@ -192,12 +185,11 @@ export function Player() {
         )}
       </div>
 
-      {!song.episode && <LyricsCard key={song.id} song={song} />}
+      <LyricsCard key={song.id} song={song} />
 
       {showQueue && <QueueSheet onClose={() => setShowQueue(false)} />}
       {pb.countingIn && <div className="countin">1 · 2 · 3 · 4</div>}
       {showLyrics && <LyricsView key={song.id} songId={song.id} onClose={() => setShowLyrics(false)} />}
-      {showTranscript && <TranscriptView key={song.id} songId={song.id} onClose={() => setShowTranscript(false)} />}
       {showNotes && (
         <NotesSheet initial={song.notes ?? ''} onSave={(t) => store.updateSong(song.id, { notes: t.trim() || undefined })} onClose={() => setShowNotes(false)} />
       )}

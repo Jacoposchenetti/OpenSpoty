@@ -3,17 +3,19 @@ import { Share } from '@capacitor/share'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
-import { fmtTime } from '../lib/format'
+import { errMsg, fmtTime } from '../lib/format'
 import { t as tr } from '../lib/i18n'
 import { getLyrics, plainLines, type LyricLine } from '../lib/lyrics'
-import { nameParts, youtubeIdOf } from '../lib/media'
+import { nameParts, originalRef, youtubeIdOf } from '../lib/media'
+import { firstGap, loadTranscript, transcribeAt, type Transcript } from '../lib/transcript'
 import { fileUrl, readCacheJson, writeCacheJson } from '../lib/storage'
 import type { Song } from '../lib/types'
 import { usePlayback } from '../playback'
 
 /* The lyrics under the player, like Spotify: a card in the cover's colour that
    follows the song (tap a line to jump there), translation in small under each
-   line, share, and full screen. */
+   line, share, and full screen. A podcast episode gets its transcript here
+   (Whisper on the phone, a few minutes ahead of what you hear). */
 
 type Words = { timed: LyricLine[] | null; plain: string[] | null }
 
@@ -22,6 +24,7 @@ function useWords(song: Song): Words | null | 'none' {
   useEffect(() => {
     let live = true
     setW(null)
+    if (song.episode) return // its transcript instead (useEpisodeWords)
     getLyrics(song)
       .then((l) => {
         if (!live) return
@@ -36,6 +39,70 @@ function useWords(song: Song): Words | null | 'none' {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [song.id])
   return w
+}
+
+const AHEAD = 240 // s of transcript kept ready past what you hear
+
+type Transcribing = { at: number; pct?: number; downloading?: boolean } | null
+
+/**
+ * An episode's transcript: loaded if there is one; written while you listen once
+ * started (by you the first time: Whisper costs battery), then on its own.
+ */
+function useEpisodeWords(song: Song) {
+  const pb = usePlayback()
+  const [t, setT] = useState<Transcript | null>(null)
+  const [run, setRun] = useState(false)
+  const [work, setWork] = useState<Transcribing>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const tRef = useRef<Transcript | null>(null)
+  useEffect(() => {
+    if (!song.episode) return
+    let live = true
+    void loadTranscript(song.id).then((x) => {
+      if (!live) return
+      tRef.current = x
+      setT(x)
+      if (x.done.length) setRun(true)
+    })
+    return () => {
+      live = false
+    }
+  }, [song.id, song.episode])
+  useEffect(() => {
+    const src = originalRef(song)
+    if (!run || !t || !src) return
+    let alive = true
+    void (async () => {
+      while (alive) {
+        const now = tRef.current!
+        const p = pb.position()
+        const gap = firstGap(now, p - 2, p + AHEAD)
+        if (gap === null) {
+          await new Promise((r) => setTimeout(r, 2000))
+          continue
+        }
+        setWork({ at: gap })
+        try {
+          const next = await transcribeAt(song.id, src, now, gap, (pct, downloading) => setWork({ at: gap, pct, downloading }))
+          if (!alive) return
+          tRef.current = next
+          setT(next)
+          setErr(null)
+        } catch (e) {
+          if (!alive) return
+          setErr(errMsg(e))
+          await new Promise((r) => setTimeout(r, 8000))
+        }
+      }
+    })().finally(() => setWork(null))
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run, t === null, song.id])
+  const words: Words | null = useMemo(() => (t?.segs.length ? { timed: t.segs.map((s) => ({ t: s.a, text: s.text })), plain: null } : null), [t])
+  return { words, loaded: !!t, run, start: () => setRun(true), work, err }
 }
 
 type Tr = { map: Record<string, string> | null; state: 'off' | 'busy' | 'ok' | 'error' | 'same' }
@@ -182,10 +249,39 @@ function TrNote({ state }: { state: Tr['state'] }) {
   return null
 }
 
+/** an episode without transcript yet: start it (or what is being done) */
+function EpisodeStart({ ep }: { ep: ReturnType<typeof useEpisodeWords> }) {
+  if (!ep.loaded) return <p className="lyric past">…</p>
+  if (!ep.run)
+    return (
+      <div className="ep-start">
+        <p>{tr('Il testo di questo episodio si ricava dall’audio, sul telefono, mentre lo ascolti.')}</p>
+        <button className="ep-start-btn" onClick={ep.start}>
+          {tr('Trascrivi l’episodio')}
+        </button>
+      </div>
+    )
+  return <TranscribeNote work={ep.work ?? { at: 0 }} err={ep.err} />
+}
+
+function TranscribeNote({ work, err }: { work: Transcribing; err: string | null }) {
+  if (err) return <p className="lyrics-card-note">{err}</p>
+  if (!work) return null
+  return (
+    <p className="lyrics-card-note">
+      {work.downloading
+        ? `${tr('Scarico il riconoscimento della voce (57 MB, una volta sola)')} · ${work.pct ?? 0}%`
+        : `${tr('Trascrivo da')} ${fmtTime(work.at)}…`}
+    </p>
+  )
+}
+
 /* ------------------------------------------------------------ the card under the player */
 
 export function LyricsCard({ song }: { song: Song }) {
-  const words = useWords(song)
+  const lyrics = useWords(song)
+  const ep = useEpisodeWords(song)
+  const words = song.episode ? ep.words : lyrics
   const colour = useCardColour(song)
   const [trOn, setTrOn] = useState(false)
   const [full, setFull] = useState(false)
@@ -228,7 +324,9 @@ export function LyricsCard({ song }: { song: Song }) {
         </span>
       </div>
       <div className="lyrics-card-body" ref={box}>
-        {!words ? (
+        {!words && song.episode ? (
+          <EpisodeStart ep={ep} />
+        ) : !words ? (
           <p className="lyric past">…</p>
         ) : timed ? (
           timed.map((l, i) =>
@@ -253,6 +351,7 @@ export function LyricsCard({ song }: { song: Song }) {
         )}
       </div>
       {words && !timed && <p className="lyrics-card-note">{tr('Testo senza tempi: non segue la canzone.')}</p>}
+      {song.episode && words && <TranscribeNote work={ep.work} err={ep.err} />}
       <TrNote state={trans.state} />
       {full && words && <LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trans={trans} onClose={() => setFull(false)} />}
     </section>

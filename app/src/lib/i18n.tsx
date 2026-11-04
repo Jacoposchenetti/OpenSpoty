@@ -230,6 +230,8 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Il testo di questo episodio si ricava dall’audio, sul telefono, mentre lo ascolti.": "This episode's transcript is made from the audio, on the phone, while you listen.",
+  "Trascrivi l’episodio": "Transcribe the episode",
   "Vedi la coda": "View queue",
   "Modifica le note": "Edit notes",
   "Aggiungi una nota": "Add a note",
