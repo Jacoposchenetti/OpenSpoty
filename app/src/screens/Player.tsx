@@ -33,6 +33,9 @@ export function Player() {
   const scrubbing = useRef(false)
   const videoOn = useVideoOn()
   const cover = useCoverVideo(song)
+  // tapping the video hides the controls and the lyrics, as on Spotify (title and bar stay)
+  const [immersive, setImmersive] = useState(false)
+  useEffect(() => setImmersive(false), [song?.id, cover.shown])
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
 
@@ -70,7 +73,7 @@ export function Player() {
   const nextUp = pb.queue.length ? store.getSong(pb.queue[0]) : ctx.index + 1 < ctx.contextIds.length ? store.getSong(ctx.contextIds[ctx.index + 1]) : null
 
   return (
-    <div className="player">
+    <div className={`player ${immersive ? 'immersive' : ''}`}>
       <div className={`player-main ${cover.shown ? 'has-video' : ''}`}>
         {cover.video}
         {cover.shown && <div className="backdrop-shade" />}
@@ -120,7 +123,7 @@ export function Player() {
       )}
       {pb.error && <div className="notice error">{pb.error}</div>}
 
-      <div className="listen">
+      <div className="listen" onClick={() => cover.shown && setImmersive(!immersive)}>
         {/* with the video behind, its place stays empty (as on Spotify) */}
         <span style={{ visibility: cover.shown ? 'hidden' : undefined }}>
           <SongThumb song={song} size={260} />
