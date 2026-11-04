@@ -18,6 +18,7 @@ import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.DeliveryMethod;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
+import org.schabi.newpipe.extractor.stream.VideoStream;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -469,6 +470,61 @@ final class YouTubeSource {
         }
         if (best == null) throw new IOException("Nessuna corrispondenza su YouTube");
         return best;
+    }
+
+    /**
+     * The song's music video (player background, like Spotify's Canvas): the official
+     * video on YouTube, not the "- Topic" upload (a still picture). Returns a light
+     * video-only stream (~360p, no sound: the song plays from the engine) to stream, never saved.
+     */
+    static JSONObject musicVideo(String title, String artist, long durationSec) throws Exception {
+        init();
+        StreamingService yt = ServiceList.YouTube;
+        String firstArtist = artist.split(",")[0].trim();
+        List<InfoItem> items = search(yt, firstArtist + " " + title + " official video", YoutubeSearchQueryHandlerFactory.VIDEOS);
+        String nt = norm(title.replaceAll("\\(.*?\\)|\\[.*?]| - .*$", ""));
+        String na = norm(firstArtist);
+        String best = null;
+        double bestScore = 0; // nothing that doesn't look like this song's video
+        int rank = 0;
+        for (InfoItem i : items) {
+            if (!(i instanceof StreamInfoItem) || rank >= 8) continue;
+            rank++;
+            StreamInfoItem s = (StreamInfoItem) i;
+            String id = videoId(s.getUrl());
+            String up = s.getUploaderName() == null ? "" : s.getUploaderName();
+            if (id == null || up.endsWith(" - Topic") || s.getDuration() < 60 || s.getDuration() > 900) continue;
+            String st = norm(s.getName()), sa = norm(up);
+            if (!st.contains(nt)) continue;
+            double score = 20 - rank * 2.0;
+            if (st.contains(na) || sa.contains(na)) score += 25;
+            if (st.contains("official") || st.contains("video") || st.contains("ufficiale")) score += 10;
+            if (durationSec > 0 && Math.abs(s.getDuration() - durationSec) <= 40) score += 10;
+            for (String bad : new String[] {"lyric", "lyrics", "testo", "audio", "visualizer", "live", "cover", "karaoke", "reaction", "remix", "sped up", "slowed"}) {
+                if (st.contains(bad) && !nt.contains(bad)) score -= 30;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = id;
+            }
+        }
+        if (best == null) throw new IOException("nessun video");
+        StreamInfo info = StreamInfo.getInfo(yt, "https://www.youtube.com/watch?v=" + best);
+        VideoStream pick = null;
+        for (VideoStream v : info.getVideoOnlyStreams()) {
+            if (!v.isUrl() || v.getDeliveryMethod() != DeliveryMethod.PROGRESSIVE_HTTP || v.getHeight() < 200 || v.getHeight() > 480) continue;
+            // closest to 360p, mp4 (H.264) first: every phone decodes it in hardware
+            boolean mp4 = v.getFormat() != null && "mp4".equals(v.getFormat().getSuffix());
+            if (pick == null) pick = v;
+            else {
+                boolean pMp4 = pick.getFormat() != null && "mp4".equals(pick.getFormat().getSuffix());
+                int d = Math.abs(v.getHeight() - 360), pd = Math.abs(pick.getHeight() - 360);
+                if (d < pd || (d == pd && mp4 && !pMp4)) pick = v;
+            }
+        }
+        if (pick == null) throw new IOException("nessun video leggero");
+        return new JSONObject().put("videoId", best).put("url", pick.getContent()).put("height", pick.getHeight())
+            .put("mime", pick.getFormat() != null ? pick.getFormat().getMimeType() : "video/mp4").put("duration", info.getDuration());
     }
 
     /** Spotify link -> "artist title" to search (Spotify audio is DRM-protected). */

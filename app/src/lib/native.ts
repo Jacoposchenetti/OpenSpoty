@@ -87,6 +87,8 @@ export interface StemKitNativePlugin {
   spAlbum(opts: { uri: string }): Promise<import('./engine').SpAlbum>
   spotifyList(opts: { url: string }): Promise<import('./engine').SpotifyList>
   matchSong(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; title: string; channel: string; duration: number; score: number }>
+  /** the song's music video: a light video-only stream (player background) */
+  musicVideo(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; url: string; height: number; mime: string; duration: number }>
   separationStatus(): Promise<SeparationEvent | { state: 'idle' }>
   addListener(event: 'separation', cb: (e: SeparationEvent) => void): Promise<PluginListenerHandle>
   addListener(event: 'transfer', cb: (e: TransferEvent) => void): Promise<PluginListenerHandle>

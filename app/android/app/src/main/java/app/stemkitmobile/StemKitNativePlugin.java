@@ -631,6 +631,21 @@ public class StemKitNativePlugin extends Plugin {
         });
     }
 
+    /** the song's music video to loop behind the player (YouTubeSource.musicVideo) */
+    @PluginMethod
+    public void musicVideo(PluginCall call) {
+        String title = call.getString("title", "");
+        String artist = call.getString("artist", "");
+        long dur = call.getInt("duration", 0);
+        io.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(YouTubeSource.musicVideo(title, artist, dur)));
+            } catch (Exception e) {
+                call.reject(e.getMessage());
+            }
+        });
+    }
+
     @PluginMethod
     public void matchSong(PluginCall call) {
         String title = call.getString("title", "");

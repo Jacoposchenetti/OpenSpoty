@@ -4091,3 +4091,25 @@ button.concert {
 .player-head .player-title {
   flex: 1;
 }
+
+/* the music video over the cover (screens/Player.tsx CoverVideo) */
+.cover-video {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto;
+}
+.cover-video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px; /* as the cover (.listen .thumb) */
+  opacity: 0;
+  transition: opacity 0.8s;
+  pointer-events: none;
+}
+.cover-video video.on {
+  opacity: 1;
+}

@@ -16,6 +16,7 @@ import { localeTag, t as tr } from '../lib/i18n'
 import { useHostedJam } from '../lib/jam'
 import { JamSheet } from './Jam'
 import { LyricsCard } from './LyricsCard'
+import { setVideoOn, songVideo, useVideoOn } from '../lib/canvas'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
 export function Player() {
@@ -30,6 +31,7 @@ export function Player() {
   const [showLyrics, setShowLyrics] = useState(false)
   const [menu, setMenu] = useState(false)
   const scrubbing = useRef(false)
+  const videoOn = useVideoOn()
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
 
@@ -97,7 +99,11 @@ export function Player() {
           index={0}
           playlist={null}
           onClose={() => setMenu(false)}
-          extra={{ onNotes: () => (setMenu(false), setShowNotes(true)), onQueue: () => (setMenu(false), setShowQueue(true)) }}
+          extra={{
+            onNotes: () => (setMenu(false), setShowNotes(true)),
+            onQueue: () => (setMenu(false), setShowQueue(true)),
+            video: { on: videoOn, toggle: () => (setMenu(false), setVideoOn(!videoOn)) }
+          }}
         />
       )}
       {menu && song.episode && <EpisodeMenu song={song} onClose={() => setMenu(false)} />}
@@ -116,7 +122,7 @@ export function Player() {
       {pb.error && <div className="notice error">{pb.error}</div>}
 
       <div className="listen">
-        <SongThumb song={song} size={260} />
+        <CoverVideo song={song} />
       </div>
 
       <div className="seek">
@@ -423,5 +429,51 @@ function EpisodeMenu({ song, onClose }: { song: Song; onClose: () => void }) {
         <CircleCheck /> {tr('Segna come ascoltato')}
       </button>
     </Sheet>
+  )
+}
+
+/** the cover, or a few seconds of the song's music video looping over it (lib/canvas.ts) */
+function CoverVideo({ song }: { song: Song }) {
+  const on = useVideoOn()
+  const [url, setUrl] = useState<string | null>(null)
+  const [shown, setShown] = useState(false)
+  const loopAt = useRef(0)
+  useEffect(() => {
+    setUrl(null)
+    setShown(false)
+    if (!on || song.episode) return
+    let live = true
+    void songVideo(song).then((u) => live && setUrl(u))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [song.id, on])
+  return (
+    <div className="cover-video">
+      <SongThumb song={song} size={260} />
+      {url && (
+        <video
+          src={url}
+          muted
+          playsInline
+          autoPlay
+          preload="auto"
+          className={shown ? 'on' : ''}
+          onLoadedMetadata={(e) => {
+            // a stretch from about a third in (past the intro), looped like a Canvas
+            const v = e.currentTarget
+            loopAt.current = Math.min(45, Math.max(0, v.duration * 0.3))
+            v.currentTime = loopAt.current
+          }}
+          onPlaying={() => setShown(true)}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget
+            if (v.currentTime > loopAt.current + 9 || v.ended) v.currentTime = loopAt.current
+          }}
+          onError={() => setUrl(null)}
+        />
+      )}
+    </div>
   )
 }
