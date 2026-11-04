@@ -4092,27 +4092,6 @@ button.concert {
   flex: 1;
 }
 
-/* the music video over the cover (screens/Player.tsx CoverVideo) */
-.cover-video {
-  position: relative;
-  width: 260px;
-  height: 260px;
-  margin: 0 auto;
-}
-.cover-video video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 14px; /* as the cover (.listen .thumb) */
-  opacity: 0;
-  transition: opacity 0.8s;
-  pointer-events: none;
-}
-.cover-video video.on {
-  opacity: 1;
-}
 
 /* player: where it plays from on top; title, artist and the save button under the cover (like Spotify) */
 .player-title.from {
@@ -4235,4 +4214,56 @@ button.concert {
   margin: 0;
   flex: none;
   color: var(--muted);
+}
+
+/* the player's first screen (cover, title, controls) fills the view: the lyrics card
+   only peeks from below, as on Spotify; the music video, if any, is behind all of it */
+.player-main {
+  position: relative;
+  margin: 0 -12px;
+  padding: 0 12px 10px;
+  min-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.player-main > * {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.player-main > .backdrop-video,
+.player-main > .backdrop-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.backdrop-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s;
+  pointer-events: none;
+}
+.backdrop-video.on {
+  opacity: 1;
+}
+/* dark at the top and the bottom: the header and the controls stay readable */
+.backdrop-shade {
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.55) 0%, rgb(0 0 0 / 0) 22%, rgb(0 0 0 / 0) 42%, rgb(0 0 0 / 0.8) 100%);
+}
+.player-main.has-video .player-head,
+.player-main.has-video .now-text span,
+.player-main.has-video .seek {
+  color: #fff;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+.player-main.has-video .seek input[type='range'] {
+  accent-color: #fff;
+}
+.now-title > .thumb {
+  border-radius: 6px;
+  flex: none;
 }

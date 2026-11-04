@@ -32,6 +32,7 @@ export function Player() {
   const [menu, setMenu] = useState(false)
   const scrubbing = useRef(false)
   const videoOn = useVideoOn()
+  const cover = useCoverVideo(song)
   const close = () => store.setPlayerOpen(false)
   useBackHandler(close)
 
@@ -70,6 +71,9 @@ export function Player() {
 
   return (
     <div className="player">
+      <div className={`player-main ${cover.shown ? 'has-video' : ''}`}>
+        {cover.video}
+        {cover.shown && <div className="backdrop-shade" />}
       <header className="player-head">
         <button className="icon-btn" onClick={close} aria-label={tr('Chiudi il player')}>
           <ChevronDown />
@@ -117,10 +121,14 @@ export function Player() {
       {pb.error && <div className="notice error">{pb.error}</div>}
 
       <div className="listen">
-        <CoverVideo song={song} />
+        {/* with the video behind, its place stays empty (as on Spotify) */}
+        <span style={{ visibility: cover.shown ? 'hidden' : undefined }}>
+          <SongThumb song={song} size={260} />
+        </span>
       </div>
 
       <div className="now-title">
+        {cover.shown && <SongThumb song={song} size={52} />}
         <span className="now-text" onClick={() => void openArtist(song)} role="button">
           <b>{nameParts(song.title).name}</b>
           <span>{nameParts(song.title).artist || (song.episode ? song.episode.podcast : '')}</span>
@@ -192,6 +200,8 @@ export function Player() {
             </button>
           </>
         )}
+      </div>
+
       </div>
 
       <LyricsCard key={song.id} song={song} />
@@ -435,8 +445,8 @@ function EpisodeMenu({ song, onClose }: { song: Song; onClose: () => void }) {
   )
 }
 
-/** the cover, or a few seconds of the song's music video looping over it (lib/canvas.ts) */
-function CoverVideo({ song }: { song: Song }) {
+/** a few seconds of the song's music video, looping behind the first screen (lib/canvas.ts) */
+function useCoverVideo(song: Song | null) {
   const on = useVideoOn()
   const [url, setUrl] = useState<string | null>(null)
   const [shown, setShown] = useState(false)
@@ -444,41 +454,37 @@ function CoverVideo({ song }: { song: Song }) {
   useEffect(() => {
     setUrl(null)
     setShown(false)
-    if (!on || song.episode) return
+    if (!on || !song || song.episode) return
     let live = true
     void songVideo(song).then((u) => live && setUrl(u))
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song.id, on])
-  return (
-    <div className="cover-video">
-      <SongThumb song={song} size={260} />
-      {url && (
-        <video
-          src={url}
-          muted
-          playsInline
-          autoPlay
-          preload="auto"
-          className={shown ? 'on' : ''}
-          onLoadedMetadata={(e) => {
-            // a stretch from about a third in (past the intro), looped like a Canvas
-            const v = e.currentTarget
-            loopAt.current = Math.min(45, Math.max(0, v.duration * 0.3))
-            v.currentTime = loopAt.current
-          }}
-          onPlaying={() => setShown(true)}
-          onTimeUpdate={(e) => {
-            const v = e.currentTarget
-            if (v.currentTime > loopAt.current + 9 || v.ended) v.currentTime = loopAt.current
-          }}
-          onError={() => setUrl(null)}
-        />
-      )}
-    </div>
-  )
+  }, [song?.id, on])
+  const video = url ? (
+    <video
+      src={url}
+      muted
+      playsInline
+      autoPlay
+      preload="auto"
+      className={`backdrop-video ${shown ? 'on' : ''}`}
+      onLoadedMetadata={(e) => {
+        // a stretch from about a third in (past the intro), looped like a Canvas
+        const v = e.currentTarget
+        loopAt.current = Math.min(45, Math.max(0, v.duration * 0.3))
+        v.currentTime = loopAt.current
+      }}
+      onPlaying={() => setShown(true)}
+      onTimeUpdate={(e) => {
+        const v = e.currentTarget
+        if (v.currentTime > loopAt.current + 9 || v.ended) v.currentTime = loopAt.current
+      }}
+      onError={() => (setUrl(null), setShown(false))}
+    />
+  ) : null
+  return { video, shown: shown && !!url }
 }
 
 /** like Spotify's: + saves the song in "Brani che ti piacciono"; the green tick (saved somewhere) opens "Salvato in" */
