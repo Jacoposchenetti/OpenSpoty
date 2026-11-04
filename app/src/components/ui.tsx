@@ -1,5 +1,6 @@
 import { GripVertical, Music, LoaderCircle } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { fileUrl } from '../lib/storage'
 import { STEM_META, type Song } from '../lib/types'
 import { t } from '../lib/i18n'
@@ -123,14 +124,16 @@ function useSwipeDown(onClose: () => void) {
 export function Sheet({ title, onClose, children }: { title?: ReactNode; onClose: () => void; children: ReactNode }) {
   useBackHandler(onClose)
   const swipe = useSwipeDown(onClose)
-  return (
-    <div className="sheet-backdrop" onClick={onClose}>
+  // drawn at the top of the page: always in front, wherever it is opened from
+  return createPortal(
+    <div className="sheet-backdrop" onClick={(e) => (e.stopPropagation(), onClose())}>
       <div className="sheet" ref={swipe.ref} onClick={(e) => e.stopPropagation()} onTouchStart={swipe.start} onTouchMove={swipe.move} onTouchEnd={swipe.end} onTouchCancel={swipe.end}>
         <div className="sheet-grip" />
         {title && <div className="sheet-title">{title}</div>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
