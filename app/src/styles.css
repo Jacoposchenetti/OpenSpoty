@@ -4230,11 +4230,15 @@ button.concert {
   z-index: 1;
   flex-shrink: 0;
 }
-.player-main > .backdrop-video,
-.player-main > .backdrop-shade {
-  position: absolute;
+.player > .backdrop-video,
+.player > .backdrop-shade {
+  position: fixed;
   inset: 0;
   z-index: 0;
+}
+.player > :not(.backdrop-video):not(.backdrop-shade) {
+  position: relative;
+  z-index: 1;
 }
 .backdrop-video {
   width: 100%;
@@ -4250,7 +4254,7 @@ button.concert {
 /* dark at the top and the bottom: the header and the controls stay readable */
 .backdrop-shade {
   pointer-events: none;
-  background: linear-gradient(to bottom, rgb(0 0 0 / 0.55) 0%, rgb(0 0 0 / 0) 22%, rgb(0 0 0 / 0) 42%, rgb(0 0 0 / 0.8) 100%);
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.55) 0%, rgb(0 0 0 / 0) 18%, rgb(0 0 0 / 0) 40%, rgb(0 0 0 / 0.75) 85%, rgb(0 0 0 / 0.85) 100%);
 }
 .player-main.has-video .player-head,
 .player-main.has-video .now-text span,

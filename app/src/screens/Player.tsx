@@ -74,9 +74,10 @@ export function Player() {
 
   return (
     <div className={`player ${immersive ? 'immersive' : ''}`}>
+      {/* behind the whole player, fixed: the lyrics card scrolls over it */}
+      {cover.video}
+      {cover.shown && <div className="backdrop-shade" />}
       <div className={`player-main ${cover.shown ? 'has-video' : ''}`}>
-        {cover.video}
-        {cover.shown && <div className="backdrop-shade" />}
       <header className="player-head">
         <button className="icon-btn" onClick={close} aria-label={tr('Chiudi il player')}>
           <ChevronDown />
