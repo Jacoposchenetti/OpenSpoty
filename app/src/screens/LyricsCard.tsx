@@ -158,7 +158,7 @@ const palette = (h: number, s: number): Palette => ({
 })
 
 /** the palette from the cover's average colour (from the title if the image can't be read) */
-function useCardColour(song: Song): Palette {
+export function useCardColour(song: Song): Palette {
   const [c, setC] = useState(() => fallbackColour(song.title))
   useEffect(() => {
     const vid = youtubeIdOf(song.id)

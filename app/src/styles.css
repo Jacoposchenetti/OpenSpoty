@@ -4236,7 +4236,9 @@ button.concert {
   inset: 0;
   z-index: 0;
 }
-.player > :not(.backdrop-video):not(.backdrop-shade) {
+.player > .player-main,
+.player > .lyrics-card {
+  /* over the video (only these: Suona and the other overlays keep their own position) */
   position: relative;
   z-index: 1;
 }
@@ -4278,4 +4280,18 @@ button.concert {
 }
 .player.immersive {
   overflow-y: hidden;
+}
+/* Suona in the lyrics card's look: Figtree, the lines in the cover's tint, the sung one white */
+.ly-style {
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+.ly-style .player-head,
+.ly-style .player-title .title {
+  color: #fff;
+}
+.ly-style .lyric.chorded {
+  color: var(--ly-text);
+}
+.ly-style .lyric.chorded.now {
+  color: #fff;
 }

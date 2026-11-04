@@ -1,5 +1,6 @@
 import { ChevronDown, Guitar, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCardColour } from './LyricsCard'
 import { Sheet, Spinner, useBackHandler } from '../components/ui'
 import {
   applyEdits,
@@ -163,13 +164,14 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const { name, artist } = nameParts(song.title)
   const mix = pb.mix
   const update = (next: MixState) => pb.setMix(next)
+  const colour = useCardColour(song) // the same look as the lyrics card under the player
   const speed = mix.speed ?? 1
   const setSpeed = (v: number) => update({ ...mix, speed: Math.max(0.5, Math.min(1.5, Math.round(v * 100) / 100)) })
   // the key moves the music, and the chords with it
   const setPitch = (v: number) => update({ ...mix, pitch: Math.max(-6, Math.min(6, v)) })
 
   return (
-    <div className="lyrics">
+    <div className="lyrics ly-style" style={{ background: `linear-gradient(180deg, ${colour.bg} 0%, ${colour.bg} 35%, var(--bg) 100%)`, ['--ly-text' as string]: colour.text }}>
       <header className="player-head">
         <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
           <ChevronDown />
