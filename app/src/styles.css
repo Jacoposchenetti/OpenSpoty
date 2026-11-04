@@ -4015,3 +4015,79 @@ button.concert {
 .lyrics-card-head {
   cursor: pointer;
 }
+
+/* player controls like Spotify: transparent buttons, a white round play */
+.transport.sp {
+  justify-content: space-around;
+  gap: 0;
+  padding: 4px 0 6px;
+}
+.transport.sp .t-btn {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+.transport.sp .t-btn .lucide {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+}
+.transport.sp .t-btn.on {
+  color: var(--accent);
+}
+.transport.sp .t-btn:disabled {
+  opacity: 0.35;
+}
+.transport.sp .t-speed {
+  font-size: 17px;
+  font-weight: 700;
+}
+.transport.sp .t-play {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  display: grid;
+  place-items: center;
+}
+.transport.sp .t-play .lucide {
+  width: 30px;
+  height: 30px;
+}
+/* "Suona" (or "Testo") next to the ⋮ in the player's header */
+.head-pill {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 0;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+}
+.head-pill .lucide {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+.head-pill small {
+  font-size: 10.5px;
+}
+.player-head .player-title {
+  flex: 1;
+}

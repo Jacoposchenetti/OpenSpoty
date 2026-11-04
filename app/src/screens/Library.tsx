@@ -413,7 +413,20 @@ function ListView({ viewId }: { viewId: string }) {
 
 /* ------------------------------------------------------------- song menu */
 
-export function SongMenu({ song, index, playlist, onClose }: { song: Song; index: number; playlist: Playlist | null; onClose: () => void }) {
+/** extra: what the player adds to its ⋮ (the song's notes, the queue) */
+export function SongMenu({
+  song,
+  index,
+  playlist,
+  onClose,
+  extra
+}: {
+  song: Song
+  index: number
+  playlist: Playlist | null
+  onClose: () => void
+  extra?: { onNotes: () => void; onQueue: () => void }
+}) {
   const store = useStore()
   const openArtist = useOpenArtist()
   const openAlbum = useOpenAlbum()
@@ -504,6 +517,16 @@ export function SongMenu({ song, index, playlist, onClose }: { song: Song; index
         </button>
       )}
       <button onClick={() => (playback.enqueue(song.id), store.showToast(t('Aggiunta alla coda')), onClose())}><ListEnd /> {t('Metti in coda')}</button>
+      {extra && (
+        <button onClick={extra.onQueue}>
+          <ListMusic /> {t('Vedi la coda')}
+        </button>
+      )}
+      {extra && (
+        <button onClick={extra.onNotes}>
+          <NotebookPen /> {song.notes ? t('Modifica le note') : t('Aggiungi una nota')}
+        </button>
+      )}
       <button onClick={() => (onClose(), void shareSong(song).then((r) => r === 'copied' && store.showToast('Link copiato')))}>
         <Share2 /> {t('Condividi')}
       </button>

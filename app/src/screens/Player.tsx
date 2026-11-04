@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Heart, ListMusic, Minus, NotebookPen, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Gauge, Podcast as PodcastIcon, Share2, CircleCheck, ScrollText, Users } from 'lucide-react'
+import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, ScrollText, Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
 import { nameParts } from '../lib/media'
@@ -83,52 +83,32 @@ export function Player() {
             {nextUp ? `${nameParts(song.title).artist ? ' · ' : ''}${tr('poi:')} ${nameParts(nextUp.title).name}` : ''}
           </div>
         </div>
-        <button className="icon-btn" onClick={() => setMenu(true)} aria-label={tr('Opzioni del brano')}>
-          <EllipsisVertical />
-        </button>
-      </header>
-      {menu && !song.episode && <SongMenu song={song} index={0} playlist={null} onClose={() => setMenu(false)} />}
-      {menu && song.episode && <EpisodeMenu song={song} onClose={() => setMenu(false)} />}
-
-      <div className="player-actions">
         {song.episode ? (
-          <button onClick={() => update({ ...mix, speed: nextSpeed(mix.speed ?? 1) })} aria-label={tr('Velocità')}>
-            <Gauge />
-            <small>{fmtSpeed(mix.speed ?? 1)}</small>
-          </button>
-        ) : null}
-        {!song.episode && <button className={pb.shuffle ? 'on' : ''} onClick={pb.toggleShuffle} aria-label={tr('Casuale')}>
-          <Shuffle />
-          <small>{tr('Casuale')}</small>
-        </button>}
-        <button className={pb.repeat !== 'off' ? 'on' : ''} onClick={pb.cycleRepeat} aria-label={tr('Ripeti')}>
-          {pb.repeat === 'one' ? <Repeat1 /> : <Repeat />}
-          <small>{pb.repeat === 'off' ? tr('Ripeti') : pb.repeat === 'all' ? tr('Tutto') : tr('Brano')}</small>
-        </button>
-        {!song.episode && <button
-          className={song.liked ? 'on heart' : 'heart'}
-          onClick={() => store.updateSong(song.id, song.liked ? { liked: false } : { liked: true, likedAt: Date.now() })}
-          aria-label={tr('Preferito')}
-        >
-          <Heart fill={song.liked ? 'currentColor' : 'none'} />
-          <small>{tr('Mi piace')}</small>
-        </button>}
-        <button className={song.notes ? 'on' : ''} onClick={() => setShowNotes(true)} aria-label={tr('Note')}>
-          <NotebookPen />
-          <small>{tr('Note')}</small>
-        </button>
-        {song.episode ? (
-          <button className="suona" onClick={() => setShowTranscript(true)} aria-label={tr('Testo')}>
+          <button className="head-pill" onClick={() => setShowTranscript(true)} aria-label={tr('Testo')}>
             <ScrollText />
             <small>{tr('Testo')}</small>
           </button>
         ) : (
-          <button className="suona" onClick={() => setShowLyrics(true)} aria-label={tr('Suona')}>
+          <button className="head-pill suona" onClick={() => setShowLyrics(true)} aria-label={tr('Suona')}>
             <Guitar />
             <small>{tr('Suona')}</small>
           </button>
         )}
-      </div>
+        <button className="icon-btn" onClick={() => setMenu(true)} aria-label={tr('Opzioni del brano')}>
+          <EllipsisVertical />
+        </button>
+      </header>
+      {menu && !song.episode && (
+        <SongMenu
+          song={song}
+          index={0}
+          playlist={null}
+          onClose={() => setMenu(false)}
+          extra={{ onNotes: () => (setMenu(false), setShowNotes(true)), onQueue: () => (setMenu(false), setShowQueue(true)) }}
+        />
+      )}
+      {menu && song.episode && <EpisodeMenu song={song} onClose={() => setMenu(false)} />}
+
       {song.notes && (
         <button className="song-notes" onClick={() => setShowNotes(true)}>
           {song.notes}
@@ -168,37 +148,48 @@ export function Player() {
         <span>-{fmtTime(Math.max(0, duration - pos))}</span>
       </div>
 
-      <div className="transport">
-        <button className="t-btn" onClick={pb.prev} aria-label={tr('Precedente o inizio')}>
-          <SkipBack fill="currentColor" />
-        </button>
-        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos - (song.episode ? 15 : 5))} aria-label={tr('Indietro')}>
-          {song.episode ? '−15' : '−5'}
-        </button>
+      <div className="transport sp">
+        {song.episode ? (
+          <>
+            <button className="t-btn" onClick={() => update({ ...mix, speed: nextSpeed(mix.speed ?? 1) })} aria-label={tr('Velocità')}>
+              <small className="t-speed">{fmtSpeed(mix.speed ?? 1)}</small>
+            </button>
+            <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos - 15)} aria-label={tr('Indietro')}>
+              <small className="t-speed">−15</small>
+            </button>
+          </>
+        ) : (
+          <>
+            <button className={`t-btn ${pb.shuffle ? 'on' : ''}`} onClick={pb.toggleShuffle} aria-label={tr('Casuale')}>
+              <Shuffle />
+            </button>
+            <button className="t-btn" onClick={pb.prev} aria-label={tr('Precedente o inizio')}>
+              <SkipBack fill="currentColor" />
+            </button>
+          </>
+        )}
         <button className="t-play" disabled={!ready} onClick={pb.toggle} aria-label={pb.playing ? tr('Pausa') : 'Play'}>
           {pb.loading ? <Spinner size={34} /> : pb.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </button>
-        <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos + (song.episode ? 30 : 5))} aria-label={tr('Avanti')}>
-          {song.episode ? '+30' : '+5'}
-        </button>
-        <button className="t-btn" disabled={!nextUp} onClick={pb.next} aria-label={tr('Successiva')}>
-          <SkipForward fill="currentColor" />
-        </button>
-      </div>
-      <div className="master">
-        <span>{tr('Volume')}</span>
-        <input
-          type="range"
-          min={0}
-          max={1.5}
-          step={0.01}
-          value={mix.master}
-          onChange={(e) => update({ ...mix, master: Number(e.target.value) })}
-          aria-label={tr('Volume generale')}
-        />
-        <button className="t-small" onClick={() => setShowQueue(true)}>
-          <ListMusic /> {tr('Coda')}{pb.queue.length ? ` (${pb.queue.length})` : ''}
-        </button>
+        {song.episode ? (
+          <>
+            <button className="t-btn" disabled={!ready} onClick={() => pb.seek(pos + 30)} aria-label={tr('Avanti')}>
+              <small className="t-speed">+30</small>
+            </button>
+            <button className="t-btn" disabled={!nextUp} onClick={pb.next} aria-label={tr('Successiva')}>
+              <SkipForward fill="currentColor" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="t-btn" disabled={!nextUp} onClick={pb.next} aria-label={tr('Successiva')}>
+              <SkipForward fill="currentColor" />
+            </button>
+            <button className={`t-btn ${pb.repeat !== 'off' ? 'on' : ''}`} onClick={pb.cycleRepeat} aria-label={tr('Ripeti')}>
+              {pb.repeat === 'one' ? <Repeat1 /> : <Repeat />}
+            </button>
+          </>
+        )}
       </div>
 
       {!song.episode && <LyricsCard key={song.id} song={song} />}
