@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, MicVocal, Play, Plus, Search as SearchIcon, Share2, SlidersVertical, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, LibraryBig, MicVocal, Play, Plus, Search as SearchIcon, Share2, SlidersVertical, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpSearch } from '../lib/engine'
 import { t as tr } from '../lib/i18n'
@@ -11,6 +11,7 @@ import { useStore } from '../store'
 import { Sheet, Spinner } from '../components/ui'
 import { Shelf, TrackTiles, useOpenArtist, useSaver } from './Catalog'
 import { SongMenu } from './Library'
+import { localSuggestions, mergeSuggestions, type Suggestion } from '../lib/suggest'
 import { NewEpisodes } from './Podcast'
 import { podcastKey, podcastSearch, type Podcast } from '../lib/podcasts'
 import { shareSpotify } from '../lib/share'
@@ -52,7 +53,7 @@ function Search() {
   const seq = useRef(0)
   // Spotify's three states: recommendations; focused (recent searches); typing (suggestions + results)
   const [focused, setFocused] = useState(false)
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [recents, setRecents] = useState<Recent[]>(loadRecents)
   const input = useRef<HTMLInputElement>(null)
   const titleOf = (hit: Hit) => (hit.kind === 'song' && hit.channel ? `${hit.channel} – ${hit.title}` : hit.title)
@@ -129,16 +130,19 @@ function Search() {
     const q = query.trim()
     if (!focused || !q || isLink(q)) return setSuggestions([])
     let alive = true
+    // yours at once, YouTube's added when they come
+    setSuggestions(localSuggestions(q, store.songs, store.playlists, store.artists))
     const t = setTimeout(() => {
       engine
         .suggest(q)
-        .then((x) => alive && setSuggestions(x.slice(0, 5)))
+        .then((x) => alive && setSuggestions(mergeSuggestions(q, x, store.songs, store.playlists, store.artists)))
         .catch(() => undefined)
     }, 120)
     return () => {
       alive = false
       clearTimeout(t)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, focused])
 
   const submit = (text: string) => {
@@ -258,10 +262,10 @@ function Search() {
 
       {typing && suggestions.length > 0 && (
         <div className="suggestions">
-          {suggestions.map((x) => (
+          {suggestions.map(({ text: x, mine }) => (
             <div key={x} className="sugg-row">
-              <button className="sugg-main" onMouseDown={(e) => e.preventDefault()} onClick={() => submit(x)}>
-                <SearchIcon /> {x}
+              <button className={`sugg-main ${mine ? 'mine' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => submit(x)}>
+                {mine ? <LibraryBig /> : <SearchIcon />} {x}
               </button>
               <button className="icon-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setQuery(x + ' ')} aria-label={tr('Completa')}>
                 <ArrowUpLeft />

@@ -4316,3 +4316,7 @@ button.concert {
 .player-scroll > * {
   flex-shrink: 0;
 }
+/* a suggestion from your library / listening (lib/suggest.ts) */
+.sugg-main.mine .lucide {
+  color: var(--accent);
+}
