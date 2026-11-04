@@ -6,8 +6,8 @@ import { isNative, StemKitNative } from './native'
 import type { Playlist, Song } from './types'
 
 /* "Concerti vicino a te" (Home): the upcoming concerts of your artists (Spotify's
-   artist pages list them), near you. Its ⋮ sets where (a city, or your position),
-   how near (a radius, or Italian regions) and whose concerts (lists you pick,
+   artist pages list them), near you. Its ⋮ sets where (a city, or your position)
+   and how near (a radius), plus regions where you'd go too, and whose concerts (lists you pick,
    artists you follow, of your library, played lately, that you might like).
    Places become coordinates through Open-Meteo's free geocoding (only city names
    are sent); your position is named by Android's own geocoder. */
@@ -24,8 +24,8 @@ export interface ConcertSettings {
   /** your position instead of the profile's city */
   useGps: boolean
   gps?: { lat: number; lon: number; name?: string; region?: string }
-  mode: 'radius' | 'regions'
-  radius: number // km
+  radius: number // km around the place
+  /** also anywhere in these regions (added to the radius) */
   regions: string[]
   sources: { followed: boolean; library: boolean; recent: boolean; suggested: boolean; playlists: string[] }
 }
@@ -33,7 +33,6 @@ export interface ConcertSettings {
 const SET_KEY = 'stemkit:concerts'
 const DEFAULTS: ConcertSettings = {
   useGps: false,
-  mode: 'radius',
   radius: 150,
   regions: [],
   sources: { followed: true, library: true, recent: true, suggested: false, playlists: [] }
@@ -133,42 +132,51 @@ const sameRegion = (a: string, b: string) => {
 
 type Artist = { uri: string; name: string }
 
-/** the artists to look at, from the sources you picked (at most `max`) */
+/**
+ * The artists to look at: every source you picked adds its own (they sum up),
+ * taken in turns so each one counts even when the total is capped at `max`.
+ */
 export async function concertArtists(
   s: ConcertSettings,
   songs: Song[],
   playlists: Playlist[],
   followed: Array<{ id: string; name: string }>,
-  max = 50
+  max = 60
 ): Promise<Artist[]> {
-  const out = new Map<string, string>()
-  const put = (a: { uri?: string; name: string }) => a.uri?.startsWith('spotify:artist:') && out.size < max && !out.has(a.uri) && out.set(a.uri, a.name)
   const byId = new Map(songs.map((x) => [x.id, x]))
-  // every artist of a song (with a Spotify page), most frequent first
-  const ranked = (list: Song[]) => {
+  const isArtist = (a: { uri?: string }) => !!a.uri?.startsWith('spotify:artist:')
+  // every artist of these songs (with a Spotify page), most frequent first
+  const ranked = (list: Song[]): Artist[] => {
     const n = new Map<string, { name: string; n: number }>()
     for (const x of list) for (const a of x.artists ?? []) if (a.uri) n.set(a.uri, { name: a.name, n: (n.get(a.uri)?.n ?? 0) + 1 + (x.liked ? 2 : 0) })
     return [...n.entries()].sort((a, b) => b[1].n - a[1].n).map(([uri, v]) => ({ uri, name: v.name }))
   }
+  const sources: Artist[][] = []
   for (const pid of s.sources.playlists) {
     const p = playlists.find((x) => x.id === pid)
-    if (p) ranked(p.songIds.flatMap((id) => byId.get(id) ?? [])).forEach(put)
+    if (p) sources.push(ranked(p.songIds.flatMap((id) => byId.get(id) ?? [])))
   }
-  if (s.sources.followed) for (const a of followed) put({ uri: a.id, name: a.name })
-  if (s.sources.recent) {
-    for (const h of loadHistory()) for (const a of h.artists ?? []) put(a)
-  }
-  if (s.sources.library) ranked(songs).forEach(put)
+  if (s.sources.followed) sources.push(followed.map((a) => ({ uri: a.id, name: a.name })))
+  if (s.sources.recent) sources.push(loadHistory().flatMap((h) => (h.artists ?? []).map((a) => ({ uri: a.uri ?? '', name: a.name }))))
+  if (s.sources.library) sources.push(ranked(songs))
   if (s.sources.suggested) {
     // like the artists you played most in the last year: their related artists on Spotify
     const plays = recentArtists(365)
     const known = new Map<string, string>()
     for (const x of songs) for (const a of x.artists ?? []) if (a.uri) known.set(a.name.toLowerCase(), a.uri)
     const top = [...plays.entries()].sort((a, b) => b[1] - a[1]).flatMap(([name]) => known.get(name.toLowerCase()) ?? []).slice(0, 6)
+    const related: Artist[] = []
     for (const uri of top) {
       const a = await engine.spArtist(uri).catch(() => null)
-      for (const r of a?.related.slice(0, 5) ?? []) put(r)
+      related.push(...(a?.related.slice(0, 5) ?? []))
     }
+    sources.push(related)
+  }
+  // in turns: one from each source, then the next one from each…
+  const out = new Map<string, string>()
+  const lists = sources.map((l) => l.filter(isArtist))
+  for (let i = 0; out.size < max && lists.some((l) => i < l.length); i++) {
+    for (const l of lists) if (i < l.length && out.size < max && !out.has(l[i].uri)) out.set(l[i].uri, l[i].name)
   }
   return [...out.entries()].map(([uri, name]) => ({ uri, name }))
 }
@@ -181,10 +189,10 @@ export async function home(s: ConcertSettings, city: string): Promise<{ lat: num
   return locate(city)
 }
 
-/** upcoming concerts within the radius (or the regions), soonest first */
+/** upcoming concerts within the radius of the place, or in the regions you added; soonest first */
 export async function nearbyConcerts(s: ConcertSettings, city: string, artists: Artist[]): Promise<NearConcert[]> {
-  const from = await home(s, city)
-  if (!from && s.mode === 'radius') throw new Error('place')
+  const from = await home(s, city).catch(() => null)
+  if (!from && !s.regions.length) throw new Error('place')
   const found: NearConcert[] = []
   let next = 0
   const worker = async () => {
@@ -200,8 +208,8 @@ export async function nearbyConcerts(s: ConcertSettings, city: string, artists: 
         if (!c.city || new Date(c.date).getTime() < Date.now() - 86400_000) continue
         const p = await locate(c.city).catch(() => null)
         if (!p) continue
-        const d = from ? Math.round(km(from, p)) : 0
-        const ok = s.mode === 'regions' ? s.regions.some((r) => sameRegion(p.region, r)) : d <= s.radius
+        const d = from ? Math.round(km(from, p)) : -1
+        const ok = (d >= 0 && d <= s.radius) || s.regions.some((r) => sameRegion(p.region, r))
         if (ok) found.push({ ...c, artist: a.name, artistUri: a.uri, km: d })
       }
     }

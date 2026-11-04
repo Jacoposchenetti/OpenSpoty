@@ -102,7 +102,7 @@ export function Home() {
         </>
       )}
 
-      {profile.location || (concerts.useGps && concerts.gps) ? (
+      {profile.location || (concerts.useGps && concerts.gps) || concerts.regions.length ? (
         <Concerts city={profile.location} />
       ) : (
         <button className="concert-banner" onClick={() => setConcertOpts(true)}>
@@ -231,7 +231,8 @@ function Concerts({ city }: { city: string }) {
   }, [cs, city, libKey])
   const fmt = new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short' })
   const wd = new Intl.DateTimeFormat(localeTag(), { weekday: 'short', hour: '2-digit', minute: '2-digit' })
-  const where = cs.mode === 'regions' ? (cs.regions.length ? cs.regions.join(', ') : t('nessuna regione')) : cs.useGps ? t('vicino a te') : city
+  const place = cs.useGps ? cs.gps?.name || t('vicino a te') : city
+  const where = [place, cs.regions.length ? `+${cs.regions.length} ${cs.regions.length === 1 ? t('regione') : t('regioni')}` : ''].filter(Boolean).join(' ')
   return (
     <>
       <div className="q-head concerts-head">
@@ -256,7 +257,7 @@ function Concerts({ city }: { city: string }) {
         <p className="muted small">{t('Cerco i concerti dei tuoi artisti…')}</p>
       ) : !list.length ? (
         <p className="muted small">
-          {cs.mode === 'regions' ? t('Nessun concerto dei tuoi artisti in queste regioni per ora.') : t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: cs.radius })}
+          {cs.regions.length ? t('Nessun concerto dei tuoi artisti entro {km} km o nelle regioni scelte per ora.', { km: cs.radius }) : t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: cs.radius })}
         </p>
       ) : (
         <div className="recent">
@@ -270,7 +271,7 @@ function Concerts({ city }: { city: string }) {
                 <span className="recent-artist">
                   {c.city} · {c.venue}
                 </span>
-                {cs.mode === 'radius' && <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>}
+                {c.km >= 0 && <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>}
               </button>
             )
           })}
@@ -354,30 +355,23 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
       )}
 
       <div className="q-head">{t('Quanto vicino')}</div>
-      <div className="seg">
-        <button className={cs.mode === 'radius' ? 'active' : ''} onClick={() => set({ mode: 'radius' })}>
-          {t('Entro un raggio')}
-        </button>
-        <button className={cs.mode === 'regions' ? 'active' : ''} onClick={() => set({ mode: 'regions' })}>
-          {t('Regioni')}
-        </button>
+      <label className="radius-row">
+        <input type="range" min={10} max={500} step={10} value={cs.radius} onChange={(e) => set({ radius: Number(e.target.value) })} />
+        <span>{cs.radius} km</span>
+      </label>
+
+      <div className="q-head">{t('Anche in queste regioni')}</div>
+      <p className="muted small">{t('Dove andresti comunque: si aggiungono ai concerti entro il raggio.')}</p>
+      <div className="chips">
+        {REGIONS.map((r) => (
+          <button key={r} className={cs.regions.includes(r) ? 'active' : ''} onClick={() => set({ regions: toggle(cs.regions, r) })}>
+            {r}
+          </button>
+        ))}
       </div>
-      {cs.mode === 'radius' ? (
-        <label className="radius-row">
-          <input type="range" min={10} max={500} step={10} value={cs.radius} onChange={(e) => set({ radius: Number(e.target.value) })} />
-          <span>{cs.radius} km</span>
-        </label>
-      ) : (
-        <div className="chips">
-          {REGIONS.map((r) => (
-            <button key={r} className={cs.regions.includes(r) ? 'active' : ''} onClick={() => set({ regions: toggle(cs.regions, r) })}>
-              {r}
-            </button>
-          ))}
-        </div>
-      )}
 
       <div className="q-head">{t('Di quali artisti')}</div>
+      <p className="muted small">{t('Si sommano: ogni scelta aggiunge i suoi artisti.')}</p>
       {(
         [
           ['followed', t('Artisti che segui')],
@@ -393,7 +387,7 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
       ))}
       {store.playlists.length > 0 && (
         <>
-          <p className="muted small">{t('Artisti delle tue liste:')}</p>
+          <p className="muted small">{t('In più, gli artisti di queste liste:')}</p>
           <div className="chips">
             {store.playlists.map((p) => (
               <button key={p.id} className={cs.sources.playlists.includes(p.id) ? 'active' : ''} onClick={() => src({ playlists: toggle(cs.sources.playlists, p.id) })}>
