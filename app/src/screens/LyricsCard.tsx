@@ -45,14 +45,11 @@ const AHEAD = 240 // s of transcript kept ready past what you hear
 
 type Transcribing = { at: number; pct?: number; downloading?: boolean } | null
 
-/**
- * An episode's transcript: loaded if there is one; written while you listen once
- * started (by you the first time: Whisper costs battery), then on its own.
- */
+/** An episode's transcript: loaded if there is one, written on its own while you listen (like Spotify). */
 function useEpisodeWords(song: Song) {
   const pb = usePlayback()
   const [t, setT] = useState<Transcript | null>(null)
-  const [run, setRun] = useState(false)
+  const run = true
   const [work, setWork] = useState<Transcribing>(null)
   const [err, setErr] = useState<string | null>(null)
   const tRef = useRef<Transcript | null>(null)
@@ -63,7 +60,6 @@ function useEpisodeWords(song: Song) {
       if (!live) return
       tRef.current = x
       setT(x)
-      if (x.done.length) setRun(true)
     })
     return () => {
       live = false
@@ -102,7 +98,7 @@ function useEpisodeWords(song: Song) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run, t === null, song.id])
   const words: Words | null = useMemo(() => (t?.segs.length ? { timed: t.segs.map((s) => ({ t: s.a, text: s.text })), plain: null } : null), [t])
-  return { words, loaded: !!t, run, start: () => setRun(true), work, err }
+  return { words, loaded: !!t, work, err }
 }
 
 type Tr = { map: Record<string, string> | null; state: 'off' | 'busy' | 'ok' | 'error' | 'same' }
@@ -249,18 +245,9 @@ function TrNote({ state }: { state: Tr['state'] }) {
   return null
 }
 
-/** an episode without transcript yet: start it (or what is being done) */
+/** an episode without transcript yet: what is being done */
 function EpisodeStart({ ep }: { ep: ReturnType<typeof useEpisodeWords> }) {
   if (!ep.loaded) return <p className="lyric past">…</p>
-  if (!ep.run)
-    return (
-      <div className="ep-start">
-        <p>{tr('Il testo di questo episodio si ricava dall’audio, sul telefono, mentre lo ascolti.')}</p>
-        <button className="ep-start-btn" onClick={ep.start}>
-          {tr('Trascrivi l’episodio')}
-        </button>
-      </div>
-    )
   return <TranscribeNote work={ep.work ?? { at: 0 }} err={ep.err} />
 }
 

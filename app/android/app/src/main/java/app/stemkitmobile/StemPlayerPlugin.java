@@ -25,11 +25,31 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
         engine = Engine.get(getContext());
         engine.addListener(this);
         StreamProxy.start(getContext().getCacheDir());
+        prefetchWhisper();
         // notification / lock-screen buttons work natively, even with the app asleep
         PlaybackService.remote = action -> {
             if ("next".equals(action)) engine.next();
             else engine.prev();
         };
+    }
+
+    /**
+     * Whisper (podcast transcripts, timing for lyrics without it) is fetched once in the
+     * background after installing, on Wi-Fi, so the words are there when you need them;
+     * on mobile data it waits for a later start (or comes when first needed).
+     */
+    private void prefetchWhisper() {
+        Thread t = new Thread(() -> {
+            try {
+                android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
+                if (cm == null || cm.isActiveNetworkMetered()) return;
+                app.stemkitmobile.core.ModelStore.whisper(new File(getContext().getFilesDir(), "models"), p -> {});
+            } catch (Exception e) {
+                android.util.Log.w("StemKitPlayer", "whisper prefetch", e);
+            }
+        }, "stemkit-whisper-prefetch");
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
     }
 
     @Override

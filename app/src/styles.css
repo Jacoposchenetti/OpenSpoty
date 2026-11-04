@@ -4091,25 +4091,3 @@ button.concert {
 .player-head .player-title {
   flex: 1;
 }
-/* an episode without transcript yet (screens/LyricsCard.tsx) */
-.ep-start {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 4px 0 6px;
-  color: var(--ly-text);
-  font-size: 15px;
-}
-.ep-start p {
-  margin: 0;
-}
-.ep-start-btn {
-  min-height: 0;
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: 0;
-  background: #fff;
-  color: #000;
-  font-weight: 700;
-}
