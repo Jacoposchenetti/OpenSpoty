@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
 import { fmtTime } from '../lib/format'
-import { t as tr, useLocale } from '../lib/i18n'
+import { t as tr } from '../lib/i18n'
 import { getLyrics, plainLines, type LyricLine } from '../lib/lyrics'
 import { nameParts, youtubeIdOf } from '../lib/media'
 import { fileUrl, readCacheJson, writeCacheJson } from '../lib/storage'
@@ -38,34 +38,44 @@ function useWords(song: Song): Words | null | 'none' {
   return w
 }
 
-/** translations of the lines into the app's language, kept per song (null: not asked / none needed) */
-function useTranslation(songId: string, texts: string[], on: boolean): Record<string, string> | null {
-  const { language } = useLocale()
-  const [map, setMap] = useState<Record<string, string> | null>(null)
+type Tr = { map: Record<string, string> | null; state: 'off' | 'busy' | 'ok' | 'error' | 'same' }
+
+/** your language: the phone's (the app may be in English while you read Italian best) */
+const myLanguage = () => (navigator.language || 'it').slice(0, 2).toLowerCase()
+
+/** translations of the lines into your language, kept per song */
+function useTranslation(songId: string, texts: string[], on: boolean): Tr {
+  const language = myLanguage()
+  const [tr, setTr] = useState<Tr>({ map: null, state: 'off' })
   const key = texts.join('\n')
   useEffect(() => {
-    if (!on || !texts.length) return setMap(null)
+    if (!on || !texts.length) return setTr({ map: null, state: 'off' })
     let live = true
     const file = `lyrics-tr/${songId}.${language}.json`
     void (async () => {
-      let m = (await readCacheJson<Record<string, string>>(file)) ?? {}
+      let m = (await readCacheJson<Record<string, string>>(file).catch(() => null)) ?? {}
       const missing = [...new Set(texts.filter((x) => !(x in m)))]
       if (missing.length) {
-        const out = await engine.translate(missing, language).catch(() => null)
-        if (out) {
+        if (live) setTr({ map: m, state: 'busy' })
+        try {
+          const out = await engine.translate(missing, language)
           m = { ...m }
           missing.forEach((x, i) => (m[x] = out[i] ?? ''))
           void writeCacheJson(file, m)
+        } catch {
+          if (live) setTr({ map: m, state: 'error' })
+          return
         }
       }
-      if (live) setMap(m)
+      // nothing changed: the lyrics are already in your language
+      if (live) setTr({ map: m, state: texts.some((x) => shown(m, x)) ? 'ok' : 'same' })
     })()
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [songId, key, on, language])
-  return map
+  return tr
 }
 
 /** a translation worth showing: not empty, not the line itself (already in your language) */
@@ -74,8 +84,16 @@ const shown = (map: Record<string, string> | null, line: string) => {
   return x && x.toLowerCase() !== line.trim().toLowerCase() ? x : null
 }
 
-/** the cover's average colour, dark enough for light text (a colour from the title if the image can't be read) */
-function useCardColour(song: Song): string {
+type Palette = { bg: string; text: string }
+
+/** like Spotify's lyrics: the cover's colour as background, the lines in a light tint of it (the sung one white) */
+const palette = (h: number, s: number): Palette => ({
+  bg: `hsl(${Math.round(h)} ${Math.round(Math.min(70, Math.max(35, s)))}% 30%)`,
+  text: `hsl(${Math.round(h)} ${Math.round(Math.min(75, Math.max(40, s + 10)))}% 72%)`
+})
+
+/** the palette from the cover's average colour (from the title if the image can't be read) */
+function useCardColour(song: Song): Palette {
   const [c, setC] = useState(() => fallbackColour(song.title))
   useEffect(() => {
     const vid = youtubeIdOf(song.id)
@@ -99,7 +117,7 @@ function useCardColour(song: Song): string {
         }
         const n = d.length / 4
         const [h, s] = hsl(r / n, gr / n, b / n)
-        setC(`hsl(${Math.round(h)} ${Math.round(Math.max(30, s * 100))}% 26%)`)
+        setC(palette(h, s * 100))
       } catch {
         /* a cross-origin image: keep the fallback */
       }
@@ -109,10 +127,10 @@ function useCardColour(song: Song): string {
   return c
 }
 
-function fallbackColour(title: string) {
+function fallbackColour(title: string): Palette {
   let h = 0
   for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % 360
-  return `hsl(${h} 45% 26%)`
+  return palette(h, 50)
 }
 
 function hsl(r: number, g: number, b: number): [number, number] {
@@ -155,6 +173,13 @@ async function shareLines(song: Song, lines: string[]) {
   }
 }
 
+function TrNote({ state }: { state: Tr['state'] }) {
+  if (state === 'busy') return <p className="lyrics-card-note">{tr('Traduco…')}</p>
+  if (state === 'error') return <p className="lyrics-card-note">{tr('Traduzione non riuscita: sei online?')}</p>
+  if (state === 'same') return <p className="lyrics-card-note">{tr('Il testo è già nella tua lingua.')}</p>
+  return null
+}
+
 /* ------------------------------------------------------------ the card under the player */
 
 export function LyricsCard({ song }: { song: Song }) {
@@ -166,7 +191,8 @@ export function LyricsCard({ song }: { song: Song }) {
   const pb = usePlayback()
   const box = useRef<HTMLDivElement>(null)
   const texts = useMemo(() => (words && words !== 'none' ? (words.timed?.map((l) => l.text) ?? words.plain ?? []).filter((x) => x.trim()) : []), [words])
-  const trMap = useTranslation(song.id, texts, trOn)
+  const trans = useTranslation(song.id, texts, trOn)
+  const trMap = trans.map
   const timed = words && words !== 'none' ? words.timed : null
   const active = timed ? activeIndex(timed, pos) : -1
 
@@ -182,7 +208,7 @@ export function LyricsCard({ song }: { song: Song }) {
     else if (words?.plain) void shareLines(song, words.plain.slice(0, 4))
   }
   return (
-    <section className="lyrics-card" style={{ background: colour }}>
+    <section className="lyrics-card" style={{ background: colour.bg, ['--ly-text' as string]: colour.text }}>
       <div className="lyrics-card-head">
         <b>{tr('Testo')}</b>
         <span className="lyrics-card-tools">
@@ -223,7 +249,8 @@ export function LyricsCard({ song }: { song: Song }) {
         )}
       </div>
       {words && !timed && <p className="lyrics-card-note">{tr('Testo senza tempi: non segue la canzone.')}</p>}
-      {full && words && <LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trMap={trMap} onClose={() => setFull(false)} />}
+      <TrNote state={trans.state} />
+      {full && words && <LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trans={trans} onClose={() => setFull(false)} />}
     </section>
   )
 }
@@ -236,17 +263,18 @@ function LyricsFull({
   colour,
   trOn,
   setTrOn,
-  trMap,
+  trans,
   onClose
 }: {
   song: Song
   words: Words
-  colour: string
+  colour: Palette
   trOn: boolean
   setTrOn: (v: boolean) => void
-  trMap: Record<string, string> | null
+  trans: Tr
   onClose: () => void
 }) {
+  const trMap = trans.map
   useBackHandler(onClose)
   const pb = usePlayback()
   const pos = usePosition()
@@ -268,7 +296,7 @@ function LyricsFull({
   }
   const shownPos = scrub ?? pos
   return (
-    <div className="lyrics-full" style={{ background: colour }}>
+    <div className="lyrics-full" style={{ background: colour.bg, ['--ly-text' as string]: colour.text }}>
       <header className="lyrics-full-head">
         <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
           <ChevronDown />
@@ -301,6 +329,7 @@ function LyricsFull({
             ))}
       </div>
       <footer className="lyrics-full-foot">
+        <TrNote state={trans.state} />
         <div className="lyrics-full-tools">
           <button className={`round-btn ${trOn ? 'on' : ''}`} onClick={() => setTrOn(!trOn)} aria-label={tr('Traduzione')}>
             <Languages />

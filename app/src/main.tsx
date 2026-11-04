@@ -7,6 +7,8 @@ import { isNative } from './lib/native'
 import { LocaleProvider } from './lib/i18n'
 import { PlaybackProvider } from './playback'
 import { StoreProvider } from './store'
+import '@fontsource/figtree/500.css'
+import '@fontsource/figtree/700.css'
 import './styles.css'
 
 if (isNative) {

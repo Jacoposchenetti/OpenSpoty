@@ -3938,3 +3938,67 @@ button.concert {
 .lyrics-full-foot .t-play {
   align-self: center;
 }
+
+/* lyrics, Spotify's look: a rounded geometric sans (Figtree, close to Spotify Mix),
+   the lines in a light tint of the background, the sung one white */
+.lyrics-card,
+.lyrics-full {
+  font-family: 'Figtree', system-ui, sans-serif;
+}
+.lyric {
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ly-text);
+}
+.lyric.past {
+  color: var(--ly-text);
+}
+.lyric.now {
+  color: #fff;
+}
+.lyric.plain {
+  color: var(--ly-text);
+}
+.lyric small {
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 1;
+  color: inherit;
+}
+.lyrics-card-head b {
+  font-weight: 700;
+  color: #fff;
+}
+.round-btn {
+  background: rgb(0 0 0 / 0.25);
+}
+.lyrics-full-head b {
+  font-weight: 700;
+}
+.lyrics-full-head small {
+  font-weight: 500;
+}
+/* the bar and the button under the full-screen lyrics: white, as on Spotify */
+.lyrics-full-foot input[type='range'] {
+  accent-color: #fff;
+}
+.lyrics-full-foot .t-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  border: 0;
+}
+.lyrics-full-foot .t-play .lucide {
+  width: 26px;
+  height: 26px;
+  margin: 0;
+}
+.lyrics-full-tools {
+  justify-content: space-between;
+}
+.lyrics-full-foot .lyrics-card-note {
+  margin: 0;
+}

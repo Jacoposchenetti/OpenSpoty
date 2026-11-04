@@ -371,7 +371,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
             org.json.JSONArray a = call.getArray("texts", new com.getcapacitor.JSArray());
             List<String> in = new ArrayList<>();
             for (int i = 0; i < a.length(); i++) in.add(a.getString(i));
-            transcriber.execute(() -> {
+            translator.execute(() -> { // its own thread: never behind a transcription
                 try {
                     JSObject r = new JSObject();
                     r.put("texts", new com.getcapacitor.JSArray(new org.json.JSONArray(app.stemkitmobile.core.Translate.lines(in, to)).toString()));
@@ -386,6 +386,7 @@ public class StemPlayerPlugin extends Plugin implements Engine.Listener {
     }
 
     private final java.util.concurrent.ExecutorService transcriber = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ExecutorService translator = java.util.concurrent.Executors.newSingleThreadExecutor();
 
     private void alignProgress(String songId, int pct, boolean downloading) {
         JSObject e = new JSObject();
