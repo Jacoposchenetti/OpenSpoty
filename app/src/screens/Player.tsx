@@ -16,6 +16,7 @@ import { useStore } from '../store'
 import { localeTag, t as tr } from '../lib/i18n'
 import { useHostedJam } from '../lib/jam'
 import { JamSheet } from './Jam'
+import { LyricsCard } from './LyricsCard'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
 export function Player() {
@@ -199,6 +200,8 @@ export function Player() {
           <ListMusic /> {tr('Coda')}{pb.queue.length ? ` (${pb.queue.length})` : ''}
         </button>
       </div>
+
+      {!song.episode && <LyricsCard key={song.id} song={song} />}
 
       {showQueue && <QueueSheet onClose={() => setShowQueue(false)} />}
       {pb.countingIn && <div className="countin">1 · 2 · 3 · 4</div>}

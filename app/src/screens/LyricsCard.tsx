@@ -1,0 +1,335 @@
+import { ChevronDown, Languages, Maximize2, Pause, Play, Share2 } from 'lucide-react'
+import { Share } from '@capacitor/share'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useBackHandler } from '../components/ui'
+import { engine } from '../lib/engine'
+import { fmtTime } from '../lib/format'
+import { t as tr, useLocale } from '../lib/i18n'
+import { getLyrics, plainLines, type LyricLine } from '../lib/lyrics'
+import { nameParts, youtubeIdOf } from '../lib/media'
+import { fileUrl, readCacheJson, writeCacheJson } from '../lib/storage'
+import type { Song } from '../lib/types'
+import { usePlayback } from '../playback'
+
+/* The lyrics under the player, like Spotify: a card in the cover's colour that
+   follows the song (tap a line to jump there), translation in small under each
+   line, share, and full screen. */
+
+type Words = { timed: LyricLine[] | null; plain: string[] | null }
+
+function useWords(song: Song): Words | null | 'none' {
+  const [w, setW] = useState<Words | null | 'none'>(null)
+  useEffect(() => {
+    let live = true
+    setW(null)
+    getLyrics(song)
+      .then((l) => {
+        if (!live) return
+        const timed = l.synced ?? l.aligned ?? null
+        const plain = !timed && l.plain ? plainLines(l.plain) : null
+        setW(timed?.length || plain?.length ? { timed, plain } : 'none')
+      })
+      .catch(() => live && setW('none'))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [song.id])
+  return w
+}
+
+/** translations of the lines into the app's language, kept per song (null: not asked / none needed) */
+function useTranslation(songId: string, texts: string[], on: boolean): Record<string, string> | null {
+  const { language } = useLocale()
+  const [map, setMap] = useState<Record<string, string> | null>(null)
+  const key = texts.join('\n')
+  useEffect(() => {
+    if (!on || !texts.length) return setMap(null)
+    let live = true
+    const file = `lyrics-tr/${songId}.${language}.json`
+    void (async () => {
+      let m = (await readCacheJson<Record<string, string>>(file)) ?? {}
+      const missing = [...new Set(texts.filter((x) => !(x in m)))]
+      if (missing.length) {
+        const out = await engine.translate(missing, language).catch(() => null)
+        if (out) {
+          m = { ...m }
+          missing.forEach((x, i) => (m[x] = out[i] ?? ''))
+          void writeCacheJson(file, m)
+        }
+      }
+      if (live) setMap(m)
+    })()
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songId, key, on, language])
+  return map
+}
+
+/** a translation worth showing: not empty, not the line itself (already in your language) */
+const shown = (map: Record<string, string> | null, line: string) => {
+  const x = map?.[line]?.trim()
+  return x && x.toLowerCase() !== line.trim().toLowerCase() ? x : null
+}
+
+/** the cover's average colour, dark enough for light text (a colour from the title if the image can't be read) */
+function useCardColour(song: Song): string {
+  const [c, setC] = useState(() => fallbackColour(song.title))
+  useEffect(() => {
+    const vid = youtubeIdOf(song.id)
+    const src = (song.cover && fileUrl(song.cover)) || song.art || (vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : null)
+    setC(fallbackColour(song.title))
+    if (!src) return
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const cv = document.createElement('canvas')
+        cv.width = cv.height = 8
+        const g = cv.getContext('2d')!
+        g.drawImage(img, 0, 0, 8, 8)
+        const d = g.getImageData(0, 0, 8, 8).data
+        let r = 0, gr = 0, b = 0
+        for (let i = 0; i < d.length; i += 4) {
+          r += d[i]
+          gr += d[i + 1]
+          b += d[i + 2]
+        }
+        const n = d.length / 4
+        const [h, s] = hsl(r / n, gr / n, b / n)
+        setC(`hsl(${Math.round(h)} ${Math.round(Math.max(30, s * 100))}% 26%)`)
+      } catch {
+        /* a cross-origin image: keep the fallback */
+      }
+    }
+    img.src = src
+  }, [song.id, song.cover, song.art, song.title])
+  return c
+}
+
+function fallbackColour(title: string) {
+  let h = 0
+  for (let i = 0; i < title.length; i++) h = (h * 31 + title.charCodeAt(i)) % 360
+  return `hsl(${h} 45% 26%)`
+}
+
+function hsl(r: number, g: number, b: number): [number, number] {
+  r /= 255
+  g /= 255
+  b /= 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) return [0, 0]
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h * 60, s]
+}
+
+/** the playing position, a few times a second (enough for lines) */
+function usePosition(): number {
+  const pb = usePlayback()
+  const [pos, setPos] = useState(pb.position())
+  useEffect(() => {
+    const t = setInterval(() => setPos(pb.position()), 200)
+    return () => clearInterval(t)
+  }, [pb])
+  return pos
+}
+
+const activeIndex = (lines: LyricLine[], pos: number) => {
+  let i = -1
+  for (let k = 0; k < lines.length; k++) if (lines[k].t <= pos + 0.15) i = k
+  return i
+}
+
+async function shareLines(song: Song, lines: string[]) {
+  const { name, artist } = nameParts(song.title)
+  const text = `${lines.filter(Boolean).join('\n')}\n\n— ${name}${artist ? `, ${artist}` : ''}`
+  try {
+    await Share.share({ title: name, text })
+  } catch {
+    /* closed */
+  }
+}
+
+/* ------------------------------------------------------------ the card under the player */
+
+export function LyricsCard({ song }: { song: Song }) {
+  const words = useWords(song)
+  const colour = useCardColour(song)
+  const [trOn, setTrOn] = useState(false)
+  const [full, setFull] = useState(false)
+  const pos = usePosition()
+  const pb = usePlayback()
+  const box = useRef<HTMLDivElement>(null)
+  const texts = useMemo(() => (words && words !== 'none' ? (words.timed?.map((l) => l.text) ?? words.plain ?? []).filter((x) => x.trim()) : []), [words])
+  const trMap = useTranslation(song.id, texts, trOn)
+  const timed = words && words !== 'none' ? words.timed : null
+  const active = timed ? activeIndex(timed, pos) : -1
+
+  // keep the line being sung near the top of the card
+  useEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)
+    if (el && box.current) box.current.scrollTo({ top: Math.max(0, el.offsetTop - 12), behavior: 'smooth' })
+  }, [active])
+
+  if (words === 'none') return null
+  const shareNow = () => {
+    if (timed) void shareLines(song, timed.slice(Math.max(0, active), Math.max(0, active) + 4).map((l) => l.text))
+    else if (words?.plain) void shareLines(song, words.plain.slice(0, 4))
+  }
+  return (
+    <section className="lyrics-card" style={{ background: colour }}>
+      <div className="lyrics-card-head">
+        <b>{tr('Testo')}</b>
+        <span className="lyrics-card-tools">
+          <button className={`round-btn ${trOn ? 'on' : ''}`} onClick={() => setTrOn(!trOn)} aria-label={tr('Traduzione')} disabled={!words}>
+            <Languages />
+          </button>
+          <button className="round-btn" onClick={shareNow} aria-label={tr('Condividi')} disabled={!words}>
+            <Share2 />
+          </button>
+          <button className="round-btn" onClick={() => setFull(true)} aria-label={tr('Schermo intero')} disabled={!words}>
+            <Maximize2 />
+          </button>
+        </span>
+      </div>
+      <div className="lyrics-card-body" ref={box}>
+        {!words ? (
+          <p className="lyric past">…</p>
+        ) : timed ? (
+          timed.map((l, i) =>
+            l.text.trim() ? (
+              <button key={i} data-i={i} className={`lyric ${i === active ? 'now' : i < active ? 'past' : ''}`} onClick={() => pb.seek(l.t)}>
+                {l.text}
+                {trOn && shown(trMap, l.text) && <small>{shown(trMap, l.text)}</small>}
+              </button>
+            ) : (
+              <span key={i} data-i={i} className={`lyric ${i === active ? 'now' : 'past'}`}>
+                ♪
+              </span>
+            )
+          )
+        ) : (
+          words.plain!.map((x, i) => (
+            <p key={i} className="lyric plain">
+              {x}
+              {trOn && shown(trMap, x) && <small>{shown(trMap, x)}</small>}
+            </p>
+          ))
+        )}
+      </div>
+      {words && !timed && <p className="lyrics-card-note">{tr('Testo senza tempi: non segue la canzone.')}</p>}
+      {full && words && <LyricsFull song={song} words={words} colour={colour} trOn={trOn} setTrOn={setTrOn} trMap={trMap} onClose={() => setFull(false)} />}
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------ full screen */
+
+function LyricsFull({
+  song,
+  words,
+  colour,
+  trOn,
+  setTrOn,
+  trMap,
+  onClose
+}: {
+  song: Song
+  words: Words
+  colour: string
+  trOn: boolean
+  setTrOn: (v: boolean) => void
+  trMap: Record<string, string> | null
+  onClose: () => void
+}) {
+  useBackHandler(onClose)
+  const pb = usePlayback()
+  const pos = usePosition()
+  const box = useRef<HTMLDivElement>(null)
+  const timed = words.timed
+  const active = timed ? activeIndex(timed, pos) : -1
+  const [scrub, setScrub] = useState<number | null>(null)
+  const dur = pb.duration
+  const { name, artist } = nameParts(song.title)
+
+  useEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)
+    if (el && box.current) box.current.scrollTo({ top: Math.max(0, el.offsetTop - box.current.clientHeight * 0.3), behavior: 'smooth' })
+  }, [active])
+
+  const shareNow = () => {
+    if (timed) void shareLines(song, timed.slice(Math.max(0, active), Math.max(0, active) + 4).map((l) => l.text))
+    else if (words.plain) void shareLines(song, words.plain.slice(0, 4))
+  }
+  const shownPos = scrub ?? pos
+  return (
+    <div className="lyrics-full" style={{ background: colour }}>
+      <header className="lyrics-full-head">
+        <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
+          <ChevronDown />
+        </button>
+        <span>
+          <b>{name}</b>
+          <small>{artist}</small>
+        </span>
+        <span style={{ width: 44 }} />
+      </header>
+      <div className="lyrics-full-body" ref={box}>
+        {timed
+          ? timed.map((l, i) =>
+              l.text.trim() ? (
+                <button key={i} data-i={i} className={`lyric ${i === active ? 'now' : i < active ? 'past' : ''}`} onClick={() => pb.seek(l.t)}>
+                  {l.text}
+                  {trOn && shown(trMap, l.text) && <small>{shown(trMap, l.text)}</small>}
+                </button>
+              ) : (
+                <span key={i} data-i={i} className={`lyric ${i === active ? 'now' : 'past'}`}>
+                  ♪
+                </span>
+              )
+            )
+          : words.plain!.map((x, i) => (
+              <p key={i} className="lyric plain">
+                {x}
+                {trOn && shown(trMap, x) && <small>{shown(trMap, x)}</small>}
+              </p>
+            ))}
+      </div>
+      <footer className="lyrics-full-foot">
+        <div className="lyrics-full-tools">
+          <button className={`round-btn ${trOn ? 'on' : ''}`} onClick={() => setTrOn(!trOn)} aria-label={tr('Traduzione')}>
+            <Languages />
+          </button>
+          <button className="round-btn" onClick={shareNow} aria-label={tr('Condividi')}>
+            <Share2 />
+          </button>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={dur || 1}
+          step={0.1}
+          value={Math.min(shownPos, dur || 1)}
+          onChange={(e) => setScrub(Number(e.target.value))}
+          onPointerUp={(e) => {
+            pb.seek(Number((e.target as HTMLInputElement).value))
+            setScrub(null)
+          }}
+          aria-label={tr('Posizione')}
+        />
+        <div className="lyrics-full-times">
+          <span>{fmtTime(shownPos)}</span>
+          <span>-{fmtTime(Math.max(0, dur - shownPos))}</span>
+        </div>
+        <button className="t-play" onClick={pb.toggle} aria-label={pb.playing ? tr('Pausa') : 'Play'}>
+          {pb.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
+        </button>
+      </footer>
+    </div>
+  )
+}

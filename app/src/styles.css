@@ -3790,3 +3790,151 @@ button.concert {
 .sheet-link .lucide {
   margin: 0;
 }
+
+/* lyrics under the player and full screen (screens/LyricsCard.tsx), like Spotify */
+.lyrics-card {
+  margin-top: 14px;
+  border-radius: 16px;
+  padding: 14px 16px 16px;
+  color: #fff;
+  transition: background 0.6s;
+}
+.lyrics-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.lyrics-card-head b {
+  font-size: 16px;
+}
+.lyrics-card-tools,
+.lyrics-full-tools {
+  display: flex;
+  gap: 10px;
+}
+.round-btn {
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: rgb(0 0 0 / 0.3);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.round-btn .lucide {
+  margin: 0;
+  width: 20px;
+  height: 20px;
+}
+.round-btn.on {
+  background: #1ed760;
+  color: #111;
+}
+.lyrics-card-body {
+  position: relative;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.lyrics-card-body::-webkit-scrollbar {
+  display: none;
+}
+.lyric {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  margin: 0;
+  min-height: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  color: rgb(0 0 0 / 0.55);
+  transition: color 0.25s;
+}
+.lyric.past {
+  color: rgb(255 255 255 / 0.75);
+}
+.lyric.now {
+  color: #fff;
+}
+.lyric.plain {
+  color: #fff;
+  font-size: 19px;
+}
+.lyric small {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+.lyrics-card-note {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 8px 0 0;
+}
+.lyrics-full {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+.lyrics-full-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+}
+.lyrics-full-head > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.lyrics-full-head small {
+  opacity: 0.85;
+}
+.lyrics-full-head .icon-btn {
+  color: #fff;
+}
+.lyrics-full-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 20px 40px;
+}
+.lyrics-full-body .lyric {
+  font-size: 26px;
+  padding: 10px 0;
+}
+.lyrics-full-body .lyric small {
+  font-size: 15px;
+}
+.lyrics-full-foot {
+  padding: 8px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lyrics-full-foot input[type='range'] {
+  width: 100%;
+}
+.lyrics-full-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.lyrics-full-foot .t-play {
+  align-self: center;
+}
