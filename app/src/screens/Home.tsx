@@ -20,9 +20,9 @@ import { engine } from '../lib/engine'
 import { historySong, loadHistory, type HistoryEntry } from '../lib/history'
 import { t } from '../lib/i18n'
 import { nameParts } from '../lib/media'
-import { isNative } from '../lib/native'
 import { togglePin, usePinned, type Tool } from '../lib/pins'
 import { useProfile } from '../lib/profile'
+import { isNative, StemKitNative } from '../lib/native'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 import { JamSheet } from './Jam'
@@ -290,16 +290,34 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
   const [locating, setLocating] = useState<string | null>(null)
   const set = (p: Partial<ConcertSettings>) => setConcertSettings(p)
   const src = (p: Partial<ConcertSettings['sources']>) => set({ sources: { ...cs.sources, ...p } })
+  const [off, setOff] = useState(false) // the phone's location is switched off
   const gps = async () => {
     setLocating(t('Cerco la tua posizione…'))
+    setOff(false)
     try {
       set({ useGps: true, gps: await currentPosition() })
       setLocating(null)
     } catch (e) {
       set({ useGps: false })
-      setLocating(e instanceof Error && e.message === 'permesso' ? t('Permesso della posizione negato: puoi scrivere la città.') : t('Posizione non trovata: puoi scrivere la città.'))
+      const m = e instanceof Error ? e.message : ''
+      if (m === 'spenta') setOff(true)
+      setLocating(
+        m === 'permesso'
+          ? t('Permesso della posizione negato: puoi scrivere la città.')
+          : m === 'spenta'
+            ? t('La posizione del telefono è spenta.')
+            : t('Posizione non trovata: puoi scrivere la città.')
+      )
     }
   }
+  // back from the phone's settings with the location on: try again
+  useEffect(() => {
+    if (!off) return
+    const again = () => document.visibilityState === 'visible' && void gps()
+    document.addEventListener('visibilitychange', again)
+    return () => document.removeEventListener('visibilitychange', again)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [off])
   const toggle = (list: string[], x: string) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x])
   return (
     <Sheet title={t('Concerti vicino a te')} onClose={onClose}>
@@ -320,7 +338,20 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
         />
       )}
       {locating && <p className="muted small">{locating}</p>}
-      {cs.useGps && cs.gps && !locating && <p className="muted small">{t('Uso la posizione del telefono (resta sul telefono).')}</p>}
+      {off && (
+        <button className="primary" onClick={() => void StemKitNative.openLocationSettings()}>
+          <LocateFixed /> {t('Attiva la posizione')}
+        </button>
+      )}
+      {cs.useGps && cs.gps && !locating && (
+        <p className="located">
+          <MapPin />{' '}
+          {cs.gps.name ? t('Ti ho trovato a {place}', { place: [cs.gps.name, cs.gps.region].filter(Boolean).join(', ') }) : t('Ti ho trovato (nome del luogo non disponibile)')}
+          <button className="link" onClick={() => void gps()}>
+            {t('Aggiorna')}
+          </button>
+        </p>
+      )}
 
       <div className="q-head">{t('Quanto vicino')}</div>
       <div className="seg">
@@ -337,7 +368,7 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
           <span>{cs.radius} km</span>
         </label>
       ) : (
-        <div className="day-chips">
+        <div className="chips">
           {REGIONS.map((r) => (
             <button key={r} className={cs.regions.includes(r) ? 'active' : ''} onClick={() => set({ regions: toggle(cs.regions, r) })}>
               {r}
@@ -363,7 +394,7 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
       {store.playlists.length > 0 && (
         <>
           <p className="muted small">{t('Artisti delle tue liste:')}</p>
-          <div className="day-chips">
+          <div className="chips">
             {store.playlists.map((p) => (
               <button key={p.id} className={cs.sources.playlists.includes(p.id) ? 'active' : ''} onClick={() => src({ playlists: toggle(cs.sources.playlists, p.id) })}>
                 {p.name}

@@ -45,11 +45,87 @@ import java.util.concurrent.Executors;
     name = "StemKitNative",
     permissions = {
         @Permission(strings = {Manifest.permission.POST_NOTIFICATIONS}, alias = "notifications"),
-        @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone")
+        @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone"),
+        @Permission(strings = {Manifest.permission.ACCESS_COARSE_LOCATION}, alias = "location")
     }
 )
 public class StemKitNativePlugin extends Plugin {
     private final ExecutorService io = Executors.newCachedThreadPool();
+
+    // ------------------------------------------------------------ "La tua posizione" (concerts near you)
+
+    /**
+     * Where the phone is, roughly (a city's worth) and its name: {lat, lon, name, region}.
+     * Asks the permission if needed; rejects "permesso" (refused) or "spenta" (the phone's location is off).
+     */
+    @PluginMethod
+    public void locate(PluginCall call) {
+        if (getPermissionState("location") != PermissionState.GRANTED) {
+            requestPermissionForAlias("location", call, "afterLocationPermission");
+            return;
+        }
+        locateNow(call);
+    }
+
+    @PermissionCallback
+    private void afterLocationPermission(PluginCall call) {
+        if (getPermissionState("location") != PermissionState.GRANTED) call.reject("permesso");
+        else locateNow(call);
+    }
+
+    private void locateNow(PluginCall call) {
+        android.location.LocationManager lm = getContext().getSystemService(android.location.LocationManager.class);
+        if (lm == null || !lm.isLocationEnabled()) {
+            call.reject("spenta");
+            return;
+        }
+        String provider = lm.hasProvider(android.location.LocationManager.FUSED_PROVIDER) ? android.location.LocationManager.FUSED_PROVIDER
+            : android.location.LocationManager.NETWORK_PROVIDER;
+        try {
+            android.location.Location last = lm.getLastKnownLocation(provider);
+            if (last != null && System.currentTimeMillis() - last.getTime() < 3600_000) {
+                io.execute(() -> answerPlace(call, last));
+                return;
+            }
+            lm.getCurrentLocation(provider, null, io, loc -> {
+                if (loc == null) call.reject("posizione");
+                else answerPlace(call, loc);
+            });
+        } catch (SecurityException e) {
+            call.reject("permesso");
+        }
+    }
+
+    /** the place's name through Android's geocoder (its own service), when there is one */
+    @SuppressWarnings("deprecation")
+    private void answerPlace(PluginCall call, android.location.Location loc) {
+        JSObject r = new JSObject();
+        double lat = Math.round(loc.getLatitude() * 1000) / 1000.0, lon = Math.round(loc.getLongitude() * 1000) / 1000.0;
+        r.put("lat", lat);
+        r.put("lon", lon);
+        try {
+            if (android.location.Geocoder.isPresent()) {
+                java.util.List<android.location.Address> a = new android.location.Geocoder(getContext(), java.util.Locale.getDefault()).getFromLocation(lat, lon, 1);
+                if (a != null && !a.isEmpty()) {
+                    android.location.Address x = a.get(0);
+                    String name = x.getLocality() != null ? x.getLocality() : x.getSubAdminArea();
+                    if (name != null) r.put("name", name);
+                    if (x.getAdminArea() != null) r.put("region", x.getAdminArea());
+                }
+            }
+        } catch (Exception ignored) {
+            // no name: the coordinates are enough for the distances
+        }
+        call.resolve(r);
+    }
+
+    /** the phone's location settings (to switch it on) */
+    @PluginMethod
+    public void openLocationSettings(PluginCall call) {
+        Intent i = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        call.resolve();
+    }
 
     @PluginMethod
     public void setLanguage(PluginCall call) {

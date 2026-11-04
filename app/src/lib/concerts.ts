@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { engine, type SpConcert } from './engine'
 import { loadHistory } from './history'
 import { recentArtists } from './listens'
+import { isNative, StemKitNative } from './native'
 import type { Playlist, Song } from './types'
 
 /* "Concerti vicino a te" (Home): the upcoming concerts of your artists (Spotify's
@@ -9,7 +10,7 @@ import type { Playlist, Song } from './types'
    how near (a radius, or Italian regions) and whose concerts (lists you pick,
    artists you follow, of your library, played lately, that you might like).
    Places become coordinates through Open-Meteo's free geocoding (only city names
-   are sent; your position never leaves the phone). */
+   are sent); your position is named by Android's own geocoder. */
 
 export interface NearConcert extends SpConcert {
   artist: string
@@ -22,7 +23,7 @@ export interface NearConcert extends SpConcert {
 export interface ConcertSettings {
   /** your position instead of the profile's city */
   useGps: boolean
-  gps?: { lat: number; lon: number }
+  gps?: { lat: number; lon: number; name?: string; region?: string }
   mode: 'radius' | 'regions'
   radius: number // km
   regions: string[]
@@ -69,8 +70,9 @@ export const REGIONS = [
   'Molise', 'Piemonte', 'Puglia', 'Sardegna', 'Sicilia', 'Toscana', 'Trentino-Alto Adige', 'Umbria', "Valle d'Aosta", 'Veneto'
 ]
 
-/** your position (coarse: a city's worth is enough), asked to the phone */
-export function currentPosition(): Promise<{ lat: number; lon: number }> {
+/** your position (coarse: a city's worth is enough) and its name, asked to the phone */
+export function currentPosition(): Promise<{ lat: number; lon: number; name?: string; region?: string }> {
+  if (isNative) return StemKitNative.locate().catch((e: unknown) => Promise.reject(new Error(e instanceof Error ? e.message : String(e))))
   return new Promise((ok, fail) =>
     navigator.geolocation.getCurrentPosition(
       (p) => ok({ lat: Math.round(p.coords.latitude * 1000) / 1000, lon: Math.round(p.coords.longitude * 1000) / 1000 }),

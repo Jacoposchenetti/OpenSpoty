@@ -87,6 +87,9 @@ export interface StemKitNativePlugin {
   spAlbum(opts: { uri: string }): Promise<import('./engine').SpAlbum>
   spotifyList(opts: { url: string }): Promise<import('./engine').SpotifyList>
   matchSong(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; title: string; channel: string; duration: number; score: number }>
+  /** where the phone is, roughly, and the place's name (asks the permission); rejects 'permesso' / 'spenta' */
+  locate(): Promise<{ lat: number; lon: number; name?: string; region?: string }>
+  openLocationSettings(): Promise<void>
   /** the song's music video: a light video-only stream (player background) */
   musicVideo(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; url: string; height: number; mime: string; duration: number }>
   separationStatus(): Promise<SeparationEvent | { state: 'idle' }>

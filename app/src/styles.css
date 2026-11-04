@@ -4348,3 +4348,44 @@ button.concert {
   width: 16px;
   height: 16px;
 }
+
+/* choices that wrap (regions, playlists): pills sized to their words */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chips button {
+  min-height: 0;
+  width: auto;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.chips button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+/* where "La tua posizione" found you */
+.located {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+}
+.located .lucide {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  color: var(--accent);
+}
+.radius-row {
+  flex-direction: row;
+}
+.sheet .switch-row > span:first-child {
+  flex: 1;
+}
