@@ -4002,3 +4002,16 @@ button.concert {
 .lyrics-full-foot .lyrics-card-note {
   margin: 0;
 }
+/* the player's big play button (.t-play) stretches: a true circle here */
+.lyrics-full-foot .t-play {
+  flex: none;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+.lyrics-card-head {
+  cursor: pointer;
+}

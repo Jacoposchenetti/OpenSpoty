@@ -192,6 +192,7 @@ export function LyricsCard({ song }: { song: Song }) {
   const pos = usePosition()
   const pb = usePlayback()
   const box = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLElement>(null)
   const texts = useMemo(() => (words && words !== 'none' ? (words.timed?.map((l) => l.text) ?? words.plain ?? []).filter((x) => x.trim()) : []), [words])
   const trans = useTranslation(song.id, texts, trOn)
   const trMap = trans.map
@@ -210,8 +211,9 @@ export function LyricsCard({ song }: { song: Song }) {
     else if (words?.plain) void shareLines(song, words.plain.slice(0, 4))
   }
   return (
-    <section className="lyrics-card" style={{ background: colour.bg, ['--ly-text' as string]: colour.text }}>
-      <div className="lyrics-card-head">
+    <section ref={card} className="lyrics-card" style={{ background: colour.bg, ['--ly-text' as string]: colour.text }}>
+      {/* tapping the card's top scrolls the player down to show it whole */}
+      <div className="lyrics-card-head" onClick={(e) => !(e.target as HTMLElement).closest('button') && card.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}>
         <b>{tr('Testo')}</b>
         <span className="lyrics-card-tools">
           <button className={`round-btn ${trOn ? 'on' : ''}`} onClick={() => setTrOn(!trOn)} aria-label={tr('Traduzione')} disabled={!words}>
