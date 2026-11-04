@@ -2,9 +2,9 @@ import { AlarmClock, AudioLines, EllipsisVertical, Guitar, LocateFixed, MapPin, 
 import {
   concertArtists,
   currentPosition,
+  homeCountry,
   mapUrl,
   nearbyConcerts,
-  REGIONS,
   setConcertSettings,
   ticketsUrl,
   useConcertSettings,
@@ -102,7 +102,7 @@ export function Home() {
         </>
       )}
 
-      {profile.location || (concerts.useGps && concerts.gps) || concerts.regions.length ? (
+      {profile.location || (concerts.useGps && concerts.gps) ? (
         <Concerts city={profile.location} />
       ) : (
         <button className="concert-banner" onClick={() => setConcertOpts(true)}>
@@ -232,7 +232,8 @@ function Concerts({ city }: { city: string }) {
   const fmt = new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short' })
   const wd = new Intl.DateTimeFormat(localeTag(), { weekday: 'short', hour: '2-digit', minute: '2-digit' })
   const place = cs.useGps ? cs.gps?.name || t('vicino a te') : city
-  const where = [place, cs.regions.length ? `+${cs.regions.length} ${cs.regions.length === 1 ? t('regione') : t('regioni')}` : ''].filter(Boolean).join(' ')
+  const country = useHomeCountry(cs, city)
+  const where = cs.wholeCountry && country ? `${place} · ${t('tutto il paese')} (${countryName(country)})` : place
   return (
     <>
       <div className="q-head concerts-head">
@@ -257,7 +258,7 @@ function Concerts({ city }: { city: string }) {
         <p className="muted small">{t('Cerco i concerti dei tuoi artisti…')}</p>
       ) : !list.length ? (
         <p className="muted small">
-          {cs.regions.length ? t('Nessun concerto dei tuoi artisti entro {km} km o nelle regioni scelte per ora.', { km: cs.radius }) : t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: cs.radius })}
+          {cs.wholeCountry ? t('Nessun concerto dei tuoi artisti nel paese per ora.') : t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: cs.radius })}
         </p>
       ) : (
         <div className="recent">
@@ -271,7 +272,7 @@ function Concerts({ city }: { city: string }) {
                 <span className="recent-artist">
                   {c.city} · {c.venue}
                 </span>
-                {c.km >= 0 && <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>}
+                <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>
               </button>
             )
           })}
@@ -282,6 +283,29 @@ function Concerts({ city }: { city: string }) {
   )
 }
 
+/** the country of the place the concerts are measured from ('' while unknown) */
+function useHomeCountry(cs: ConcertSettings, city: string): string {
+  const [c, setC] = useState('')
+  useEffect(() => {
+    let live = true
+    const t0 = window.setTimeout(() => void homeCountry(cs, city).then((x) => live && setC(x)), 400)
+    return () => {
+      live = false
+      clearTimeout(t0)
+    }
+  }, [cs, city])
+  return c
+}
+
+/** "IT" -> "Italia" (in the app's language) */
+function countryName(code: string): string {
+  try {
+    return new Intl.DisplayNames([localeTag()], { type: 'region' }).of(code) ?? code
+  } catch {
+    return code
+  }
+}
+
 /** the ⋮ of "Concerti vicino a te": where, how near, whose concerts */
 function ConcertOptions({ onClose }: { onClose: () => void }) {
   const store = useStore()
@@ -290,6 +314,7 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
   const [city, setCity] = useState(profile.location)
   const [locating, setLocating] = useState<string | null>(null)
   const set = (p: Partial<ConcertSettings>) => setConcertSettings(p)
+  const country = useHomeCountry(cs, city)
   const src = (p: Partial<ConcertSettings['sources']>) => set({ sources: { ...cs.sources, ...p } })
   const [off, setOff] = useState(false) // the phone's location is switched off
   const gps = async () => {
@@ -360,15 +385,13 @@ function ConcertOptions({ onClose }: { onClose: () => void }) {
         <span>{cs.radius} km</span>
       </label>
 
-      <div className="q-head">{t('Anche in queste regioni')}</div>
-      <p className="muted small">{t('Dove andresti comunque: si aggiungono ai concerti entro il raggio.')}</p>
-      <div className="chips">
-        {REGIONS.map((r) => (
-          <button key={r} className={cs.regions.includes(r) ? 'active' : ''} onClick={() => set({ regions: toggle(cs.regions, r) })}>
-            {r}
-          </button>
-        ))}
-      </div>
+      <label className="switch-row">
+        <span>
+          {country ? t('Tutto il paese ({country})', { country: countryName(country) }) : t('Tutto il paese')}
+          <small className="muted block">{t('Anche i concerti lontani, se sono nel paese della tua città o posizione.')}</small>
+        </span>
+        <input type="checkbox" checked={cs.wholeCountry} onChange={(e) => set({ wholeCountry: e.target.checked })} />
+      </label>
 
       <div className="q-head">{t('Di quali artisti')}</div>
       <p className="muted small">{t('Si sommano: ogni scelta aggiunge i suoi artisti.')}</p>

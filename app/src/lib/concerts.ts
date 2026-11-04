@@ -7,7 +7,7 @@ import type { Playlist, Song } from './types'
 
 /* "Concerti vicino a te" (Home): the upcoming concerts of your artists (Spotify's
    artist pages list them), near you. Its ⋮ sets where (a city, or your position)
-   and how near (a radius), plus regions where you'd go too, and whose concerts (lists you pick,
+   and how near (a radius, or the whole country of that place), and whose concerts (lists you pick,
    artists you follow, of your library, played lately, that you might like).
    Places become coordinates through Open-Meteo's free geocoding (only city names
    are sent); your position is named by Android's own geocoder. */
@@ -23,10 +23,10 @@ export interface NearConcert extends SpConcert {
 export interface ConcertSettings {
   /** your position instead of the profile's city */
   useGps: boolean
-  gps?: { lat: number; lon: number; name?: string; region?: string }
+  gps?: { lat: number; lon: number; name?: string; region?: string; country?: string }
   radius: number // km around the place
-  /** also anywhere in these regions (added to the radius) */
-  regions: string[]
+  /** also anywhere in the place's country (added to the radius) */
+  wholeCountry: boolean
   sources: { followed: boolean; library: boolean; recent: boolean; suggested: boolean; playlists: string[] }
 }
 
@@ -34,7 +34,7 @@ const SET_KEY = 'stemkit:concerts'
 const DEFAULTS: ConcertSettings = {
   useGps: false,
   radius: 150,
-  regions: [],
+  wholeCountry: false,
   sources: { followed: true, library: true, recent: true, suggested: false, playlists: [] }
 }
 const subs = new Set<() => void>()
@@ -64,13 +64,8 @@ export function useConcertSettings(): ConcertSettings {
   )
 }
 
-export const REGIONS = [
-  'Abruzzo', 'Basilicata', 'Calabria', 'Campania', 'Emilia-Romagna', 'Friuli-Venezia Giulia', 'Lazio', 'Liguria', 'Lombardia', 'Marche',
-  'Molise', 'Piemonte', 'Puglia', 'Sardegna', 'Sicilia', 'Toscana', 'Trentino-Alto Adige', 'Umbria', "Valle d'Aosta", 'Veneto'
-]
-
 /** your position (coarse: a city's worth is enough) and its name, asked to the phone */
-export function currentPosition(): Promise<{ lat: number; lon: number; name?: string; region?: string }> {
+export function currentPosition(): Promise<{ lat: number; lon: number; name?: string; region?: string; country?: string }> {
   if (isNative) return StemKitNative.locate().catch((e: unknown) => Promise.reject(new Error(e instanceof Error ? e.message : String(e))))
   return new Promise((ok, fail) =>
     navigator.geolocation.getCurrentPosition(
@@ -83,9 +78,9 @@ export function currentPosition(): Promise<{ lat: number; lon: number; name?: st
 
 /* ------------------------------------------------------------ places */
 
-type Place = { lat: number; lon: number; region: string } | null
+type Place = { lat: number; lon: number; country: string } | null
 
-const GEO_KEY = 'stemkit:geo2'
+const GEO_KEY = 'stemkit:geo3'
 let geo: Record<string, Place> = (() => {
   try {
     return JSON.parse(localStorage.getItem(GEO_KEY) ?? '{}') as Record<string, Place>
@@ -94,7 +89,7 @@ let geo: Record<string, Place> = (() => {
   }
 })()
 
-/** "Roma" -> coordinates and region (cached) */
+/** "Roma" -> coordinates and country code (cached) */
 async function locate(place: string): Promise<Place> {
   const key = place.trim().toLowerCase()
   if (!key) return null
@@ -102,9 +97,9 @@ async function locate(place: string): Promise<Place> {
   const name = place.split(',')[0].trim() // "Roma, Italia" -> "Roma"
   const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=it&format=json`)
   if (!r.ok) throw new Error(`geocoding ${r.status}`)
-  const j = (await r.json()) as { results?: Array<{ latitude: number; longitude: number; admin1?: string; country_code?: string }> }
+  const j = (await r.json()) as { results?: Array<{ latitude: number; longitude: number; country_code?: string }> }
   const x = j.results?.[0]
-  const p = x ? { lat: x.latitude, lon: x.longitude, region: x.country_code === 'IT' ? x.admin1 ?? '' : '' } : null
+  const p = x ? { lat: x.latitude, lon: x.longitude, country: (x.country_code ?? '').toUpperCase() } : null
   geo = { ...geo, [key]: p }
   try {
     localStorage.setItem(GEO_KEY, JSON.stringify(geo))
@@ -120,12 +115,6 @@ function km(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const dLon = (b.lon - a.lon) * rad
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2
   return 6371 * 2 * Math.asin(Math.sqrt(h))
-}
-
-/** Open-Meteo's region names vary a little ("Trentino-Alto Adige/Südtirol"): compared loosely */
-const sameRegion = (a: string, b: string) => {
-  const f = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '').slice(0, 8)
-  return !!a && f(a) === f(b)
 }
 
 /* ------------------------------------------------------------ whose concerts */
@@ -183,16 +172,21 @@ export async function concertArtists(
 
 /* ------------------------------------------------------------ the concerts */
 
-/** the place the concerts are measured from: your position, or the profile's city */
-export async function home(s: ConcertSettings, city: string): Promise<{ lat: number; lon: number } | null> {
-  if (s.useGps) return s.gps ?? null
+/** the place the concerts are measured from (your position, or the profile's city) and its country */
+export async function home(s: ConcertSettings, city: string): Promise<{ lat: number; lon: number; country: string } | null> {
+  if (s.useGps) return s.gps ? { ...s.gps, country: (s.gps.country ?? '').toUpperCase() } : null
   return locate(city)
 }
 
-/** upcoming concerts within the radius of the place, or in the regions you added; soonest first */
+/** the country the place is in, for "Tutto il paese" ('' if unknown) */
+export async function homeCountry(s: ConcertSettings, city: string): Promise<string> {
+  return (await home(s, city).catch(() => null))?.country ?? ''
+}
+
+/** upcoming concerts within the radius of the place, or anywhere in its country if you asked; soonest first */
 export async function nearbyConcerts(s: ConcertSettings, city: string, artists: Artist[]): Promise<NearConcert[]> {
-  const from = await home(s, city).catch(() => null)
-  if (!from && !s.regions.length) throw new Error('place')
+  const from = await home(s, city)
+  if (!from) throw new Error('place')
   const found: NearConcert[] = []
   let next = 0
   const worker = async () => {
@@ -208,8 +202,8 @@ export async function nearbyConcerts(s: ConcertSettings, city: string, artists: 
         if (!c.city || new Date(c.date).getTime() < Date.now() - 86400_000) continue
         const p = await locate(c.city).catch(() => null)
         if (!p) continue
-        const d = from ? Math.round(km(from, p)) : -1
-        const ok = (d >= 0 && d <= s.radius) || s.regions.some((r) => sameRegion(p.region, r))
+        const d = Math.round(km(from, p))
+        const ok = d <= s.radius || (s.wholeCountry && !!from.country && p.country === from.country)
         if (ok) found.push({ ...c, artist: a.name, artistUri: a.uri, km: d })
       }
     }

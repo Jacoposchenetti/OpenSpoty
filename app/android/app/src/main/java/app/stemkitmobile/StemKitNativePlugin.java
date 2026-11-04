@@ -111,6 +111,7 @@ public class StemKitNativePlugin extends Plugin {
                     String name = x.getLocality() != null ? x.getLocality() : x.getSubAdminArea();
                     if (name != null) r.put("name", name);
                     if (x.getAdminArea() != null) r.put("region", x.getAdminArea());
+                    if (x.getCountryCode() != null) r.put("country", x.getCountryCode());
                 }
             }
         } catch (Exception ignored) {
