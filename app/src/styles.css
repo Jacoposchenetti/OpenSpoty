@@ -4320,3 +4320,31 @@ button.concert {
 .sugg-main.mine .lucide {
   color: var(--accent);
 }
+
+/* "Concerti vicino a te": title with its ⋮, the settings sheet */
+.concerts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.concerts-head .icon-btn {
+  margin-right: -8px;
+}
+.radius-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.radius-row input {
+  flex: 1;
+}
+.radius-row span {
+  min-width: 64px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.seg button .lucide {
+  width: 16px;
+  height: 16px;
+}

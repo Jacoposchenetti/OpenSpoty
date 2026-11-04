@@ -1,8 +1,8 @@
 import { artistOf } from './media'
 
 /* What you listened to lately (any song, also the ones only streamed from
-   Cerca): one line per play, kept 30 days. "Cerca" builds its suggestions
-   mostly from the last week of it. */
+   Cerca): one line per play, kept a year (the concerts' "artists you might like"
+   look at the year; "Cerca" builds its suggestions mostly from the last week). */
 
 interface Listen {
   at: number
@@ -10,7 +10,7 @@ interface Listen {
 }
 
 const KEY = 'stemkit:listens'
-const KEEP = 30 * 86400_000
+const KEEP = 365 * 86400_000
 
 function load(): Listen[] {
   try {

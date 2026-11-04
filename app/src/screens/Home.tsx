@@ -1,5 +1,17 @@
-import { AlarmClock, AudioLines, Guitar, MapPin, Map as MapIcon, Ticket, Mic2, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
-import { concertArtists, mapUrl, nearbyConcerts, RADIUS_KM, ticketsUrl, type NearConcert } from '../lib/concerts'
+import { AlarmClock, AudioLines, EllipsisVertical, Guitar, LocateFixed, MapPin, Map as MapIcon, Ticket, Mic2, Pin, PinOff, Users, type LucideIcon } from 'lucide-react'
+import {
+  concertArtists,
+  currentPosition,
+  mapUrl,
+  nearbyConcerts,
+  REGIONS,
+  setConcertSettings,
+  ticketsUrl,
+  useConcertSettings,
+  type ConcertSettings,
+  type NearConcert
+} from '../lib/concerts'
+import { setProfile } from '../lib/profile'
 import { Sheet } from '../components/ui'
 import { localeTag } from '../lib/i18n'
 import { useEffect, useMemo, useState } from 'react'
@@ -30,6 +42,8 @@ export function Home() {
   const profile = useProfile()
   const pinned = usePinned()
   const [jamOpen, setJamOpen] = useState(false)
+  const concerts = useConcertSettings()
+  const [concertOpts, setConcertOpts] = useState(false)
   // re-read when a song starts (the history is written by playback)
   // plus the library's songs played before this history existed
   const history = useMemo(() => {
@@ -88,19 +102,20 @@ export function Home() {
         </>
       )}
 
-      {profile.location ? (
-        <Concerts place={profile.location} recent={artists} />
+      {profile.location || (concerts.useGps && concerts.gps) ? (
+        <Concerts city={profile.location} />
       ) : (
-        <button className="concert-banner" onClick={() => store.setTab('profile')}>
+        <button className="concert-banner" onClick={() => setConcertOpts(true)}>
           <MapPin />
           <span>
             <b>{t('Concerti vicino a te')}</b>
             <small className="block">
-              {t('Scrivi la tua città nel profilo per vedere i concerti dei tuoi artisti.')} <u>{t('Vai al profilo')}</u>
+              {t('Dicci dove sei per vedere i concerti dei tuoi artisti.')} <u>{t('Imposta il luogo')}</u>
             </small>
           </span>
         </button>
       )}
+      {concertOpts && <ConcertOptions onClose={() => setConcertOpts(false)} />}
 
       {podcasts.length > 0 && (
         <>
@@ -188,43 +203,51 @@ function ArtistTile({ uri, name }: { uri: string; name: string }) {
   )
 }
 
-/** "Concerti vicino a te": your artists' concerts near the place in your profile */
-function Concerts({ place, recent }: { place: string; recent: Array<{ uri: string; name: string }> }) {
+/** "Concerti vicino a te": your artists' concerts near you (its ⋮: where, how near, whose) */
+function Concerts({ city }: { city: string }) {
   const store = useStore()
+  const cs = useConcertSettings()
   const [list, setList] = useState<NearConcert[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [open, setOpen] = useState<NearConcert | null>(null)
-  const artists = useMemo(
-    () => concertArtists(store.songs, store.artists, recent),
-    // the library changes often; the artists to look at much less
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.songs.length, store.artists.length, recent.map((a) => a.uri).join(',')]
-  )
+  const [opts, setOpts] = useState(false)
+  // the library changes often; the artists to look at much less
+  const libKey = `${store.songs.length}|${store.artists.length}|${store.playlists.length}`
   useEffect(() => {
     let live = true
     setErr(null)
+    setList(null)
     const t0 = window.setTimeout(() => {
-      nearbyConcerts(place, artists)
+      concertArtists(cs, store.songs, store.playlists, store.artists)
+        .then((artists) => nearbyConcerts(cs, city, artists))
         .then((l) => live && setList(l))
         .catch((e) => live && setErr(e instanceof Error && e.message === 'place' ? 'place' : 'net'))
-    }, 400) // the place is typed in the profile: not at every letter
+    }, 400) // the city is typed: not at every letter
     return () => {
       live = false
       clearTimeout(t0)
     }
-  }, [place, artists])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cs, city, libKey])
   const fmt = new Intl.DateTimeFormat(localeTag(), { day: 'numeric', month: 'short' })
   const wd = new Intl.DateTimeFormat(localeTag(), { weekday: 'short', hour: '2-digit', minute: '2-digit' })
+  const where = cs.mode === 'regions' ? (cs.regions.length ? cs.regions.join(', ') : t('nessuna regione')) : cs.useGps ? t('vicino a te') : city
   return (
     <>
-      <div className="q-head">
-        {t('Concerti vicino a te')} · {place}
+      <div className="q-head concerts-head">
+        <span>
+          {t('Concerti vicino a te')} · {where}
+        </span>
+        <button className="icon-btn" onClick={() => setOpts(true)} aria-label={t('Impostazioni dei concerti')}>
+          <EllipsisVertical />
+        </button>
       </div>
+      {opts && <ConcertOptions onClose={() => setOpts(false)} />}
       {err === 'place' ? (
         <p className="muted small">
-          {t('Non trovo «{place}»: controlla la città nel profilo.', { place })}{' '}
-          <button className="link" onClick={() => store.setTab('profile')}>
-            {t('Vai al profilo')}
+          {t('Non trovo «{place}»: controlla la città nel profilo.', { place: city })}{' '}
+          <button className="link" onClick={() => setOpts(true)}>
+            {t('Imposta il luogo')}
           </button>
         </p>
       ) : err ? (
@@ -232,7 +255,9 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
       ) : !list ? (
         <p className="muted small">{t('Cerco i concerti dei tuoi artisti…')}</p>
       ) : !list.length ? (
-        <p className="muted small">{t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: RADIUS_KM })}</p>
+        <p className="muted small">
+          {cs.mode === 'regions' ? t('Nessun concerto dei tuoi artisti in queste regioni per ora.') : t('Nessun concerto dei tuoi artisti entro {km} km per ora.', { km: cs.radius })}
+        </p>
       ) : (
         <div className="recent">
           {list.map((c) => {
@@ -245,7 +270,7 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
                 <span className="recent-artist">
                   {c.city} · {c.venue}
                 </span>
-                <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>
+                {cs.mode === 'radius' && <span className="recent-artist">{c.km < 5 ? t('in città') : `${c.km} km`}</span>}
               </button>
             )
           })}
@@ -253,6 +278,101 @@ function Concerts({ place, recent }: { place: string; recent: Array<{ uri: strin
       )}
       {open && <ConcertSheet c={open} onClose={() => setOpen(null)} />}
     </>
+  )
+}
+
+/** the ⋮ of "Concerti vicino a te": where, how near, whose concerts */
+function ConcertOptions({ onClose }: { onClose: () => void }) {
+  const store = useStore()
+  const profile = useProfile()
+  const cs = useConcertSettings()
+  const [city, setCity] = useState(profile.location)
+  const [locating, setLocating] = useState<string | null>(null)
+  const set = (p: Partial<ConcertSettings>) => setConcertSettings(p)
+  const src = (p: Partial<ConcertSettings['sources']>) => set({ sources: { ...cs.sources, ...p } })
+  const gps = async () => {
+    setLocating(t('Cerco la tua posizione…'))
+    try {
+      set({ useGps: true, gps: await currentPosition() })
+      setLocating(null)
+    } catch (e) {
+      set({ useGps: false })
+      setLocating(e instanceof Error && e.message === 'permesso' ? t('Permesso della posizione negato: puoi scrivere la città.') : t('Posizione non trovata: puoi scrivere la città.'))
+    }
+  }
+  const toggle = (list: string[], x: string) => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x])
+  return (
+    <Sheet title={t('Concerti vicino a te')} onClose={onClose}>
+      <div className="q-head">{t('Dove')}</div>
+      <div className="seg">
+        <button className={!cs.useGps ? 'active' : ''} onClick={() => set({ useGps: false })}>
+          <MapPin /> {t('Una città')}
+        </button>
+        <button className={cs.useGps ? 'active' : ''} onClick={() => void gps()}>
+          <LocateFixed /> {t('La tua posizione')}
+        </button>
+      </div>
+      {!cs.useGps && (
+        <input
+          value={city}
+          placeholder={t('Città')}
+          onChange={(e) => (setCity(e.target.value), setProfile({ location: e.target.value.trim() }))}
+        />
+      )}
+      {locating && <p className="muted small">{locating}</p>}
+      {cs.useGps && cs.gps && !locating && <p className="muted small">{t('Uso la posizione del telefono (resta sul telefono).')}</p>}
+
+      <div className="q-head">{t('Quanto vicino')}</div>
+      <div className="seg">
+        <button className={cs.mode === 'radius' ? 'active' : ''} onClick={() => set({ mode: 'radius' })}>
+          {t('Entro un raggio')}
+        </button>
+        <button className={cs.mode === 'regions' ? 'active' : ''} onClick={() => set({ mode: 'regions' })}>
+          {t('Regioni')}
+        </button>
+      </div>
+      {cs.mode === 'radius' ? (
+        <label className="radius-row">
+          <input type="range" min={10} max={500} step={10} value={cs.radius} onChange={(e) => set({ radius: Number(e.target.value) })} />
+          <span>{cs.radius} km</span>
+        </label>
+      ) : (
+        <div className="day-chips">
+          {REGIONS.map((r) => (
+            <button key={r} className={cs.regions.includes(r) ? 'active' : ''} onClick={() => set({ regions: toggle(cs.regions, r) })}>
+              {r}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="q-head">{t('Di quali artisti')}</div>
+      {(
+        [
+          ['followed', t('Artisti che segui')],
+          ['library', t('Artisti dei brani in libreria')],
+          ['recent', t('Artisti ascoltati di recente')],
+          ['suggested', t('Artisti che potrebbero piacerti (dai tuoi ascolti dell’ultimo anno)')]
+        ] as const
+      ).map(([k, label]) => (
+        <label key={k} className="switch-row">
+          <span>{label}</span>
+          <input type="checkbox" checked={cs.sources[k]} onChange={(e) => src({ [k]: e.target.checked })} />
+        </label>
+      ))}
+      {store.playlists.length > 0 && (
+        <>
+          <p className="muted small">{t('Artisti delle tue liste:')}</p>
+          <div className="day-chips">
+            {store.playlists.map((p) => (
+              <button key={p.id} className={cs.sources.playlists.includes(p.id) ? 'active' : ''} onClick={() => src({ playlists: toggle(cs.sources.playlists, p.id) })}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </Sheet>
   )
 }
 
