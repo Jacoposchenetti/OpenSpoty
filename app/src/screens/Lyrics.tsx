@@ -163,6 +163,8 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     let prev = performance.now()
     let acc = 0
     let lastPos = pb.position()
+    // after a jump the steady scroll waits for the smooth one (moving the text now would stop it)
+    let holdUntil = 0
     const jumpTo = (t: number) => {
       let line = -1
       if (lines) for (let k = 0; k < lines.length && lines[k].t <= t + 0.15; k++) line = k
@@ -172,6 +174,8 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         (lines?.length ? box.current?.querySelector<HTMLElement>(`[data-i="${Math.max(0, line)}"]`) : null) ??
         box.current?.querySelector<HTMLElement>(`[data-c="${Math.max(0, chord)}"]`)
       el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      holdUntil = performance.now() + 700
+      acc = 0
     }
     const tick = (now: number) => {
       const dt = Math.min(0.1, (now - prev) / 1000)
@@ -180,7 +184,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       const expected = lastPos + (pb.playing ? dt * (pb.mix.speed ?? 1) : 0)
       if (Math.abs(pos - expected) > 1.5) jumpTo(pos)
       lastPos = pos
-      if (pb.playing && box.current) {
+      if (pb.playing && box.current && now >= holdUntil) {
         acc += scrollSpeed * dt
         const step = Math.floor(acc)
         if (step) {
