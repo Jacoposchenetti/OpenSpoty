@@ -206,8 +206,10 @@ final class AutoLibrary {
             if (!f.isEmpty() && !f.startsWith("bridge:")) stems.put(ids.optString(i), f);
         }
         d.put("stems", stems);
-        JSONObject mix = s.optJSONObject("mix");
-        d.put("mix", mix != null ? mix : new JSONObject().put("muted", new JSONArray()).put("solo", new JSONArray()).put("vols", new JSONObject()).put("master", 1));
+        // every track on, as the app starts a song (speed, key and volume kept)
+        JSONObject mix = s.optJSONObject("mix") != null ? new JSONObject(s.optJSONObject("mix").toString()) : new JSONObject().put("master", 1);
+        mix.put("muted", new JSONArray()).put("solo", new JSONArray()).put("vols", new JSONObject());
+        d.put("mix", mix);
         if (s.has("stemOffset")) d.put("offset", s.opt("stemOffset"));
         d.put("duration", s.optDouble("duration", 0));
         if (s.opt("lufs") instanceof Number) d.put("gainDb", Math.max(-12, Math.min(6, TARGET_LUFS - s.optDouble("lufs"))));

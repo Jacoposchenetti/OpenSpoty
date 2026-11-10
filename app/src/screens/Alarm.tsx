@@ -197,13 +197,7 @@ function SleepTimer() {
   const [, tick] = useState(0)
   const [opts, setOptsState] = useState(loadSleepOpts)
   const [showOpts, setShowOpts] = useState(false)
-  const [dur, setDur] = useState(() => {
-    try {
-      return Number(localStorage.getItem('stemkit:sleep-last')) || 20 * 60
-    } catch {
-      return 20 * 60
-    }
-  })
+  const [dur, setDur] = useState(0) // the wheels start at 00:00:00
   // a paused timer keeps its seconds left here (also across tabs and restarts)
   const [paused, setPausedState] = useState<number | null>(() => {
     try {
@@ -229,11 +223,6 @@ function SleepTimer() {
   }, [running])
   const start = () => {
     if (dur <= 0) return
-    try {
-      localStorage.setItem('stemkit:sleep-last', String(dur))
-    } catch {
-      /* private mode */
-    }
     setPaused(null)
     pb.setSleep(dur / 60, opts)
   }

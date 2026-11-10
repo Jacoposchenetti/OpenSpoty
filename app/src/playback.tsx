@@ -163,10 +163,16 @@ export function gainFor(song: Song | undefined, normalize: boolean): number {
   return Math.max(-12, Math.min(6, TARGET_LUFS - song.lufs))
 }
 
+/**
+ * A song always starts with every track on (the full song): mutes, solos and
+ * track volumes set in "Suona" last while it plays; speed, key and volume stay.
+ */
+const startMix = (song: Song): MixState => ({ ...(song.mix ?? DEFAULT_MIX), muted: [], solo: [], vols: {} })
+
 let normalizeOn = true // read by nativeSpec (outside React)
 
 /** a song for the alarm clock (it plays it natively, also with the app closed) */
-export const alarmSpec = (song: Song): PlayerSpec => nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, true)
+export const alarmSpec = (song: Song): PlayerSpec => nativeSpec(song, startMix(song), 0, true)
 
 function nativeSpec(song: Song, mix: MixState, startAt = 0, autoplay = true): PlayerSpec {
   const stems: Record<string, string> = {}
@@ -239,7 +245,7 @@ function nativeBackend(ev: BackendEvents): Backend {
     preload(song) {
       if (!song || song.id === preloadedId || song.id === current) return
       preloadedId = song.id
-      void StemPlayer.preload(nativeSpec(song, song.mix ?? DEFAULT_MIX)).catch(() => undefined)
+      void StemPlayer.preload(nativeSpec(song, startMix(song))).catch(() => undefined)
     },
     play: () => void StemPlayer.play(),
     pause: () => void StemPlayer.pause(),
@@ -255,8 +261,8 @@ function nativeBackend(ev: BackendEvents): Backend {
     native: true,
     setUpcoming(next, prev, autoAdvance, repeatOne) {
       void StemPlayer.setUpcoming({
-        next: next.map((s) => nativeSpec(s, s.mix ?? DEFAULT_MIX)),
-        previous: prev ? nativeSpec(prev, prev.mix ?? DEFAULT_MIX) : null,
+        next: next.map((s) => nativeSpec(s, startMix(s))),
+        previous: prev ? nativeSpec(prev, startMix(prev)) : null,
         autoAdvance,
         repeatOne
       }).catch(() => undefined)
@@ -366,7 +372,7 @@ function webBackend(ev: BackendEvents, bridge: () => import('./lib/bridge').Brid
       else void open(s, mix, autoplay, startAt)
     },
     preload(s) {
-      if (!s || s.episode || sourceFor(s, s.mix ?? DEFAULT_MIX) !== 'original') return
+      if (!s || s.episode || sourceFor(s, startMix(s)) !== 'original') return
       const ref = originalRef(s)
       if (!ref || ahead.has(ref)) return
       ahead.clear()
@@ -565,7 +571,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     nowRef.current = np
     setNow(np)
     if (song) {
-      const m = song.mix ?? DEFAULT_MIX
+      const m = startMix(song)
       setMixState(m)
       setDuration(song.duration || 0)
       setSource(sourceFor(song, m))
@@ -579,7 +585,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     (np: NowPlaying, autoplay = true, startAt = 0) => {
       const song = storeRef.current.getSong(np.songId)
       if (!song) return
-      const m = song.mix ?? DEFAULT_MIX
+      const m = startMix(song)
       nowRef.current = np
       setNow(np)
       storeRef.current.updateSong(song.id, { playedAt: Date.now() })
@@ -935,7 +941,7 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
     addToJam: async (songId) => {
       const song = storeRef.current.getSong(songId)
       if (!song) return
-      if (isNative && jamActive()) return jamAddSpec(nativeSpec(song, song.mix ?? DEFAULT_MIX, 0, false))
+      if (isNative && jamActive()) return jamAddSpec(nativeSpec(song, startMix(song), 0, false))
       const url = joinedJam()
       if (!url) throw new Error('Nessuna Jam attiva')
       const parts = nameParts(song.title)
