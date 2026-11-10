@@ -7,7 +7,7 @@ import type { Song } from './types'
 /* Lyrics from LRCLIB (lrclib.net: free, no key, line-synced when available),
    cached on the phone so they also work offline. Lyrics with only the words
    get their times from the song itself (alignLyrics: Whisper on the vocal
-   track, core/LyricsAligner.java), and any line can be moved by hand. */
+   track, core/LyricsAligner.java). */
 
 export interface LyricLine {
   t: number // seconds
@@ -179,17 +179,7 @@ export async function alignLyrics(song: Song, l: Lyrics, onProgress: (pct: numbe
   return next
 }
 
-/** a line moved by hand (long press while the song plays): saved with the lyrics */
-export async function moveLine(songId: string, l: Lyrics, index: number, t: number): Promise<Lyrics> {
-  const key = l.synced ? 'synced' : 'aligned'
-  const lines = [...(l[key] ?? [])]
-  if (!lines[index]) return l
-  lines[index] = { ...lines[index], t: Math.max(0, Math.round(t * 100) / 100) }
-  const next: Lyrics = { ...l, [key]: lines.sort((a, b) => a.t - b.t) }
-  await writeCache(songId, next)
-  return next
-}
-
+/** the cached lyrics of a song, gone (looked up again next time) */
 export async function deleteLyrics(id: string): Promise<void> {
   try {
     if (isNative) await Filesystem.deleteFile({ path: file(id), directory: Directory.Data })

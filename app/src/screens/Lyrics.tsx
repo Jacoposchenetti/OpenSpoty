@@ -19,7 +19,7 @@ import {
   type Display
 } from '../lib/chords'
 import { errMsg } from '../lib/format'
-import { alignLyrics, getLyrics, moveLine, type Lyrics } from '../lib/lyrics'
+import { alignLyrics, getLyrics, type Lyrics } from '../lib/lyrics'
 import { nameParts } from '../lib/media'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
@@ -96,15 +96,6 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     if (lyrics && !lyrics.synced && lyrics.plain && !lyrics.aligned && !aligning && !alignErr) align(lyrics)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lyrics])
-  /** long press on a line while the song plays: it starts here */
-  const moveHere = (index: number) => {
-    if (!lyrics) return
-    const t = pb.position()
-    void moveLine(song.id, lyrics, index, t).then((l) => {
-      setLyrics(l)
-      store.showToast(tr('Riga spostata a {time}', { time: fmtTime(t) }))
-    })
-  }
 
   const analyse = (force = false) => {
     setChordErr(null)
@@ -372,10 +363,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
                   data-i={b.index}
                   className={`lyric chorded ${b.index === cur.line ? 'now' : b.index < cur.line ? 'past' : ''}`}
                   onClick={() => pb.seek(b.t)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    moveHere(b.index)
-                  }}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   {b.parts.map((p, j) => (
                     <span key={j} className="cp">
@@ -406,10 +394,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
               data-i={i}
               className={`lyric ${i === cur.line ? 'now' : i < cur.line ? 'past' : ''}`}
               onClick={() => pb.seek(l.t)}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                moveHere(i)
-              }}
+              onContextMenu={(e) => e.preventDefault()}
             >
               {l.text || '♪'}
             </button>
