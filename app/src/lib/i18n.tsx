@@ -230,6 +230,7 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Tutte le playlist pubbliche di un profilo SoundCloud, e i suoi “Mi piace”. Per Spotify usa il file qui sotto: Spotify non lascia leggere i profili.": "All the public playlists of a SoundCloud profile, and its likes. For Spotify use the file below: Spotify does not let profiles be read.",
   "Importa playlist": "Import playlists",
   "Importo {count} playlist: le trovi in Libreria": "Importing {count} playlists: you'll find them in Library",
   "Incolla il link di una playlist Spotify o SoundCloud": "Paste the link of a Spotify or SoundCloud playlist",

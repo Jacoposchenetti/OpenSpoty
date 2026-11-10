@@ -144,7 +144,7 @@ export function ImportPlaylists({ onClose }: { onClose: () => void }) {
           <b>
             <UserRound /> {t('Da profilo')}
           </b>
-          <small className="muted">{t('Tutte le playlist pubbliche di un profilo Spotify o SoundCloud (su SoundCloud anche i suoi “Mi piace”).')}</small>
+          <small className="muted">{t('Tutte le playlist pubbliche di un profilo SoundCloud, e i suoi “Mi piace”. Per Spotify usa il file qui sotto: Spotify non lascia leggere i profili.')}</small>
           <div className="imp-row">
             <input value={profileUrl} placeholder="https://soundcloud.com/…" onChange={(e) => setProfileUrl(e.target.value)} />
             <button disabled={!profileUrl.trim() || busy === 'profile'} onClick={() => void findProfile()}>
