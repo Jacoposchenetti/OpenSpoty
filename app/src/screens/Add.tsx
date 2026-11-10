@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, LibraryBig, MicVocal, Play, Plus, Search as SearchIcon, Share2, SlidersVertical, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpLeft, Check, Clock, EllipsisVertical, LibraryBig, MicVocal, Plus, Search as SearchIcon, Share2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { engine, type SpArtistRef, type SpPlaylistRef, type SpRelease, type SpSearch } from '../lib/engine'
 import { t as tr } from '../lib/i18n'
@@ -27,7 +27,6 @@ const isSpotifyList = (q: string) => /spotify\.com\/(?:intl-\w+\/)?(playlist|alb
 type Hit = Pick<YtResult, 'videoId' | 'title'> & Partial<YtResult>
 
 export function Add() {
-  const store = useStore()
   const imports = useImports()
   return (
     <div className="page flat">
@@ -35,7 +34,6 @@ export function Add() {
       {imports.items.map((i) => (
         <SpotifyImport key={i.id} imp={i} />
       ))}
-      {store.deviceJob && <SplitJob />}
     </div>
   )
 }
@@ -731,58 +729,6 @@ function SpotifyImport({ imp }: { imp: Import }) {
 
 /* ------------------------------------------------------------- split in progress */
 
-function SplitJob() {
-  const store = useStore()
-  const playback = usePlayback()
-  const job = store.deviceJob!
-  const running = job.state === 'running'
-  const queue = job.queue ?? []
-  return (
-    <section className="card">
-      <div className={`job ${job.state}`}>
-        <div className="job-title">
-          <SlidersVertical /> {job.title ?? tr('Canzone')}
-        </div>
-        <div className="bar">
-          <i style={{ width: `${job.pct}%` }} />
-        </div>
-        <div className="job-msg">
-          {job.state === 'failed' ? tr(job.error || job.message) : tr(job.message)} {running ? `${Math.round(job.pct)}%` : ''}
-        </div>
-        {queue.length > 0 && (
-          <div className="job-msg">
-            {tr('In coda')} ({queue.length}): {queue.join(' · ')}
-          </div>
-        )}
-        <div className="row-actions">
-          {running ? (
-            <>
-              <button className="small" onClick={() => void engine.cancelSeparation()}>
-                {tr('Annulla')}
-              </button>
-              {queue.length > 0 && (
-                <button className="small" onClick={() => void engine.cancelSeparation(true)}>
-                  {tr('Annulla tutto')}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              {job.state === 'done' && (
-                <button className="small primary" onClick={() => playback.playSong(job.songId)}>
-                  <Play fill="currentColor" /> {tr('Play')}
-                </button>
-              )}
-              <button className="small" onClick={() => store.setDeviceJob(null)}>
-                {tr('OK')}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </section>
-  )
-}
 
 /* ------------------------------------------------------------- recommendations */
 

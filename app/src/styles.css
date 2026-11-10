@@ -1315,8 +1315,9 @@ label {
 }
 .lyrics-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 30vh 4px 40vh;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -4388,4 +4389,29 @@ button.concert {
 }
 .sheet .switch-row > span:first-child {
   flex: 1;
+}
+
+/* room to scroll the first and last lines to the middle: inside the scrolling content,
+   so it never pushes the play bar off the screen (a fixed padding did, with the mixer) */
+.lyrics-body::before {
+  content: '';
+  flex: none;
+  height: 6vh;
+}
+.lyrics-body::after {
+  content: '';
+  flex: none;
+  height: 35vh;
+}
+.lyrics > .playbar {
+  flex-shrink: 0;
+}
+/* the separation running, over the mini player and in the player (components/SplitJob.tsx) */
+.split-job.compact {
+  margin: 0 8px 6px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+.split-job.compact .job-msg {
+  font-size: 12px;
 }

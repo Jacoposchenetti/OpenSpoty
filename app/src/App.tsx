@@ -2,6 +2,7 @@ import { House, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'luc
 import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
+import { SplitJob } from './components/SplitJob'
 import { UpdateBanner } from './components/UpdateBanner'
 import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
@@ -83,6 +84,7 @@ export function App() {
               {store.tab === 'capture' && <CapturePage />}
             </div>
           </main>
+          {store.deviceJob && <SplitJob compact />}
           <MiniPlayer />
           <nav className="tabs" hidden={typing} style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
             {tabs.map((tab) => (
