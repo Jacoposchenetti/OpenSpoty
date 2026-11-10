@@ -4,8 +4,8 @@ import { t as tr } from '../lib/i18n'
 import { usePlayback } from '../playback'
 import { useStore } from '../store'
 
-/* The separation running on the phone ("Separa le tracce"): shown where you are
-   (over the mini player, and in the player), not only in Cerca. */
+/* The separation running on the phone ("Separa le tracce"): shown in "Suona",
+   at the top, where the song's tracks will be. */
 
 export function SplitJob({ compact = false }: { compact?: boolean }) {
   const store = useStore()

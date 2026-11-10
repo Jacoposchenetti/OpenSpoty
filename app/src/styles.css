@@ -4415,3 +4415,19 @@ button.concert {
 .split-job.compact .job-msg {
   font-size: 12px;
 }
+
+/* the player over the pages (App.tsx): they keep their place underneath */
+.player-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+/* Suona: the lyrics start right under the controls */
+.lyrics-body::before {
+  display: none;
+}

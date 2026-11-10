@@ -17,7 +17,6 @@ import { localeTag, t as tr } from '../lib/i18n'
 import { useHostedJam } from '../lib/jam'
 import { JamSheet } from './Jam'
 import { LyricsCard } from './LyricsCard'
-import { SplitJob } from '../components/SplitJob'
 import { setVideoOn, songVideo, useVideoOn } from '../lib/canvas'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
@@ -114,7 +113,6 @@ export function Player() {
       )}
       {menu && song.episode && <EpisodeMenu song={song} onClose={() => setMenu(false)} />}
 
-      {store.deviceJob && <SplitJob compact />}
       {song.notes && (
         <button className="song-notes" onClick={() => setShowNotes(true)}>
           {song.notes}

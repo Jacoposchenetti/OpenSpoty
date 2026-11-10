@@ -230,6 +230,7 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Separo “{name}”: lo vedi in Suona": "Separating “{name}”: follow it in Play along",
   "Non trovo questa città: controlla come l’hai scritta.": "Can't find this city: check how you wrote it.",
   "Trovata: {place}": "Found: {place}",
   "tutto il paese": "whole country",

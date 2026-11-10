@@ -308,11 +308,7 @@ function ListView({ viewId }: { viewId: string }) {
               ) : isDownloaded(song) ? (
                 <CircleArrowDown className="dl-mark" aria-label={t('Scaricata')} />
               ) : null}
-              {store.deviceJob?.state === 'running' && store.deviceJob.songId === song.id ? (
-        <span className="tag busy">{t('separazione')} {Math.round(store.deviceJob.pct)}%</span>
-              ) : (
-                fmtTime(song.duration)
-              )}
+              {fmtTime(song.duration)}
             </span>
           </span>
         </button>

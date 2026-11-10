@@ -697,7 +697,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // separating is wanting it on this device: a streamed song is downloaded first
         if (!songsRef.current.some((s) => s.id === song.id)) await commitSongs([{ ...song, addedAt: Date.now() }, ...songsRef.current])
         await engine.separate(local ? { existing: true, songId: song.id, title: song.title } : { youtubeId: vid!, songId: song.id, title: song.title })
-        showToast(deviceJob?.state === 'running' ? t('In coda: “{name}”', { name: song.title }) : t('Separo “{name}”…', { name: song.title }))
+        showToast(deviceJob?.state === 'running' ? t('In coda: “{name}”', { name: song.title }) : t('Separo “{name}”: lo vedi in Suona', { name: song.title }))
       } catch (e) {
         showToast(errMsg(e))
       }

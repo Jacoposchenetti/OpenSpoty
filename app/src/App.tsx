@@ -1,8 +1,7 @@
-import { House, LibraryBig, Search, SlidersVertical, type LucideIcon } from 'lucide-react'
+import { House, LibraryBig, Search, type LucideIcon } from 'lucide-react'
 import { App as CapApp } from '@capacitor/app'
 import { useEffect, useRef } from 'react'
 import { MiniPlayer } from './components/MiniPlayer'
-import { SplitJob } from './components/SplitJob'
 import { UpdateBanner } from './components/UpdateBanner'
 import { popBack, useKeyboardOpen } from './components/ui'
 import { isNative } from './lib/native'
@@ -54,21 +53,19 @@ export function App() {
 
   return (
     <div className="app">
-      {store.playerOpen ? (
-        <Player />
-      ) : (
-        <>
+      {/* the player opens over the pages, which stay as they were: closing it you are back
+          where you had scrolled (a playlist half way down stays there) */}
+      {store.playerOpen && (
+        <div className="player-layer">
+          <Player />
+        </div>
+      )}
+      <>
           {/* only on Home: the profile, a split running, the PC */}
           <header className="top" hidden={store.tab !== 'home' || store.pages.length > 0}>
             <button className="avatar" onClick={() => store.setTab('profile')} aria-label={t('Profilo')}>
               {(profile.name || '?').trim().charAt(0).toUpperCase()}
             </button>
-            {store.deviceJob?.state === 'running' && (
-              <button className="pill" onClick={() => store.setTab('add')}>
-                <SlidersVertical /> {Math.round(store.deviceJob.pct)}%
-                {store.deviceJob.queue?.length ? ` · +${store.deviceJob.queue.length} ${t('in coda')}` : ''}
-              </button>
-            )}
           </header>
           <UpdateBanner />
           <main className="content">
@@ -84,7 +81,6 @@ export function App() {
               {store.tab === 'capture' && <CapturePage />}
             </div>
           </main>
-          {store.deviceJob && <SplitJob compact />}
           <MiniPlayer />
           <nav className="tabs" hidden={typing} style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
             {tabs.map((tab) => (
@@ -102,8 +98,7 @@ export function App() {
               </button>
             ))}
           </nav>
-        </>
-      )}
+      </>
       <AlarmRinging />
       {store.toast && <div className="toast">{store.toast}</div>}
     </div>

@@ -1,6 +1,7 @@
 import { ChevronDown, Guitar, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCardColour } from './LyricsCard'
+import { SplitJob } from '../components/SplitJob'
 import { Sheet, Spinner, useBackHandler } from '../components/ui'
 import {
   applyEdits,
@@ -422,9 +423,12 @@ function Mixer({ songId, mix, onChange }: { songId: string; mix: MixState; onCha
     const job = store.deviceJob
     return (
       <div className="mixer-empty">
-        {job?.state === 'running' && job.songId === song.id ? (
+        {/* the separation is shown only here, where the tracks will be */}
+        {job && job.songId === song.id ? (
+          <SplitJob compact />
+        ) : job?.state === 'running' && job.queue?.includes(song.title) ? (
           <span className="muted small">
-            <Spinner size={14} /> {tr('Separo le tracce…')} {Math.round(job.pct)}%
+            <Spinner size={14} /> {tr('In coda: “{name}”', { name: nameParts(song.title).name })}
           </span>
         ) : (
           <button className="small" onClick={() => void store.splitLater(song)}>
