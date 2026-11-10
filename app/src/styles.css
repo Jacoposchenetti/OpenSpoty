@@ -4491,3 +4491,29 @@ button.concert {
 .auto-scroll .lyric.chorded {
   color: #fff;
 }
+
+/* Suona: the scrolling row, always in view (speed of the scroll, ⋮ for the kind) */
+.scroll-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+}
+.scroll-label {
+  font-size: 14px;
+  color: #fff;
+}
+.scroll-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+.scroll-follow {
+  flex: 1;
+  font-size: 14px;
+  color: var(--muted);
+}
+.check-space {
+  display: inline-block;
+  width: 1em;
+}

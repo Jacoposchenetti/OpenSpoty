@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
+import { Check, ChevronDown, EllipsisVertical, Guitar, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCardColour } from './LyricsCard'
 import { SplitJob } from '../components/SplitJob'
@@ -64,8 +64,10 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const [aligning, setAligning] = useState<{ pct: number; downloading: boolean } | null>(null)
   // the musical settings fold away (more room for the words); how the lyrics scroll
   const [panel, setPanel] = useState(pref('suona-panel', '0') === '1')
-  const [scrollMode, setScrollMode] = useState<'follow' | 'auto'>(pref('scroll-mode', 'follow') === 'auto' ? 'auto' : 'follow')
+  const [scrollMode, setScrollMode] = useState<'follow' | 'auto'>(pref('scroll-mode', 'auto') === 'follow' ? 'follow' : 'auto')
   const [scrollSpeed, setScrollSpeed] = useState(Number(pref('scroll-speed', '30')) || 30) // px per second
+  const [scrollMenu, setScrollMenu] = useState(false)
+  const pickScroll = (m: 'follow' | 'auto') => (setScrollMode(m), setPref('scroll-mode', m), setScrollMenu(false))
   const [alignErr, setAlignErr] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useBackHandler(onClose)
@@ -213,17 +215,49 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         </button>
       </header>
 
-      <SpeedSlider value={speed} onChange={setSpeed} />
-      {/* the metronome (BeatBar) is off for now: not reliable yet, and the play bar needs the room */}
+      {/* how the lyrics scroll: automatic (all lit, at the speed of the bar) or following the words */}
+      <div className="scroll-row">
+        <span className="scroll-label">{tr('Scorrimento')}</span>
+        {scrollMode === 'auto' ? (
+          <input
+            type="range"
+            min={5}
+            max={120}
+            step={5}
+            value={scrollSpeed}
+            onChange={(e) => (setScrollSpeed(Number(e.target.value)), setPref('scroll-speed', e.target.value))}
+            aria-label={tr('Velocità dello scorrimento')}
+          />
+        ) : (
+          <span className="scroll-follow">{tr('Segue il testo')}</span>
+        )}
+        <button className="icon-btn" onClick={() => setScrollMenu(true)} aria-label={tr('Tipo di scorrimento')}>
+          <EllipsisVertical />
+        </button>
+      </div>
+      {scrollMenu && (
+        <Sheet title={tr('Scorrimento')} onClose={() => setScrollMenu(false)}>
+          <button className={scrollMode === 'auto' ? 'on' : ''} onClick={() => pickScroll('auto')}>
+            {scrollMode === 'auto' ? <Check /> : <span className="check-space" />} {tr('Automatico')}
+            <small className="muted block">{tr('Tutto il testo acceso, scorre da solo alla velocità della barra')}</small>
+          </button>
+          <button className={scrollMode === 'follow' ? 'on' : ''} onClick={() => pickScroll('follow')}>
+            {scrollMode === 'follow' ? <Check /> : <span className="check-space" />} {tr('Segue il testo')}
+            <small className="muted block">{tr('Si accende la riga cantata e il testo la segue a piccoli scatti')}</small>
+          </button>
+        </Sheet>
+      )}
 
       <button className={`suona-toggle ${panel ? 'open' : ''}`} onClick={() => (setPanel(!panel), setPref('suona-panel', panel ? '0' : '1'))}>
-        <SlidersHorizontal /> {tr('Tracce, tono, accordi e scorrimento')}
+        <SlidersHorizontal /> {tr('Velocità, tracce, tono e accordi')}
         <ChevronDown className="chev" />
       </button>
       {/* the separation is shown here too while the panel is closed */}
       {!panel && store.deviceJob?.songId === song.id && <SplitJob compact />}
       <div className={`suona-panel ${panel ? 'open' : ''}`}>
         <div className="suona-panel-inner">
+          <SpeedSlider value={speed} onChange={setSpeed} />
+          {/* the metronome (BeatBar) is off for now: not reliable yet, and the play bar needs the room */}
           <Mixer songId={songId} mix={mix} onChange={update} />
 
 
@@ -260,32 +294,6 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
               </button>
             </div>
           )}
-
-          <div className="scroll-mode">
-            <span className="muted small">{tr('Scorrimento')}</span>
-            <div className="seg">
-              <button className={scrollMode === 'follow' ? 'active' : ''} onClick={() => (setScrollMode('follow'), setPref('scroll-mode', 'follow'))}>
-                {tr('Segue il testo')}
-              </button>
-              <button className={scrollMode === 'auto' ? 'active' : ''} onClick={() => (setScrollMode('auto'), setPref('scroll-mode', 'auto'))}>
-                {tr('Automatico')}
-              </button>
-            </div>
-            {scrollMode === 'auto' && (
-              <label className="radius-row">
-                <input
-                  type="range"
-                  min={5}
-                  max={120}
-                  step={5}
-                  value={scrollSpeed}
-                  onChange={(e) => (setScrollSpeed(Number(e.target.value)), setPref('scroll-speed', e.target.value))}
-                  aria-label={tr('Velocità dello scorrimento')}
-                />
-                <span>{tr('vel.')} {Math.round(scrollSpeed / 5)}</span>
-              </label>
-            )}
-          </div>
         </div>
       </div>
 
