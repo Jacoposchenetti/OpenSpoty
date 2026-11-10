@@ -2123,7 +2123,7 @@ button.saving {
 .lyrics .lyrics-body {
   flex: 1 1 0;
   min-height: 0;
-  padding-top: 8vh;
+  padding-top: 4px; /* the words right under the controls */
 }
 .mx-name {
   grid-column: 1;
