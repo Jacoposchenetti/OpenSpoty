@@ -169,6 +169,15 @@ export const engine = {
   },
 
   spotifyList: (url: string): Promise<SpotifyList> => (isNative ? StemKitNative.spotifyList({ url }) : pc('spotifyList', { url })),
+  /** a playlist from its link: Spotify, or SoundCloud (phone only) */
+  playlistFromLink: (url: string): Promise<SpotifyList> =>
+    /soundcloud\.com\//.test(url)
+      ? isNative
+        ? StemKitNative.soundcloudList({ url })
+        : Promise.reject(new Error('Le playlist SoundCloud si importano dal telefono'))
+      : isNative
+        ? StemKitNative.spotifyList({ url })
+        : pc('spotifyList', { url }),
 
   matchSong: (t: { title: string; artist: string; duration: number }): Promise<Match> => (isNative ? StemKitNative.matchSong(t) : pc('match', t)),
 

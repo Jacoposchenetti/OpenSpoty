@@ -86,6 +86,10 @@ export interface StemKitNativePlugin {
   spArtist(opts: { uri: string }): Promise<import('./engine').SpArtist>
   spAlbum(opts: { uri: string }): Promise<import('./engine').SpAlbum>
   spotifyList(opts: { url: string }): Promise<import('./engine').SpotifyList>
+  /** "Importa playlist": a SoundCloud playlist, a profile's playlists, Spotify's data export */
+  soundcloudList(opts: { url: string }): Promise<import('./engine').SpotifyList>
+  importProfile(opts: { url: string }): Promise<{ owner: string; playlists: Array<{ name: string; url: string; count: number; image?: string }>; likes?: import('./engine').SpotifyList }>
+  pickSpotifyExport(): Promise<{ playlists: import('./engine').SpotifyList[]; liked?: import('./engine').SpotifyList }>
   matchSong(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; title: string; channel: string; duration: number; score: number }>
   /** where the phone is, roughly, and the place's name (asks the permission); rejects 'permesso' / 'spenta' */
   locate(): Promise<{ lat: number; lon: number; name?: string; region?: string; country?: string }>

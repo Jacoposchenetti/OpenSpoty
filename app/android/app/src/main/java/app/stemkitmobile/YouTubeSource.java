@@ -75,7 +75,7 @@ final class YouTubeSource {
         }
     }
 
-    private static String readAll(InputStream in) throws IOException {
+    static String readAll(InputStream in) throws IOException {
         try (InputStream s = in) {
             ByteArrayOutputStream b = new ByteArrayOutputStream();
             byte[] buf = new byte[16384];
@@ -85,7 +85,7 @@ final class YouTubeSource {
         }
     }
 
-    private static void init() {
+    static void init() {
         if (inited) return;
         synchronized (YouTubeSource.class) {
             if (!inited) {

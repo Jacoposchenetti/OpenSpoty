@@ -657,7 +657,7 @@ function CollectionMenu({ m, onClose }: { m: Extract<Mixed, { kind: 'album' | 'p
 
 /* ------------------------------------------------------------- Spotify import */
 
-function SpotifyImport({ imp }: { imp: Import }) {
+export function SpotifyImport({ imp }: { imp: Import }) {
   const imports = useImports()
   const [split, setSplit] = useState(false)
   const [download, setDownload] = useState(false)
@@ -667,7 +667,7 @@ function SpotifyImport({ imp }: { imp: Import }) {
   return (
     <section className="card import">
       <div className="card-head">
-        <h2>{list ? list.name : tr('Playlist Spotify')}</h2>
+        <h2>{list ? list.name : tr('Playlist')}</h2>
         {phase !== 'running' && (
           <button className="icon-btn" onClick={() => imports.remove(imp.id)} aria-label={tr('Chiudi')}>
             <X />

@@ -289,7 +289,7 @@ final class SpotifyCatalog {
 
     // ------------------------------------------------------------ transport
 
-    private static synchronized String token(boolean fresh) throws Exception {
+    static synchronized String token(boolean fresh) throws Exception {
         if (!fresh && token != null && System.currentTimeMillis() - tokenAt < 40 * 60_000) return token;
         String html = get("https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M");
         Matcher m = Pattern.compile("\"accessToken\":\"([^\"]+)\"").matcher(html);

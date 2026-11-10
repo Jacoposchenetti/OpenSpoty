@@ -6,8 +6,9 @@ import { isNative } from './lib/native'
 import { useStore } from './store'
 import { t } from './lib/i18n'
 
-/* Spotify playlists / albums being imported: several at once, and they keep
-   going while you use the rest of the app. */
+/* Playlists being imported (Spotify, SoundCloud, Spotify's data export): they
+   keep going while you use the rest of the app, one after the other. The
+   "liked songs" of an export become your Brani che ti piacciono, not a playlist. */
 
 export type TrackState = 'attesa' | 'cerco' | 'scarico' | 'fatto' | 'già presente' | 'non trovata'
 
@@ -18,12 +19,19 @@ export interface Import {
   error: string | null
   states: TrackState[]
   phase: 'loading' | 'ready' | 'running' | 'done'
+  /** the songs go to "Brani che ti piacciono" instead of a new playlist */
+  liked?: boolean
 }
+
+type Opts = { download: boolean; split: boolean }
 
 interface Imports {
   items: Import[]
-  add(url: string): void
-  start(id: string, opts: { download: boolean; split: boolean }): void
+  /** a playlist from its link; auto: imported as soon as it is read (streaming only) */
+  add(url: string, auto?: boolean): void
+  /** a list already read (a profile's likes, Spotify's export) */
+  addList(list: SpotifyList, o?: { liked?: boolean; auto?: boolean }): void
+  start(id: string, opts: Opts): void
   stop(id: string): void
   remove(id: string): void
 }
@@ -47,28 +55,16 @@ export function ImportsProvider({ children }: { children: ReactNode }) {
     setItems((all) => all.map((i) => (i.id === id ? { ...i, ...fn(i) } : i)))
   }, [])
 
-  const add = useCallback(
-    (url: string) => {
-      const id = `imp-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
-      setItems((all) => [{ id, url, list: null, error: null, states: [], phase: 'loading' }, ...all])
-      engine
-        .spotifyList(url)
-        .then((list) => patch(id, () => ({ list, states: list.tracks.map(() => 'attesa' as TrackState), phase: 'ready' })))
-        .catch((e) => patch(id, () => ({ error: errMsg(e), phase: 'done' })))
-    },
-    [patch]
-  )
+  // one import at a time: many at once would only race for the same lookups
+  const queue = useRef<Promise<void>>(Promise.resolve())
 
-  const start = useCallback(
-    (id: string, opts: { download: boolean; split: boolean }) => {
-      const imp = items.find((i) => i.id === id)
-      const list = imp?.list
-      if (!list) return
+  const run = useCallback(
+    (id: string, list: SpotifyList, opts: Opts, liked: boolean) => {
       patch(id, () => ({ phase: 'running' }))
       stopped.current.delete(id)
       const set = (k: number, st: TrackState) => patch(id, (i) => ({ states: i.states.map((x, j) => (j === k ? st : x)) }))
-      void (async () => {
-        const pid = storeRef.current.createPlaylist(list.name)
+      queue.current = queue.current.then(async () => {
+        const pid = liked ? null : storeRef.current.createPlaylist(list.name)
         for (let k = 0; k < list.tracks.length && !stopped.current.has(id); k++) {
           const t = list.tracks[k]
           try {
@@ -94,16 +90,58 @@ export function ImportsProvider({ children }: { children: ReactNode }) {
               if (opts.split) await storeRef.current.splitLater(song)
               set(k, 'fatto')
             }
-            storeRef.current.addToPlaylist(pid, [songId])
+            if (pid) storeRef.current.addToPlaylist(pid, [songId])
+            else storeRef.current.updateSong(songId, { liked: true, likedAt: Date.now() })
           } catch {
             set(k, 'non trovata')
           }
         }
         patch(id, () => ({ phase: 'done' }))
         storeRef.current.showToast(t('Playlist “{name}” importata', { name: list.name }))
-      })()
+      })
     },
-    [items, patch]
+    [patch]
+  )
+
+  const newItem = (url: string, list: SpotifyList | null, liked = false): string => {
+    const id = `imp-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+    setItems((all) => [
+      { id, url, list, error: null, states: list ? list.tracks.map(() => 'attesa' as TrackState) : [], phase: list ? 'ready' : 'loading', liked },
+      ...all
+    ])
+    return id
+  }
+
+  const add = useCallback(
+    (url: string, auto = false) => {
+      const id = newItem(url, null)
+      engine
+        .playlistFromLink(url)
+        .then((list) => {
+          patch(id, () => ({ list, states: list.tracks.map(() => 'attesa' as TrackState), phase: 'ready' }))
+          if (auto) run(id, list, { download: false, split: false }, false)
+        })
+        .catch((e) => patch(id, () => ({ error: errMsg(e), phase: 'done' })))
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patch, run]
+  )
+
+  const addList = useCallback(
+    (list: SpotifyList, o: { liked?: boolean; auto?: boolean } = {}) => {
+      const id = newItem('', list, !!o.liked)
+      if (o.auto) run(id, list, { download: false, split: false }, !!o.liked)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [run]
+  )
+
+  const start = useCallback(
+    (id: string, opts: Opts) => {
+      const imp = items.find((i) => i.id === id)
+      if (imp?.list) run(id, imp.list, opts, !!imp.liked)
+    },
+    [items, run]
   )
 
   // the phone must not sleep while importing
@@ -119,6 +157,7 @@ export function ImportsProvider({ children }: { children: ReactNode }) {
   const value: Imports = {
     items,
     add,
+    addList,
     start,
     stop: (id) => stopped.current.add(id),
     remove: (id) => setItems((all) => all.filter((i) => i.id !== id))

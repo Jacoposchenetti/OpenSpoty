@@ -15,6 +15,9 @@ import { isNative } from '../lib/native'
 import { joinedJam, useHostedJam } from '../lib/jam'
 import { errMsg } from '../lib/format'
 import { JamSheet } from './Jam'
+import { ImportPlaylists } from './ImportPlaylists'
+import { SpotifyImport } from './Add'
+import { useImports } from '../imports'
 
 export { StemDots } from '../components/ui'
 
@@ -43,6 +46,8 @@ function Overview() {
   const store = useStore()
   const [creating, setCreating] = useState(false)
   const [jamOpen, setJamOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const imports = useImports()
   const jam = useHostedJam()
   const [menu, setMenu] = useState<Playlist | null>(null)
   const [renaming, setRenaming] = useState<Playlist | null>(null)
@@ -66,6 +71,10 @@ function Overview() {
         </span>
       </div>
       {jamOpen && <JamSheet onClose={() => setJamOpen(false)} />}
+      {/* playlists being imported (Importa playlist, or a link pasted in Cerca) */}
+      {imports.items.map((i) => (
+        <SpotifyImport key={i.id} imp={i} />
+      ))}
 
       <button className="lib-row" onClick={() => store.setLibView('all')}>
         <span className="thumb ph all" style={{ width: 56, height: 56 }}>
@@ -171,8 +180,14 @@ function Overview() {
           confirm={t('Crea')}
           onDone={(name) => store.setLibView(store.createPlaylist(name))}
           onClose={() => setCreating(false)}
+          extra={
+            <button onClick={() => (setCreating(false), setImporting(true))}>
+              <Download /> {t('Importa playlist')}
+            </button>
+          }
         />
       )}
+      {importing && <ImportPlaylists onClose={() => setImporting(false)} />}
       {menu && <PlaylistMenu playlist={menu} onClose={() => setMenu(null)} onRename={() => setRenaming(menu)} onDelete={() => setDeleting(menu)} />}
       {renaming && (
         <PromptSheet

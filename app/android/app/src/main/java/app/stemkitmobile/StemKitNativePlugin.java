@@ -708,6 +708,71 @@ public class StemKitNativePlugin extends Plugin {
         });
     }
 
+    // ---------------------------------------------------------- "Importa playlist" (PlaylistImport)
+
+    /** a SoundCloud playlist / album: same shape as spotifyList */
+    @PluginMethod
+    public void soundcloudList(PluginCall call) {
+        String url = call.getString("url", "");
+        io.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(PlaylistImport.soundcloudList(url)));
+            } catch (Exception e) {
+                call.reject(e.getMessage() != null ? e.getMessage() : "Playlist SoundCloud non leggibile");
+            }
+        });
+    }
+
+    /** a Spotify or SoundCloud profile's playlists */
+    @PluginMethod
+    public void importProfile(PluginCall call) {
+        String url = call.getString("url", "");
+        io.execute(() -> {
+            try {
+                call.resolve(JSObject.fromJSONObject(PlaylistImport.profile(url)));
+            } catch (Exception e) {
+                call.reject(e.getMessage() != null ? e.getMessage() : "Profilo non leggibile");
+            }
+        });
+    }
+
+    /** Spotify's data export, picked from the phone (.zip, or one of its .json) */
+    @PluginMethod
+    public void pickSpotifyExport(PluginCall call) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {"application/zip", "application/x-zip-compressed", "application/json", "application/octet-stream"});
+        startActivityForResult(call, i, "onExportPicked");
+    }
+
+    @ActivityCallback
+    private void onExportPicked(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.reject("Annullato");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        io.execute(() -> {
+            File tmp = null;
+            try {
+                String name = displayName(uri).toLowerCase();
+                tmp = new File(getContext().getCacheDir(), "spotify-export" + (name.endsWith(".json") ? ".json" : ".zip"));
+                try (InputStream in = getContext().getContentResolver().openInputStream(uri); OutputStream out = new FileOutputStream(tmp)) {
+                    if (in == null) throw new IllegalStateException("file non leggibile");
+                    byte[] buf = new byte[1 << 16];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                call.resolve(JSObject.fromJSONObject(PlaylistImport.spotifyExport(tmp)));
+            } catch (Exception e) {
+                call.reject(e.getMessage() != null ? e.getMessage() : "File non leggibile");
+            } finally {
+                if (tmp != null) //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+            }
+        });
+    }
+
     /** the song's music video to loop behind the player (YouTubeSource.musicVideo) */
     @PluginMethod
     public void musicVideo(PluginCall call) {

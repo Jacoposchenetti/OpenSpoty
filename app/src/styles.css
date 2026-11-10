@@ -4546,3 +4546,44 @@ button.concert {
   font-variant-numeric: tabular-nums;
   color: #fff;
 }
+
+/* "Importa playlist" (screens/ImportPlaylists.tsx) */
+.imp-way {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.imp-way:last-of-type {
+  border-bottom: 0;
+}
+.imp-way b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.imp-way b .lucide {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: var(--accent);
+}
+.imp-way small a {
+  color: var(--accent);
+}
+.imp-row {
+  display: flex;
+  gap: 8px;
+}
+.imp-row input {
+  flex: 1;
+  min-width: 0;
+}
+.imp-row button {
+  flex: none;
+}
+.imp-list {
+  max-height: 55vh;
+  overflow-y: auto;
+}

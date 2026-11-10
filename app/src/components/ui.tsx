@@ -143,7 +143,8 @@ export function PromptSheet({
   placeholder,
   confirm,
   onDone,
-  onClose
+  onClose,
+  extra
 }: {
   title: string
   initial?: string
@@ -151,6 +152,8 @@ export function PromptSheet({
   confirm: string
   onDone: (value: string) => void
   onClose: () => void
+  /** under the confirm button (e.g. "Importa playlist") */
+  extra?: ReactNode
 }) {
   const [v, setV] = useState(initial)
   const ok = v.trim().length > 0
@@ -167,6 +170,7 @@ export function PromptSheet({
       <button className="primary" disabled={!ok} onClick={() => (onDone(v.trim()), onClose())}>
         {confirm}
       </button>
+      {extra}
     </Sheet>
   )
 }
