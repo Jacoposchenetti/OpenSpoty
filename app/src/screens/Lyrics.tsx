@@ -62,6 +62,10 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const [showTempo, setShowTempo] = useState(false)
   const [cur, setCur] = useState({ line: -1, chord: -1 })
   const [aligning, setAligning] = useState<{ pct: number; downloading: boolean } | null>(null)
+  // the musical settings fold away (more room for the words); how the lyrics scroll
+  const [panel, setPanel] = useState(pref('suona-panel', '0') === '1')
+  const [scrollMode, setScrollMode] = useState<'follow' | 'auto'>(pref('scroll-mode', 'follow') === 'auto' ? 'auto' : 'follow')
+  const [scrollSpeed, setScrollSpeed] = useState(Number(pref('scroll-speed', '30')) || 30) // px per second
   const [alignErr, setAlignErr] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useBackHandler(onClose)
@@ -131,7 +135,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         const lineChanged = !last.startsWith(`${line}:`)
         last = now
         setCur({ line, chord })
-        if (lineChanged || !lines?.length) {
+        if (scrollMode === 'follow' && (lineChanged || !lines?.length)) {
           const el =
             box.current?.querySelector<HTMLElement>(`[data-i="${Math.max(0, line)}"]`) ??
             box.current?.querySelector<HTMLElement>(`[data-c="${Math.max(0, chord)}"]`)
@@ -142,7 +146,30 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [lines, segs, pb])
+  }, [lines, segs, pb, scrollMode])
+
+  // automatic: the whole text (all lit) moves up at a steady speed while the song plays
+  useEffect(() => {
+    if (scrollMode !== 'auto') return
+    let raf = 0
+    let prev = performance.now()
+    let acc = 0
+    const tick = (now: number) => {
+      const dt = Math.min(0.1, (now - prev) / 1000)
+      prev = now
+      if (pb.playing && box.current) {
+        acc += scrollSpeed * dt
+        const step = Math.floor(acc)
+        if (step) {
+          box.current.scrollTop += step
+          acc -= step
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [scrollMode, scrollSpeed, pb])
 
   const toggleChords = () => {
     setShowChords(!showChords)
@@ -171,7 +198,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const setPitch = (v: number) => update({ ...mix, pitch: Math.max(-6, Math.min(6, v)) })
 
   return (
-    <div className="lyrics ly-style" style={{ background: `linear-gradient(180deg, ${colour.bg} 0%, ${colour.bg} 35%, var(--bg) 100%)`, ['--ly-text' as string]: colour.text }}>
+    <div className={`lyrics ly-style ${scrollMode === 'auto' ? 'auto-scroll' : ''}`} style={{ background: `linear-gradient(180deg, ${colour.bg} 0%, ${colour.bg} 35%, var(--bg) 100%)`, ['--ly-text' as string]: colour.text }}>
       <header className="player-head">
         <button className="icon-btn" onClick={onClose} aria-label={tr('Chiudi')}>
           <ChevronDown />
@@ -186,44 +213,81 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         </button>
       </header>
 
-      <Mixer songId={songId} mix={mix} onChange={update} />
-
       <SpeedSlider value={speed} onChange={setSpeed} />
       {/* the metronome (BeatBar) is off for now: not reliable yet, and the play bar needs the room */}
 
-      <div className="chord-bar">
-        <span className="stepper-mini">
-          <button onClick={() => setPitch(pitch - 1)} aria-label={tr('Mezzo tono sotto')}>
-            <Minus />
-          </button>
-          <span>{tr('Tono')} {pitch > 0 ? `+${pitch}` : pitch || '0'}</span>
-          <button onClick={() => setPitch(pitch + 1)} aria-label={tr('Mezzo tono sopra')}>
-            <Plus />
-          </button>
-        </span>
-        <button className="more" onClick={() => setShowTempo(true)} aria-label={tr('BPM e count-in')}>
-          <SlidersHorizontal />
-        </button>
-        {!isNative && <span className="muted small">{tr('velocità e tono: solo sul telefono')}</span>}
-      </div>
+      <button className={`suona-toggle ${panel ? 'open' : ''}`} onClick={() => (setPanel(!panel), setPref('suona-panel', panel ? '0' : '1'))}>
+        <SlidersHorizontal /> {tr('Tracce, tono, accordi e scorrimento')}
+        <ChevronDown className="chev" />
+      </button>
+      {/* the separation is shown here too while the panel is closed */}
+      {!panel && store.deviceJob?.songId === song.id && <SplitJob compact />}
+      <div className={`suona-panel ${panel ? 'open' : ''}`}>
+        <div className="suona-panel-inner">
+          <Mixer songId={songId} mix={mix} onChange={update} />
 
-      {showChords && chords && (
-        <div className="chord-bar">
-          {key && <span className="key">{keyName(key, pitch, localeTag() === 'it-IT' ? 'it' : 'en')}</span>}
-          <span className="capo">
-            <button onClick={() => (setCapo(Math.max(0, capo - 1)), setPref(`capo:${songId}`, String(Math.max(0, capo - 1))))} aria-label={tr('Capotasto giù')}>
-              <Minus />
+
+          <div className="chord-bar">
+            <span className="stepper-mini">
+              <button onClick={() => setPitch(pitch - 1)} aria-label={tr('Mezzo tono sotto')}>
+                <Minus />
+              </button>
+              <span>{tr('Tono')} {pitch > 0 ? `+${pitch}` : pitch || '0'}</span>
+              <button onClick={() => setPitch(pitch + 1)} aria-label={tr('Mezzo tono sopra')}>
+                <Plus />
+              </button>
+            </span>
+            <button className="more" onClick={() => setShowTempo(true)} aria-label={tr('BPM e count-in')}>
+              <SlidersHorizontal />
             </button>
-            {tr('Capo')} {capo || tr('no')}
-            <button onClick={() => (setCapo(Math.min(9, capo + 1)), setPref(`capo:${songId}`, String(Math.min(9, capo + 1))))} aria-label={tr('Capotasto su')}>
-              <Plus />
-            </button>
-          </span>
-          <button className={`simple ${simple ? 'on' : ''}`} onClick={() => (setSimple(!simple), setPref('chords-simple', simple ? '0' : '1'))}>
-            {tr('Semplici')}
-          </button>
+            {!isNative && <span className="muted small">{tr('velocità e tono: solo sul telefono')}</span>}
+          </div>
+
+          {showChords && chords && (
+            <div className="chord-bar">
+              {key && <span className="key">{keyName(key, pitch, localeTag() === 'it-IT' ? 'it' : 'en')}</span>}
+              <span className="capo">
+                <button onClick={() => (setCapo(Math.max(0, capo - 1)), setPref(`capo:${songId}`, String(Math.max(0, capo - 1))))} aria-label={tr('Capotasto giù')}>
+                  <Minus />
+                </button>
+                {tr('Capo')} {capo || tr('no')}
+                <button onClick={() => (setCapo(Math.min(9, capo + 1)), setPref(`capo:${songId}`, String(Math.min(9, capo + 1))))} aria-label={tr('Capotasto su')}>
+                  <Plus />
+                </button>
+              </span>
+              <button className={`simple ${simple ? 'on' : ''}`} onClick={() => (setSimple(!simple), setPref('chords-simple', simple ? '0' : '1'))}>
+                {tr('Semplici')}
+              </button>
+            </div>
+          )}
+
+          <div className="scroll-mode">
+            <span className="muted small">{tr('Scorrimento')}</span>
+            <div className="seg">
+              <button className={scrollMode === 'follow' ? 'active' : ''} onClick={() => (setScrollMode('follow'), setPref('scroll-mode', 'follow'))}>
+                {tr('Segue il testo')}
+              </button>
+              <button className={scrollMode === 'auto' ? 'active' : ''} onClick={() => (setScrollMode('auto'), setPref('scroll-mode', 'auto'))}>
+                {tr('Automatico')}
+              </button>
+            </div>
+            {scrollMode === 'auto' && (
+              <label className="radius-row">
+                <input
+                  type="range"
+                  min={5}
+                  max={120}
+                  step={5}
+                  value={scrollSpeed}
+                  onChange={(e) => (setScrollSpeed(Number(e.target.value)), setPref('scroll-speed', e.target.value))}
+                  aria-label={tr('Velocità dello scorrimento')}
+                />
+                <span>{tr('vel.')} {Math.round(scrollSpeed / 5)}</span>
+              </label>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       <div className={`lyrics-body ${showChords ? 'with-chords' : ''}`} ref={box}>
         {showChords && pct !== null && (

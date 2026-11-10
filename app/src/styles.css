@@ -4431,3 +4431,63 @@ button.concert {
 .lyrics-body::before {
   display: none;
 }
+
+/* Suona: the musical settings fold down from the top (screens/Lyrics.tsx) */
+.suona-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 0.22);
+  border: 0;
+  color: #fff;
+  font-size: 14px;
+}
+.suona-toggle .lucide {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.suona-toggle .chev {
+  margin-left: auto;
+  transition: transform 0.25s;
+}
+.suona-toggle.open .chev {
+  transform: rotate(180deg);
+}
+.suona-panel {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.suona-panel.open {
+  grid-template-rows: 1fr;
+}
+.suona-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.suona-panel.open .suona-panel-inner {
+  padding: 6px 0 4px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.scroll-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 2px;
+}
+/* automatic scrolling: the whole text lit, it moves by itself */
+.auto-scroll .lyric,
+.auto-scroll .lyric.past,
+.auto-scroll .lyric.chorded {
+  color: #fff;
+}
