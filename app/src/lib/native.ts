@@ -95,7 +95,8 @@ export interface StemKitNativePlugin {
   locate(): Promise<{ lat: number; lon: number; name?: string; region?: string; country?: string }>
   openLocationSettings(): Promise<void>
   /** a song's memories: a photo taken now / picked from the gallery, saved under photos/<song>/ */
-  takePhoto(opts: { songId: string }): Promise<{ file: string; at: number }>
+  /** the phone's camera app; front: start on the front camera (when the app honours it) */
+  takePhoto(opts: { songId: string; front?: boolean }): Promise<{ file: string; at: number }>
   /** place: where the photo was taken, when the phone wrote it in the photo */
   pickPhoto(opts: { songId: string }): Promise<{ file: string; at: number; place?: { name?: string; lat: number; lon: number } }>
   savePhotoData(opts: { songId: string; data: string }): Promise<{ file: string; at: number }>

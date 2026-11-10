@@ -230,6 +230,8 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Prima la foto dietro, poi quella davanti (se riparte dietro, girala col pulsante della fotocamera).": "First the back photo, then the front one (if it opens on the back again, flip it with the camera's button).",
+  "Una foto con la fotocamera del telefono.": "A photo with the phone's camera.",
   "Aggiungi un ricordo": "Add a memory",
   "Scatta (davanti e dietro)": "Take a photo (front and back)",
   "Nessuna foto: aggiungine una.": "No photos: add one.",

@@ -4849,3 +4849,24 @@ button.concert {
 .photo-place-add {
   align-self: flex-start;
 }
+.dcam-start {
+  padding: 24px;
+  text-align: center;
+  color: rgb(255 255 255 / 0.85);
+  max-width: 420px;
+}
+.dcam-err-inline {
+  color: #fca5a5;
+  font-size: 14px;
+  margin: 8px 0 0;
+}
+.dcam-shutter {
+  display: grid;
+  place-items: center;
+  color: #000;
+}
+.dcam-shutter .lucide {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+}

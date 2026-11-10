@@ -46,7 +46,8 @@ import java.util.concurrent.Executors;
     permissions = {
         @Permission(strings = {Manifest.permission.POST_NOTIFICATIONS}, alias = "notifications"),
         @Permission(strings = {Manifest.permission.RECORD_AUDIO}, alias = "microphone"),
-        @Permission(strings = {Manifest.permission.ACCESS_COARSE_LOCATION}, alias = "location")
+        @Permission(strings = {Manifest.permission.ACCESS_COARSE_LOCATION}, alias = "location"),
+        @Permission(strings = {Manifest.permission.CAMERA}, alias = "camera")
     }
 )
 public class StemKitNativePlugin extends Plugin {
@@ -731,9 +732,27 @@ public class StemKitNativePlugin extends Plugin {
 
     // ---------------------------------------------------------- a song's photos (memories, in the player)
 
-    /** a photo taken now, for a song: {file: "photos/<song>/<time>.jpg", at} */
+    /**
+     * A photo taken now with the phone's camera app (its zoom, its quality), for a song:
+     * {file: "photos/<song>/<time>.jpg", at}. front: ask it to start on the front camera.
+     */
     @PluginMethod
     public void takePhoto(PluginCall call) {
+        // the app declares CAMERA (for the WebView): then Android wants it granted for the camera app too
+        if (getPermissionState("camera") != PermissionState.GRANTED) {
+            requestPermissionForAlias("camera", call, "afterCameraPermission");
+            return;
+        }
+        launchCamera(call);
+    }
+
+    @PermissionCallback
+    private void afterCameraPermission(PluginCall call) {
+        if (getPermissionState("camera") != PermissionState.GRANTED) call.reject("Serve il permesso della fotocamera");
+        else launchCamera(call);
+    }
+
+    private void launchCamera(PluginCall call) {
         try {
             File f = newPhotoFile(call.getString("songId", ""));
             // kept in the call: the camera app may outlive this process
@@ -742,6 +761,13 @@ public class StemKitNativePlugin extends Plugin {
             Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
                 .putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
                 .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (Boolean.TRUE.equals(call.getBoolean("front", false))) {
+                // not standard: each camera app reads one of these (or none, and you flip it yourself)
+                i.putExtra("android.intent.extras.CAMERA_FACING", 1);
+                i.putExtra("android.intent.extras.LENS_FACING_FRONT", 1);
+                i.putExtra("android.intent.extra.USE_FRONT_CAMERA", true);
+                i.putExtra("com.google.assistant.extra.USE_FRONT_CAMERA", true);
+            }
             startActivityForResult(call, i, "onPhotoTaken");
         } catch (Exception e) {
             call.reject("Fotocamera non disponibile: " + e.getMessage());

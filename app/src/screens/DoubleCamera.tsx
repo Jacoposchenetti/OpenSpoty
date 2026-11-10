@@ -1,15 +1,17 @@
-import { ArrowLeftRight, ChevronDown, SwitchCamera } from 'lucide-react'
+import { ArrowLeftRight, Camera, ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useBackHandler } from '../components/ui'
 import { errMsg } from '../lib/format'
 import { t } from '../lib/i18n'
 import { nameParts } from '../lib/media'
 import { StemKitNative } from '../lib/native'
+import { fileUrl } from '../lib/storage'
+import { Directory, Filesystem } from '@capacitor/filesystem'
 import type { Song } from '../lib/types'
 
-/* The camera of a song's memories, like BeReal: the back camera, then (a moment to
-   pose) the front one — two cameras at once work on few phones — and a template
-   puts them together. "Una sola" takes a single photo. */
+/* The camera of a song's memories, like BeReal: the phone's own camera app (its
+   zoom, its quality) for the back photo, then again for the front one; a template
+   puts them together. "Una sola" keeps a single photo. */
 
 type Template = 'corner' | 'circle' | 'split' | 'side' | 'back' | 'front'
 const TEMPLATES: Array<[Template, string]> = [
@@ -79,16 +81,24 @@ function compose(back: HTMLCanvasElement | null, front: HTMLCanvasElement | null
   return c
 }
 
-/** a frame of the video, as a canvas */
-function grab(v: HTMLVideoElement): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = v.videoWidth
-  c.height = v.videoHeight
-  c.getContext('2d')!.drawImage(v, 0, 0)
-  return c
+/** a saved photo, as a canvas (to put it in a template) */
+function load(file: string): Promise<HTMLCanvasElement> {
+  return new Promise((ok, fail) => {
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      c.getContext('2d')!.drawImage(img, 0, 0)
+      ok(c)
+    }
+    img.onerror = () => fail(new Error('foto non leggibile'))
+    img.src = fileUrl(file) ?? ''
+  })
 }
 
 const PLACE_KEY = 'stemkit:photo-place'
+const MODE_KEY = 'stemkit:photo-double'
 
 export function DoubleCamera({
   song,
@@ -101,12 +111,15 @@ export function DoubleCamera({
   onClose: () => void
 }) {
   useBackHandler(onClose)
-  const video = useRef<HTMLVideoElement>(null)
-  const stream = useRef<MediaStream | null>(null)
-  const [facing, setFacing] = useState<'environment' | 'user'>('environment')
-  const [double, setDouble] = useState(true)
-  const [phase, setPhase] = useState<'live' | 'second' | 'review'>('live')
-  const [count, setCount] = useState(0)
+  const [double, setDouble] = useState(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) !== '0'
+    } catch {
+      return true
+    }
+  })
+  const [phase, setPhase] = useState<'start' | 'review'>('start')
+  const [files, setFiles] = useState<{ back?: string; front?: string }>({})
   const [shots, setShots] = useState<{ back: HTMLCanvasElement | null; front: HTMLCanvasElement | null }>({ back: null, front: null })
   const [tpl, setTpl] = useState<Template>(() => {
     try {
@@ -117,7 +130,7 @@ export function DoubleCamera({
   })
   const [swap, setSwap] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [withPlace, setWithPlace] = useState(() => {
     try {
       return localStorage.getItem(PLACE_KEY) !== '0'
@@ -127,59 +140,37 @@ export function DoubleCamera({
   })
   const preview = useRef<HTMLCanvasElement>(null)
 
-  const stop = () => {
-    stream.current?.getTracks().forEach((x) => x.stop())
-    stream.current = null
+  const drop = (f?: string) => {
+    if (f) void Filesystem.deleteFile({ path: f, directory: Directory.Data }).catch(() => undefined)
   }
-  const open = async (f: 'environment' | 'user') => {
-    stop()
+  const shoot = async () => {
+    setErr(null)
+    setBusy(true)
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: f, width: { ideal: 1920 }, height: { ideal: 1440 } }, audio: false })
-      stream.current = s
-      if (video.current) {
-        video.current.srcObject = s
-        await video.current.play().catch(() => undefined)
-      }
-      setErr(null)
+      localStorage.setItem(MODE_KEY, double ? '1' : '0')
+    } catch {
+      /* private mode */
+    }
+    try {
+      const back = await StemKitNative.takePhoto({ songId: song.id })
+      // the front one: cancelled, one photo is fine
+      const front = double ? await StemKitNative.takePhoto({ songId: song.id, front: true }).catch(() => null) : null
+      setFiles({ back: back.file, front: front?.file })
+      setShots({ back: await load(back.file), front: front ? await load(front.file) : null })
+      if (!front) setTpl('back')
+      else if (tpl === 'back' || tpl === 'front') setTpl('corner')
+      setPhase('review')
     } catch (e) {
-      setErr(e instanceof Error && e.name === 'NotAllowedError' ? t('Serve il permesso della fotocamera') : t('Fotocamera non disponibile'))
+      const m = errMsg(e)
+      if (m !== 'Annullato') setErr(m)
+    } finally {
+      setBusy(false)
     }
   }
   useEffect(() => {
-    void open('environment')
-    return stop
+    void shoot() // straight to the camera, like the phone's
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const ready = () => !!video.current && video.current.videoWidth > 0
-  const shoot = async () => {
-    if (!ready()) return
-    const first = grab(video.current!)
-    const wasBack = facing === 'environment'
-    if (!double) {
-      setShots(wasBack ? { back: first, front: null } : { back: null, front: first })
-      setTpl(wasBack ? 'back' : 'front')
-      stop()
-      setPhase('review')
-      return
-    }
-    // the other camera, after a moment to pose
-    const other = wasBack ? 'user' : 'environment'
-    setPhase('second')
-    setFacing(other)
-    await open(other)
-    for (let n = 3; n > 0; n--) {
-      setCount(n)
-      await new Promise((r) => setTimeout(r, 700))
-    }
-    setCount(0)
-    await new Promise((r) => setTimeout(r, 150))
-    const second = ready() ? grab(video.current!) : null
-    setShots(wasBack ? { back: first, front: second } : { back: second, front: first })
-    if (tpl === 'back' || tpl === 'front') setTpl('corner')
-    stop()
-    setPhase('review')
-  }
 
   // the review: the template drawn as you pick it
   useEffect(() => {
@@ -192,7 +183,7 @@ export function DoubleCamera({
   }, [phase, shots, tpl, swap])
 
   const save = async () => {
-    setSaving(true)
+    setBusy(true)
     try {
       localStorage.setItem(TPL_KEY, tpl)
       localStorage.setItem(PLACE_KEY, withPlace ? '1' : '0')
@@ -200,26 +191,38 @@ export function DoubleCamera({
       /* private mode */
     }
     try {
-      const data = compose(shots.back, shots.front, tpl, swap).toDataURL('image/jpeg', 0.88)
-      onDone(await StemKitNative.savePhotoData({ songId: song.id, data }), withPlace)
+      // one photo as it is (no re-compression); two in their template
+      if (!shots.front && files.back && tpl === 'back') return onDone({ file: files.back, at: Date.now() }, withPlace)
+      const data = compose(shots.back, shots.front, tpl, swap).toDataURL('image/jpeg', 0.9)
+      const saved = await StemKitNative.savePhotoData({ songId: song.id, data })
+      drop(files.back)
+      drop(files.front)
+      onDone(saved, withPlace)
     } catch (e) {
       setErr(errMsg(e))
-      setSaving(false)
+      setBusy(false)
     }
   }
+  const close = () => {
+    drop(files.back)
+    drop(files.front)
+    onClose()
+  }
   const again = () => {
+    drop(files.back)
+    drop(files.front)
+    setFiles({})
     setShots({ back: null, front: null })
     setSwap(false)
-    setFacing('environment')
-    setPhase('live')
-    void open('environment')
+    setPhase('start')
+    void shoot()
   }
   const both = !!shots.back && !!shots.front
 
   return (
     <div className="dcam">
       <header className="lyrics-full-head">
-        <button className="icon-btn" onClick={onClose} aria-label={t('Chiudi')}>
+        <button className="icon-btn" onClick={close} aria-label={t('Chiudi')}>
           <ChevronDown />
         </button>
         <span>
@@ -229,29 +232,24 @@ export function DoubleCamera({
         <span style={{ width: 44 }} />
       </header>
       <div className="dcam-view">
-        {phase !== 'review' && <video ref={video} playsInline muted className={facing === 'user' ? 'mirror' : ''} />}
-        {phase === 'review' && <canvas ref={preview} />}
-        {phase === 'second' && <div className="dcam-count">{count || ''}</div>}
-        {phase === 'second' && <div className="dcam-hint">{facing === 'user' ? t('Ora tu!') : t('Ora dietro!')}</div>}
-        {err && <p className="dcam-err">{err}</p>}
+        {phase === 'review' ? (
+          <canvas ref={preview} />
+        ) : (
+          <div className="dcam-start">
+            <p>{double ? t('Prima la foto dietro, poi quella davanti (se riparte dietro, girala col pulsante della fotocamera).') : t('Una foto con la fotocamera del telefono.')}</p>
+            {err && <p className="dcam-err-inline">{err}</p>}
+          </div>
+        )}
       </div>
-      {phase === 'live' && (
+      {phase === 'start' && (
         <footer className="dcam-bar">
           <button className={`dcam-mode ${double ? 'on' : ''}`} onClick={() => setDouble(!double)}>
             {double ? t('Doppia') : t('Una sola')}
           </button>
-          <button className="dcam-shutter" onClick={() => void shoot()} aria-label={t('Scatta')} />
-          <button
-            className="dcam-mode"
-            onClick={() => {
-              const f = facing === 'environment' ? 'user' : 'environment'
-              setFacing(f)
-              void open(f)
-            }}
-            aria-label={t('Cambia fotocamera')}
-          >
-            <SwitchCamera />
+          <button className="dcam-shutter" disabled={busy} onClick={() => void shoot()} aria-label={t('Scatta')}>
+            <Camera />
           </button>
+          <span style={{ minWidth: 96 }} />
         </footer>
       )}
       {phase === 'review' && (
@@ -274,9 +272,10 @@ export function DoubleCamera({
             <span>{t('Aggiungi dove sono adesso')}</span>
             <input type="checkbox" checked={withPlace} onChange={(e) => setWithPlace(e.target.checked)} />
           </label>
+          {err && <p className="dcam-err-inline">{err}</p>}
           <div className="dcam-actions">
             <button onClick={again}>{t('Rifai')}</button>
-            <button className="primary" disabled={saving} onClick={() => void save()}>
+            <button className="primary" disabled={busy} onClick={() => void save()}>
               {t('Salva nei ricordi')}
             </button>
           </div>
