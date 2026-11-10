@@ -1,4 +1,4 @@
-import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3, Users, Clapperboard } from 'lucide-react'
+import { ArrowRightLeft, AudioLines, Check, ChevronLeft, CircleArrowDown, Download, EllipsisVertical, Heart, MicVocal, ListEnd, ListMusic, ListPlus, Music, NotebookPen, Pause, Pencil, Play, Plus, Shuffle, SlidersVertical, Trash2, X, Share2, Disc3, Users, Clapperboard, Images } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { PromptSheet, Sheet, SongThumb, SortableList, Spinner, StemDots, useBackHandler } from '../components/ui'
 import { engine } from '../lib/engine'
@@ -434,7 +434,7 @@ export function SongMenu({
   index: number
   playlist: Playlist | null
   onClose: () => void
-  extra?: { onNotes: () => void; onQueue: () => void; video: { on: boolean; toggle: () => void } }
+  extra?: { onNotes: () => void; onQueue: () => void; video: { on: boolean; toggle: () => void }; memories: { hidden: boolean; toggle: () => void } }
 }) {
   const store = useStore()
   const openArtist = useOpenArtist()
@@ -534,6 +534,11 @@ export function SongMenu({
       {extra && (
         <button onClick={extra.video.toggle}>
           <Clapperboard /> {extra.video.on ? t('Video: attivo (tocca per spegnerlo)') : t('Video: spento (tocca per accenderlo)')}
+        </button>
+      )}
+      {extra && (
+        <button onClick={extra.memories.toggle}>
+          <Images /> {extra.memories.hidden ? t('Ricordi: nascosti (tocca per mostrarli)') : t('Ricordi: visibili (tocca per nasconderli)')}
         </button>
       )}
       {extra && (

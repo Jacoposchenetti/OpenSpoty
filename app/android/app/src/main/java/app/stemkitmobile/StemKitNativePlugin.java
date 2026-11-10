@@ -96,6 +96,27 @@ public class StemKitNativePlugin extends Plugin {
         }
     }
 
+    /** {lat, lon, name?} of a point (a photo's), named by Android's geocoder when it can */
+    @SuppressWarnings("deprecation")
+    private JSObject placeOf(double lat, double lon) {
+        JSObject p = new JSObject();
+        p.put("lat", Math.round(lat * 10000) / 10000.0);
+        p.put("lon", Math.round(lon * 10000) / 10000.0);
+        try {
+            if (android.location.Geocoder.isPresent()) {
+                java.util.List<android.location.Address> a = new android.location.Geocoder(getContext(), java.util.Locale.getDefault()).getFromLocation(lat, lon, 1);
+                if (a != null && !a.isEmpty()) {
+                    android.location.Address x = a.get(0);
+                    String town = x.getLocality() != null ? x.getLocality() : x.getSubAdminArea();
+                    String name = town != null ? town + (x.getCountryName() != null ? ", " + x.getCountryName() : "") : x.getCountryName();
+                    if (name != null) p.put("name", name);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return p;
+    }
+
     /** the place's name through Android's geocoder (its own service), when there is one */
     @SuppressWarnings("deprecation")
     private void answerPlace(PluginCall call, android.location.Location loc) {
@@ -740,6 +761,27 @@ public class StemKitNativePlugin extends Plugin {
         io.execute(() -> answerPhoto(call, f, null));
     }
 
+    /** a photo composed in the app (the double camera): {data: base64 JPEG} saved for the song */
+    @PluginMethod
+    public void savePhotoData(PluginCall call) {
+        String b64 = call.getString("data", "");
+        String songId = call.getString("songId", "");
+        io.execute(() -> {
+            try {
+                File f = newPhotoFile(songId);
+                try (OutputStream os = new FileOutputStream(f)) {
+                    os.write(android.util.Base64.decode(b64.replaceFirst("^data:[^,]*,", ""), android.util.Base64.DEFAULT));
+                }
+                JSObject r = new JSObject();
+                r.put("file", f.getAbsolutePath().substring(getContext().getFilesDir().getAbsolutePath().length() + 1));
+                r.put("at", System.currentTimeMillis());
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject("Foto non salvata: " + e.getMessage());
+            }
+        });
+    }
+
     /** a photo from the phone's gallery, for a song */
     @PluginMethod
     public void pickPhoto(PluginCall call) {
@@ -784,8 +826,11 @@ public class StemKitNativePlugin extends Plugin {
                 data = b.toByteArray();
             }
             int rotate = 0;
+            float[] where = null;
             try {
                 android.media.ExifInterface ex = new android.media.ExifInterface(new java.io.ByteArrayInputStream(data));
+                float[] ll = new float[2];
+                if (ex.getLatLong(ll) && (ll[0] != 0 || ll[1] != 0)) where = ll; // where the photo was taken, if the phone noted it
                 switch (ex.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
                     case android.media.ExifInterface.ORIENTATION_ROTATE_90: rotate = 90; break;
                     case android.media.ExifInterface.ORIENTATION_ROTATE_180: rotate = 180; break;
@@ -815,6 +860,7 @@ public class StemKitNativePlugin extends Plugin {
             JSObject r = new JSObject();
             r.put("file", rel);
             r.put("at", System.currentTimeMillis());
+            if (where != null) r.put("place", placeOf(where[0], where[1]));
             call.resolve(r);
         } catch (Exception e) {
             //noinspection ResultOfMethodCallIgnored

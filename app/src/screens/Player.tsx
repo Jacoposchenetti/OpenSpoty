@@ -17,7 +17,7 @@ import { localeTag, t as tr } from '../lib/i18n'
 import { useHostedJam } from '../lib/jam'
 import { JamSheet } from './Jam'
 import { LyricsCard } from './LyricsCard'
-import { PhotoStack, usePhotoActions } from './Photos'
+import { PhotoAdd, PhotoStack, setMemoriesHidden, useMemoriesHidden } from './Photos'
 import { setVideoOn, songVideo, useVideoOn } from '../lib/canvas'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
@@ -35,7 +35,8 @@ export function Player() {
   const scrubbing = useRef(false)
   const videoOn = useVideoOn()
   const cover = useCoverVideo(song)
-  const photoActs = usePhotoActions(song ?? ({ id: '', title: '', duration: 0, stems: [], files: {}, source: 'device', addedAt: 0 } as Song))
+  const memoriesHidden = useMemoriesHidden()
+  const [addPhoto, setAddPhoto] = useState(false)
   // tapping the video hides the controls and the lyrics, as on Spotify (title and bar stay)
   const [immersive, setImmersive] = useState(false)
   useEffect(() => setImmersive(false), [song?.id, cover.shown])
@@ -90,9 +91,10 @@ export function Player() {
           <div className="sub">{ctx.fromQueue ? tr('Dalla coda') : song.episode ? 'Podcast' : tr('In riproduzione da')}</div>
           <div className="title">{ctx.fromQueue ? '' : ctx.contextName || tr('In riproduzione')}</div>
         </div>
-        {!song.episode && isNative && (
-          <button className="head-cam" onClick={() => void photoActs.add('camera')} aria-label={tr('Scatta una foto per questa canzone')}>
+        {!song.episode && isNative && !memoriesHidden && (
+          <button className="head-pill" onClick={() => setAddPhoto(true)} aria-label={tr('Aggiungi un ricordo a questa canzone')}>
             <Camera />
+            <small>{tr('Ricordi')}</small>
           </button>
         )}
         {!song.episode && (
@@ -114,7 +116,8 @@ export function Player() {
           extra={{
             onNotes: () => (setMenu(false), setShowNotes(true)),
             onQueue: () => (setMenu(false), setShowQueue(true)),
-            video: { on: videoOn, toggle: () => (setMenu(false), setVideoOn(!videoOn)) }
+            video: { on: videoOn, toggle: () => (setMenu(false), setVideoOn(!videoOn)) },
+            memories: { hidden: memoriesHidden, toggle: () => (setMenu(false), setMemoriesHidden(!memoriesHidden)) }
           }}
         />
       )}
@@ -133,7 +136,8 @@ export function Player() {
       )}
       {pb.error && <div className="notice error">{pb.error}</div>}
 
-      {isNative && !song.episode && <PhotoStack song={song} />}
+      {isNative && !song.episode && !memoriesHidden && <PhotoStack song={song} />}
+      {addPhoto && <PhotoAdd song={song} onClose={() => setAddPhoto(false)} />}
       <div className="listen" onClick={() => cover.shown && setImmersive(!immersive)}>
         {/* with the video behind, its place stays empty (as on Spotify) */}
         <span style={{ visibility: cover.shown ? 'hidden' : undefined }}>

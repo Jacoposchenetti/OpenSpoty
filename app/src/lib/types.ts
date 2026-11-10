@@ -32,6 +32,8 @@ export interface SongPhoto {
   file: string // photos/<song>/<time>.jpg
   at: number
   note?: string
+  /** where it was taken (read from the photo, your position, or typed) */
+  place?: { name?: string; lat?: number; lon?: number }
 }
 
 export interface Song {

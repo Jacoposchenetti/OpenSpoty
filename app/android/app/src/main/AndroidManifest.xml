@@ -81,6 +81,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- "Concerti vicino a te" → "La tua posizione": a city's worth is enough -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- the in-app camera of a song's memories (front + back, screens/Photos.tsx) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />

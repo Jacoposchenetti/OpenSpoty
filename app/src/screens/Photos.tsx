@@ -1,8 +1,8 @@
 import { Directory, Filesystem } from '@capacitor/filesystem'
-import { Camera, ChevronDown, ImagePlus, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { Camera, ChevronDown, ImagePlus, LocateFixed, MapPin, Trash2 } from 'lucide-react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { useBackHandler } from '../components/ui'
+import { Sheet, useBackHandler } from '../components/ui'
 import { errMsg } from '../lib/format'
 import { localeTag, t } from '../lib/i18n'
 import { nameParts } from '../lib/media'
@@ -10,12 +10,44 @@ import { StemKitNative } from '../lib/native'
 import { fileUrl } from '../lib/storage'
 import type { Song, SongPhoto } from '../lib/types'
 import { useStore } from '../store'
+import { DoubleCamera } from './DoubleCamera'
 
-/* Memories: photos taken with a song (the camera next to "Suona"). A stack of
-   them floats over the player, wherever you drag it; a tap opens them all,
-   newest first, each with its date and a note. */
+/* Memories: photos with a song (the camera next to "Suona": a shot, or one from
+   the gallery). A stack of them floats over the player, wherever you drag it; a tap
+   opens them all, newest first, each with its date, a note and where it was taken.
+   They can be hidden from the player's ⋮. */
 
 const POS_KEY = 'stemkit:photo-pos'
+const HIDE_KEY = 'stemkit:memories-hidden'
+
+/* ------------------------------------------------------------ shown or hidden */
+
+const subs = new Set<() => void>()
+let hidden = (() => {
+  try {
+    return localStorage.getItem(HIDE_KEY) === '1'
+  } catch {
+    return false
+  }
+})()
+
+export function setMemoriesHidden(v: boolean) {
+  hidden = v
+  try {
+    localStorage.setItem(HIDE_KEY, v ? '1' : '0')
+  } catch {
+    /* private mode */
+  }
+  subs.forEach((f) => f())
+}
+
+export const useMemoriesHidden = () =>
+  useSyncExternalStore(
+    (f) => (subs.add(f), () => subs.delete(f)),
+    () => hidden
+  )
+
+/* ------------------------------------------------------------ the photos of a song */
 
 function loadPos(): { x: number; y: number } {
   try {
@@ -27,19 +59,22 @@ function loadPos(): { x: number; y: number } {
   return { x: 0.78, y: 0.2 }
 }
 
-/** add a photo to the song (kept in the library: a memory is worth keeping) */
+/** the song's photos, kept with it (a song with memories stays in the library) */
 export function usePhotoActions(song: Song) {
   const store = useStore()
+  const current = () => store.getSong(song.id)?.photos ?? song.photos ?? []
   const save = (photos: SongPhoto[]) => {
     if (store.songs.some((s) => s.id === song.id)) store.updateSong(song.id, { photos })
     else store.addToLibrary({ ...song, photos }, true)
   }
-  const current = () => store.getSong(song.id)?.photos ?? song.photos ?? []
-  const add = async (how: 'camera' | 'gallery') => {
+  const added = (p: SongPhoto) => {
+    save([p, ...current()])
+    store.showToast(t('Foto aggiunta ai ricordi di questa canzone'))
+  }
+  const fromGallery = async () => {
     try {
-      const p = how === 'camera' ? await StemKitNative.takePhoto({ songId: song.id }) : await StemKitNative.pickPhoto({ songId: song.id })
-      save([{ file: p.file, at: p.at }, ...current()])
-      store.showToast(t('Foto aggiunta ai ricordi di questa canzone'))
+      const p = await StemKitNative.pickPhoto({ songId: song.id })
+      added({ file: p.file, at: p.at, place: p.place })
     } catch (e) {
       const m = errMsg(e)
       if (m !== 'Annullato') store.showToast(m)
@@ -49,8 +84,47 @@ export function usePhotoActions(song: Song) {
     save(current().filter((p) => p.file !== file))
     await Filesystem.deleteFile({ path: file, directory: Directory.Data }).catch(() => undefined)
   }
-  const note = (file: string, text: string) => save(current().map((p) => (p.file === file ? { ...p, note: text.trim() || undefined } : p)))
-  return { add, remove, note }
+  const patch = (file: string, x: Partial<SongPhoto>) => save(current().map((p) => (p.file === file ? { ...p, ...x } : p)))
+  return { added, fromGallery, remove, patch }
+}
+
+/** where you are now, for a photo ({name, lat, lon}); null if it can't be found */
+async function here(): Promise<SongPhoto['place'] | null> {
+  try {
+    const p = await StemKitNative.locate()
+    return { name: [p.name, p.region].filter(Boolean).join(', ') || undefined, lat: p.lat, lon: p.lon }
+  } catch {
+    return null
+  }
+}
+
+/** the camera button: take a photo (front and back) or pick one from the gallery */
+export function PhotoAdd({ song, onClose }: { song: Song; onClose: () => void }) {
+  const act = usePhotoActions(song)
+  const [camera, setCamera] = useState(false)
+  if (camera) {
+    return createPortal(
+      <DoubleCamera
+        song={song}
+        onDone={async (p, withPlace) => {
+          act.added({ file: p.file, at: p.at, place: withPlace ? ((await here()) ?? undefined) : undefined })
+          onClose()
+        }}
+        onClose={onClose}
+      />,
+      document.body
+    )
+  }
+  return (
+    <Sheet title={t('Aggiungi un ricordo')} onClose={onClose}>
+      <button onClick={() => setCamera(true)}>
+        <Camera /> {t('Scatta (davanti e dietro)')}
+      </button>
+      <button onClick={() => void act.fromGallery().then(onClose)}>
+        <ImagePlus /> {t('Dalla galleria')}
+      </button>
+    </Sheet>
+  )
 }
 
 /** the stack over the player: drag it anywhere, tap it to open the photos */
@@ -61,7 +135,6 @@ export function PhotoStack({ song }: { song: Song }) {
   const drag = useRef<{ x0: number; y0: number; moved: boolean; box: DOMRect } | null>(null)
   if (!photos.length) return null
   const top = photos[0]
-  const src = fileUrl(top.file) ?? ''
   const down = (e: React.PointerEvent<HTMLButtonElement>) => {
     const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
     drag.current = { x0: e.clientX, y0: e.clientY, moved: false, box }
@@ -100,7 +173,7 @@ export function PhotoStack({ song }: { song: Song }) {
         {photos.length > 2 && <span className="photo-card back2" />}
         {photos.length > 1 && <span className="photo-card back1" />}
         <span className="photo-card front">
-          <img src={src} alt="" draggable={false} />
+          <img src={fileUrl(top.file) ?? ''} alt="" draggable={false} />
         </span>
         {photos.length > 1 && <span className="photo-count">{photos.length}</span>}
       </button>
@@ -109,7 +182,7 @@ export function PhotoStack({ song }: { song: Song }) {
   )
 }
 
-/** every photo of the song, newest first, with its date and a note */
+/** every photo of the song, newest first, with its date, a note and where it was taken */
 function PhotoGallery({ song, onClose }: { song: Song; onClose: () => void }) {
   useBackHandler(onClose)
   const store = useStore()
@@ -117,8 +190,14 @@ function PhotoGallery({ song, onClose }: { song: Song; onClose: () => void }) {
   const photos = live.photos ?? []
   const act = usePhotoActions(live)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [placing, setPlacing] = useState<SongPhoto | null>(null)
+  const [adding, setAdding] = useState(false)
   const when = new Intl.DateTimeFormat(localeTag(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const { name, artist } = nameParts(song.title)
+  const mapUrl = (p: NonNullable<SongPhoto['place']>) =>
+    p.lat !== undefined && p.lon !== undefined
+      ? `https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lon}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name ?? '')}`
   return (
     <div className="photo-gallery">
       <header className="lyrics-full-head">
@@ -135,17 +214,32 @@ function PhotoGallery({ song, onClose }: { song: Song; onClose: () => void }) {
         <span style={{ width: 44 }} />
       </header>
       <div className="photo-list">
-        {!photos.length && <p className="muted center">{t('Nessuna foto: scattane una.')}</p>}
+        {!photos.length && <p className="muted center">{t('Nessuna foto: aggiungine una.')}</p>}
         {photos.map((p) => (
           <figure key={p.file} className="photo-item">
             <img src={fileUrl(p.file) ?? ''} alt="" loading="lazy" />
             <figcaption>
               <span className="photo-date">{when.format(new Date(p.at))}</span>
+              {p.place ? (
+                <span className="photo-place">
+                  <MapPin />
+                  <a href={mapUrl(p.place)} target="_blank" rel="noopener noreferrer">
+                    {p.place.name || t('Posizione sulla mappa')}
+                  </a>
+                  <button className="link" onClick={() => setPlacing(p)}>
+                    {t('Cambia')}
+                  </button>
+                </span>
+              ) : (
+                <button className="link photo-place-add" onClick={() => setPlacing(p)}>
+                  <MapPin /> {t('Aggiungi il luogo')}
+                </button>
+              )}
               <textarea
                 defaultValue={p.note ?? ''}
-                placeholder={t('Aggiungi una nota (dove, con chi…)')}
+                placeholder={t('Aggiungi una nota (con chi, cosa stava succedendo…)')}
                 rows={2}
-                onBlur={(e) => e.target.value !== (p.note ?? '') && act.note(p.file, e.target.value)}
+                onBlur={(e) => e.target.value !== (p.note ?? '') && act.patch(p.file, { note: e.target.value.trim() || undefined })}
               />
               {deleting === p.file ? (
                 <span className="photo-del">
@@ -164,13 +258,45 @@ function PhotoGallery({ song, onClose }: { song: Song; onClose: () => void }) {
         ))}
       </div>
       <footer className="photo-actions">
-        <button className="primary" onClick={() => void act.add('camera')}>
-          <Camera /> {t('Scatta')}
-        </button>
-        <button onClick={() => void act.add('gallery')}>
-          <ImagePlus /> {t('Dalla galleria')}
+        <button className="primary" onClick={() => setAdding(true)}>
+          <Camera /> {t('Aggiungi un ricordo')}
         </button>
       </footer>
+      {adding && <PhotoAdd song={live} onClose={() => setAdding(false)} />}
+      {placing && <PlaceSheet photo={placing} onSave={(place) => act.patch(placing.file, { place })} onClose={() => setPlacing(null)} />}
     </div>
+  )
+}
+
+/** where a photo was taken: typed, or where you are now */
+function PlaceSheet({ photo, onSave, onClose }: { photo: SongPhoto; onSave: (p: SongPhoto['place']) => void; onClose: () => void }) {
+  const [name, setName] = useState(photo.place?.name ?? '')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const now = async () => {
+    setBusy(true)
+    setErr(null)
+    const p = await here()
+    setBusy(false)
+    if (!p) return setErr(t('Posizione non trovata: scrivi il luogo.'))
+    onSave(p)
+    onClose()
+  }
+  return (
+    <Sheet title={t('Dove è stata scattata')} onClose={onClose}>
+      <button onClick={() => void now()} disabled={busy}>
+        <LocateFixed /> {busy ? t('Cerco la tua posizione…') : t('Dove sono adesso')}
+      </button>
+      <input value={name} placeholder={t('Oppure scrivi il luogo (es. Lucca Summer Festival)')} onChange={(e) => setName(e.target.value)} />
+      <button className="primary" disabled={!name.trim()} onClick={() => (onSave({ name: name.trim() }), onClose())}>
+        {t('Salva')}
+      </button>
+      {photo.place && (
+        <button className="danger" onClick={() => (onSave(undefined), onClose())}>
+          {t('Togli il luogo')}
+        </button>
+      )}
+      {err && <p className="muted small">{err}</p>}
+    </Sheet>
   )
 }
