@@ -67,6 +67,11 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const [scrollMode, setScrollMode] = useState<'follow' | 'auto'>(pref('scroll-mode', 'auto') === 'follow' ? 'follow' : 'auto')
   const [scrollSpeed, setScrollSpeed] = useState(Number(pref('scroll-speed', '30')) || 30) // px per second
   const [scrollMenu, setScrollMenu] = useState(false)
+  const setScroll = (v: number) => {
+    const x = Math.max(5, Math.min(120, Math.round(v / 5) * 5))
+    setScrollSpeed(x)
+    setPref('scroll-speed', String(x))
+  }
   const pickScroll = (m: 'follow' | 'auto') => (setScrollMode(m), setPref('scroll-mode', m), setScrollMenu(false))
   const [alignErr, setAlignErr] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -219,15 +224,25 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       <div className="scroll-row">
         <span className="scroll-label">{tr('Scorrimento')}</span>
         {scrollMode === 'auto' ? (
-          <input
-            type="range"
-            min={5}
-            max={120}
-            step={5}
-            value={scrollSpeed}
-            onChange={(e) => (setScrollSpeed(Number(e.target.value)), setPref('scroll-speed', e.target.value))}
-            aria-label={tr('Velocità dello scorrimento')}
-          />
+          <>
+            <button className="step-btn" onClick={() => setScroll(scrollSpeed - 5)} disabled={scrollSpeed <= 5} aria-label={tr('Più lento')}>
+              <Minus />
+            </button>
+            <input
+              type="range"
+              min={5}
+              max={120}
+              step={5}
+              value={scrollSpeed}
+              onChange={(e) => setScroll(Number(e.target.value))}
+              aria-label={tr('Velocità dello scorrimento')}
+            />
+            <button className="step-btn" onClick={() => setScroll(scrollSpeed + 5)} disabled={scrollSpeed >= 120} aria-label={tr('Più veloce')}>
+              <Plus />
+            </button>
+            {/* 1..24: one step of the buttons each */}
+            <span className="scroll-value">{Math.round(scrollSpeed / 5)}</span>
+          </>
         ) : (
           <span className="scroll-follow">{tr('Segue il testo')}</span>
         )}

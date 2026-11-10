@@ -230,6 +230,7 @@ const en: Record<string, string> = {
   "Sposta su": "Move up",
   "Sposta giù": "Move down",
   "Apri la Jam": "Open the Jam",
+  "Più lento": "Slower",
   "Tipo di scorrimento": "Scrolling type",
   "Tutto il testo acceso, scorre da solo alla velocità della barra": "All the words lit, moving by themselves at the bar's speed",
   "Si accende la riga cantata e il testo la segue a piccoli scatti": "The sung line lights up and the words follow it in small steps",

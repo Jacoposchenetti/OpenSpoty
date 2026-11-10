@@ -4517,3 +4517,32 @@ button.concert {
   display: inline-block;
   width: 1em;
 }
+.scroll-row .step-btn {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 0.25);
+  border: 0;
+  color: #fff;
+}
+.scroll-row .step-btn .lucide {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+.scroll-row .step-btn:disabled {
+  opacity: 0.35;
+}
+.scroll-value {
+  flex: none;
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
