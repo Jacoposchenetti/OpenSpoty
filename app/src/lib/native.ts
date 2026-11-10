@@ -94,6 +94,9 @@ export interface StemKitNativePlugin {
   /** where the phone is, roughly, and the place's name (asks the permission); rejects 'permesso' / 'spenta' */
   locate(): Promise<{ lat: number; lon: number; name?: string; region?: string; country?: string }>
   openLocationSettings(): Promise<void>
+  /** a song's memories: a photo taken now / picked from the gallery, saved under photos/<song>/ */
+  takePhoto(opts: { songId: string }): Promise<{ file: string; at: number }>
+  pickPhoto(opts: { songId: string }): Promise<{ file: string; at: number }>
   /** the song's music video: a light video-only stream (player background) */
   musicVideo(opts: { title: string; artist: string; duration: number }): Promise<{ videoId: string; url: string; height: number; mime: string; duration: number }>
   separationStatus(): Promise<SeparationEvent | { state: 'idle' }>

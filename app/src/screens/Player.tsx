@@ -1,4 +1,4 @@
-import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, CircleCheck, CirclePlus, Heart, ListMusic, Users } from 'lucide-react'
+import { ChevronDown, Guitar, Minus, Pause, Play, Plus, Pointer, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, X, EllipsisVertical, Podcast as PodcastIcon, Share2, Camera, CircleCheck, CirclePlus, Heart, ListMusic, Users } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PromptSheet, Sheet, SongThumb, Spinner, useBackHandler } from '../components/ui'
@@ -17,6 +17,7 @@ import { localeTag, t as tr } from '../lib/i18n'
 import { useHostedJam } from '../lib/jam'
 import { JamSheet } from './Jam'
 import { LyricsCard } from './LyricsCard'
+import { PhotoStack, usePhotoActions } from './Photos'
 import { setVideoOn, songVideo, useVideoOn } from '../lib/canvas'
 
 /* Full-screen player: the stem mixer of the song that is playing. */
@@ -34,6 +35,7 @@ export function Player() {
   const scrubbing = useRef(false)
   const videoOn = useVideoOn()
   const cover = useCoverVideo(song)
+  const photoActs = usePhotoActions(song ?? ({ id: '', title: '', duration: 0, stems: [], files: {}, source: 'device', addedAt: 0 } as Song))
   // tapping the video hides the controls and the lyrics, as on Spotify (title and bar stay)
   const [immersive, setImmersive] = useState(false)
   useEffect(() => setImmersive(false), [song?.id, cover.shown])
@@ -88,6 +90,11 @@ export function Player() {
           <div className="sub">{ctx.fromQueue ? tr('Dalla coda') : song.episode ? 'Podcast' : tr('In riproduzione da')}</div>
           <div className="title">{ctx.fromQueue ? '' : ctx.contextName || tr('In riproduzione')}</div>
         </div>
+        {!song.episode && isNative && (
+          <button className="head-cam" onClick={() => void photoActs.add('camera')} aria-label={tr('Scatta una foto per questa canzone')}>
+            <Camera />
+          </button>
+        )}
         {!song.episode && (
           <button className="head-pill suona" onClick={() => setShowLyrics(true)} aria-label={tr('Suona')}>
             <Guitar />
@@ -126,6 +133,7 @@ export function Player() {
       )}
       {pb.error && <div className="notice error">{pb.error}</div>}
 
+      {isNative && !song.episode && <PhotoStack song={song} />}
       <div className="listen" onClick={() => cover.shown && setImmersive(!immersive)}>
         {/* with the video behind, its place stays empty (as on Spotify) */}
         <span style={{ visibility: cover.shown ? 'hidden' : undefined }}>

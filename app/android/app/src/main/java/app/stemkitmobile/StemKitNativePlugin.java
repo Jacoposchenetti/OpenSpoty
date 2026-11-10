@@ -708,6 +708,121 @@ public class StemKitNativePlugin extends Plugin {
         });
     }
 
+    // ---------------------------------------------------------- a song's photos (memories, in the player)
+
+    /** a photo taken now, for a song: {file: "photos/<song>/<time>.jpg", at} */
+    @PluginMethod
+    public void takePhoto(PluginCall call) {
+        try {
+            File f = newPhotoFile(call.getString("songId", ""));
+            // kept in the call: the camera app may outlive this process
+            call.getData().put("_file", f.getAbsolutePath());
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+                .putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
+                .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(call, i, "onPhotoTaken");
+        } catch (Exception e) {
+            call.reject("Fotocamera non disponibile: " + e.getMessage());
+        }
+    }
+
+    @ActivityCallback
+    private void onPhotoTaken(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        File f = new File(call.getString("_file", ""));
+        if (result.getResultCode() != Activity.RESULT_OK || !f.isFile() || f.length() == 0) {
+            //noinspection ResultOfMethodCallIgnored
+            f.delete();
+            call.reject("Annullato");
+            return;
+        }
+        io.execute(() -> answerPhoto(call, f, null));
+    }
+
+    /** a photo from the phone's gallery, for a song */
+    @PluginMethod
+    public void pickPhoto(PluginCall call) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        startActivityForResult(call, i, "onPhotoPicked");
+    }
+
+    @ActivityCallback
+    private void onPhotoPicked(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            call.reject("Annullato");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        io.execute(() -> {
+            try {
+                answerPhoto(call, newPhotoFile(call.getString("songId", "")), uri);
+            } catch (Exception e) {
+                call.reject("Foto non leggibile: " + e.getMessage());
+            }
+        });
+    }
+
+    private File newPhotoFile(String songId) {
+        File dir = new File(getContext().getFilesDir(), "photos/" + songId.replaceAll("[^\\w-]", "_"));
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        return new File(dir, System.currentTimeMillis() + ".jpg");
+    }
+
+    /** the photo, upright and at most 2048 px (a memory, not a print), as a JPEG in the song's folder */
+    private void answerPhoto(PluginCall call, File out, Uri from) {
+        try {
+            byte[] data;
+            try (InputStream in = from != null ? getContext().getContentResolver().openInputStream(from) : new FileInputStream(out)) {
+                if (in == null) throw new IllegalStateException("file non leggibile");
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                byte[] buf = new byte[1 << 16];
+                int n;
+                while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
+                data = b.toByteArray();
+            }
+            int rotate = 0;
+            try {
+                android.media.ExifInterface ex = new android.media.ExifInterface(new java.io.ByteArrayInputStream(data));
+                switch (ex.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) {
+                    case android.media.ExifInterface.ORIENTATION_ROTATE_90: rotate = 90; break;
+                    case android.media.ExifInterface.ORIENTATION_ROTATE_180: rotate = 180; break;
+                    case android.media.ExifInterface.ORIENTATION_ROTATE_270: rotate = 270; break;
+                    default:
+                }
+            } catch (Exception ignored) {
+            }
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            int sample = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 2048) sample *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = sample;
+            android.graphics.Bitmap bm = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length, o);
+            if (bm == null) throw new IllegalStateException("non è un'immagine");
+            if (rotate != 0) {
+                android.graphics.Matrix m = new android.graphics.Matrix();
+                m.postRotate(rotate);
+                bm = android.graphics.Bitmap.createBitmap(bm, 0, 0, bm.getWidth(), bm.getHeight(), m, true);
+            }
+            try (OutputStream os = new FileOutputStream(out)) {
+                bm.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, os);
+            }
+            String rel = out.getAbsolutePath().substring(getContext().getFilesDir().getAbsolutePath().length() + 1);
+            JSObject r = new JSObject();
+            r.put("file", rel);
+            r.put("at", System.currentTimeMillis());
+            call.resolve(r);
+        } catch (Exception e) {
+            //noinspection ResultOfMethodCallIgnored
+            out.delete();
+            call.reject("Foto non salvata: " + e.getMessage());
+        }
+    }
+
     // ---------------------------------------------------------- "Importa playlist" (PlaylistImport)
 
     /** a SoundCloud playlist / album: same shape as spotifyList */

@@ -4592,3 +4592,137 @@ button.concert {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* a song's memories (screens/Photos.tsx): the camera next to Suona, the stack over the player */
+.head-cam {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+}
+.head-cam .lucide {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+.player-main > .photo-stack {
+  position: absolute;
+  z-index: 3;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: none;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+}
+.photo-card {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+}
+.photo-card.front {
+  padding: 4px 4px 12px; /* a polaroid */
+  transform: rotate(-4deg);
+}
+.photo-card.front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 2px;
+  display: block;
+  pointer-events: none;
+}
+.photo-card.back1 {
+  transform: rotate(6deg) translate(6px, 2px);
+  background: #e8e8e8;
+}
+.photo-card.back2 {
+  transform: rotate(-12deg) translate(-6px, 4px);
+  background: #d6d6d6;
+}
+.photo-count {
+  position: absolute;
+  right: -8px;
+  top: -8px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.photo-gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+.photo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.photo-item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.photo-item img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+.photo-item figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.photo-item figcaption > .icon-btn {
+  align-self: flex-end;
+}
+.photo-date {
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.photo-item textarea {
+  width: 100%;
+  resize: none;
+}
+.photo-del {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.photo-actions {
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+}
+.photo-actions button {
+  flex: 1;
+}

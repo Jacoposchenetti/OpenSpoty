@@ -28,6 +28,12 @@ export interface MixState {
 
 export const DEFAULT_MIX: MixState = { muted: [], solo: [], vols: {}, master: 1 }
 
+export interface SongPhoto {
+  file: string // photos/<song>/<time>.jpg
+  at: number
+  note?: string
+}
+
 export interface Song {
   id: string
   title: string
@@ -66,6 +72,8 @@ export interface Song {
   /** the meter set by hand (Suona): from the bar starting at t (s), m beats per bar, until the
      next automatic change of meter or the next edit */
   rhythmEdits?: Array<{ t: number; m: number }>
+  /** memories: photos taken with this song, newest first (files under the data folder, on the phone) */
+  photos?: SongPhoto[]
   bpm?: number // detected (or tapped) tempo, for the count-in
 }
 
