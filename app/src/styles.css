@@ -4870,3 +4870,41 @@ button.concert {
   height: 30px;
   margin: 0;
 }
+/* the note and place asked before saving a memory (screens/MemoryDetails.tsx) */
+.mem-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mem-details textarea {
+  width: 100%;
+  resize: none;
+}
+.mem-details .switch-row .lucide,
+.mem-place .lucide {
+  width: 16px;
+  height: 16px;
+  margin: 0 4px 0 0;
+  color: var(--accent);
+  vertical-align: -2px;
+}
+.mem-place {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mem-place input {
+  flex: 1;
+  min-width: 0;
+}
+.mem-preview {
+  width: 100%;
+  max-height: 40vh;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.dcam .mem-details textarea,
+.dcam .mem-details input {
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+}

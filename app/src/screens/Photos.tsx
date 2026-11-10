@@ -11,6 +11,7 @@ import { fileUrl } from '../lib/storage'
 import type { Song, SongPhoto } from '../lib/types'
 import { useStore } from '../store'
 import { DoubleCamera } from './DoubleCamera'
+import { defaultDetails, DetailsFields, here, resolvePlace, type Details } from './MemoryDetails'
 
 /* Memories: photos with a song (the camera next to "Suona": a shot, or one from
    the gallery). A stack of them floats over the player, wherever you drag it; a tap
@@ -80,48 +81,61 @@ export function usePhotoActions(song: Song) {
       if (m !== 'Annullato') store.showToast(m)
     }
   }
+  /** a photo picked but not kept */
+  const discard = (file: string) => Filesystem.deleteFile({ path: file, directory: Directory.Data }).catch(() => undefined)
   const remove = async (file: string) => {
     save(current().filter((p) => p.file !== file))
     await Filesystem.deleteFile({ path: file, directory: Directory.Data }).catch(() => undefined)
   }
   const patch = (file: string, x: Partial<SongPhoto>) => save(current().map((p) => (p.file === file ? { ...p, ...x } : p)))
-  return { added, fromGallery, remove, patch }
+  return { added, fromGallery, remove, patch, discard }
 }
 
-/** where you are now, for a photo ({name, lat, lon}); null if it can't be found */
-async function here(): Promise<SongPhoto['place'] | null> {
-  try {
-    const p = await StemKitNative.locate()
-    return { name: [p.name, p.region].filter(Boolean).join(', ') || undefined, lat: p.lat, lon: p.lon }
-  } catch {
-    return null
-  }
-}
-
-/** the camera button: take a photo (front and back) or pick one from the gallery */
+/** the camera button: a double photo, a single one, or one from the gallery; then a note and the place */
 export function PhotoAdd({ song, onClose }: { song: Song; onClose: () => void }) {
+  const store = useStore()
   const act = usePhotoActions(song)
-  const [camera, setCamera] = useState(false)
-  if (camera) {
-    return createPortal(
-      <DoubleCamera
-        song={song}
-        onDone={async (p, withPlace) => {
-          act.added({ file: p.file, at: p.at, place: withPlace ? ((await here()) ?? undefined) : undefined })
-          onClose()
-        }}
-        onClose={onClose}
-      />,
-      document.body
-    )
+  const [camera, setCamera] = useState<'double' | 'single' | null>(null)
+  const [picked, setPicked] = useState<{ file: string; at: number; place?: SongPhoto['place'] } | null>(null)
+  const keep = async (p: { file: string; at: number }, d: Details) => {
+    act.added({ file: p.file, at: p.at, note: d.note.trim() || undefined, place: await resolvePlace(d) })
+    onClose()
+  }
+  if (camera) return createPortal(<DoubleCamera song={song} double={camera === 'double'} onDone={(p, d) => void keep(p, d)} onClose={onClose} />, document.body)
+  if (picked) return <GalleryDetails photo={picked} onSave={(d) => void keep(picked, d)} onCancel={() => (void act.discard(picked.file), onClose())} />
+  const gallery = async () => {
+    try {
+      setPicked(await StemKitNative.pickPhoto({ songId: song.id }))
+    } catch (e) {
+      const m = errMsg(e)
+      if (m !== 'Annullato') store.showToast(m)
+      onClose()
+    }
   }
   return (
     <Sheet title={t('Aggiungi un ricordo')} onClose={onClose}>
-      <button onClick={() => setCamera(true)}>
-        <Camera /> {t('Scatta (davanti e dietro)')}
+      <button onClick={() => setCamera('double')}>
+        <Camera /> {t('Doppia foto (dietro e davanti)')}
       </button>
-      <button onClick={() => void act.fromGallery().then(onClose)}>
+      <button onClick={() => setCamera('single')}>
+        <Camera /> {t('Una foto')}
+      </button>
+      <button onClick={() => void gallery()}>
         <ImagePlus /> {t('Dalla galleria')}
+      </button>
+    </Sheet>
+  )
+}
+
+/** a photo from the gallery: the note and the place (read from it, when the phone noted it) before saving */
+function GalleryDetails({ photo, onSave, onCancel }: { photo: { file: string; place?: SongPhoto['place'] }; onSave: (d: Details) => void; onCancel: () => void }) {
+  const [d, setD] = useState<Details>(() => defaultDetails(photo.place))
+  return (
+    <Sheet title={t('Il ricordo')} onClose={onCancel}>
+      <img className="mem-preview" src={fileUrl(photo.file) ?? ''} alt="" />
+      <DetailsFields value={d} onChange={setD} />
+      <button className="primary" onClick={() => onSave(d)}>
+        {t('Salva nei ricordi')}
       </button>
     </Sheet>
   )

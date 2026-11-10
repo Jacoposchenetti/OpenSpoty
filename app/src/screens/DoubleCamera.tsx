@@ -8,6 +8,7 @@ import { StemKitNative } from '../lib/native'
 import { fileUrl } from '../lib/storage'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import type { Song } from '../lib/types'
+import { defaultDetails, DetailsFields, type Details } from './MemoryDetails'
 
 /* The camera of a song's memories, like BeReal: the phone's own camera app (its
    zoom, its quality) for the back photo, then again for the front one; a template
@@ -97,27 +98,21 @@ function load(file: string): Promise<HTMLCanvasElement> {
   })
 }
 
-const PLACE_KEY = 'stemkit:photo-place'
-const MODE_KEY = 'stemkit:photo-double'
 
 export function DoubleCamera({
   song,
+  double,
   onDone,
   onClose
 }: {
   song: Song
-  /** withPlace: add where you are now to the photo */
-  onDone: (p: { file: string; at: number }, withPlace: boolean) => void
+  /** two shots (back, then front) or one */
+  double: boolean
+  /** the photo, with the note and place asked before saving */
+  onDone: (p: { file: string; at: number }, d: Details) => void
   onClose: () => void
 }) {
   useBackHandler(onClose)
-  const [double, setDouble] = useState(() => {
-    try {
-      return localStorage.getItem(MODE_KEY) !== '0'
-    } catch {
-      return true
-    }
-  })
   const [phase, setPhase] = useState<'start' | 'review'>('start')
   const [files, setFiles] = useState<{ back?: string; front?: string }>({})
   const [shots, setShots] = useState<{ back: HTMLCanvasElement | null; front: HTMLCanvasElement | null }>({ back: null, front: null })
@@ -131,13 +126,7 @@ export function DoubleCamera({
   const [swap, setSwap] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [withPlace, setWithPlace] = useState(() => {
-    try {
-      return localStorage.getItem(PLACE_KEY) !== '0'
-    } catch {
-      return true
-    }
-  })
+  const [details, setDetails] = useState<Details>(() => defaultDetails())
   const preview = useRef<HTMLCanvasElement>(null)
 
   const drop = (f?: string) => {
@@ -146,11 +135,6 @@ export function DoubleCamera({
   const shoot = async () => {
     setErr(null)
     setBusy(true)
-    try {
-      localStorage.setItem(MODE_KEY, double ? '1' : '0')
-    } catch {
-      /* private mode */
-    }
     try {
       const back = await StemKitNative.takePhoto({ songId: song.id })
       // the front one: cancelled, one photo is fine
@@ -186,18 +170,17 @@ export function DoubleCamera({
     setBusy(true)
     try {
       localStorage.setItem(TPL_KEY, tpl)
-      localStorage.setItem(PLACE_KEY, withPlace ? '1' : '0')
     } catch {
       /* private mode */
     }
     try {
       // one photo as it is (no re-compression); two in their template
-      if (!shots.front && files.back && tpl === 'back') return onDone({ file: files.back, at: Date.now() }, withPlace)
+      if (!shots.front && files.back && tpl === 'back') return onDone({ file: files.back, at: Date.now() }, details)
       const data = compose(shots.back, shots.front, tpl, swap).toDataURL('image/jpeg', 0.9)
       const saved = await StemKitNative.savePhotoData({ songId: song.id, data })
       drop(files.back)
       drop(files.front)
-      onDone(saved, withPlace)
+      onDone(saved, details)
     } catch (e) {
       setErr(errMsg(e))
       setBusy(false)
@@ -243,9 +226,7 @@ export function DoubleCamera({
       </div>
       {phase === 'start' && (
         <footer className="dcam-bar">
-          <button className={`dcam-mode ${double ? 'on' : ''}`} onClick={() => setDouble(!double)}>
-            {double ? t('Doppia') : t('Una sola')}
-          </button>
+          <span style={{ minWidth: 96 }} />
           <button className="dcam-shutter" disabled={busy} onClick={() => void shoot()} aria-label={t('Scatta')}>
             <Camera />
           </button>
@@ -268,10 +249,7 @@ export function DoubleCamera({
               )}
             </div>
           )}
-          <label className="switch-row">
-            <span>{t('Aggiungi dove sono adesso')}</span>
-            <input type="checkbox" checked={withPlace} onChange={(e) => setWithPlace(e.target.checked)} />
-          </label>
+          <DetailsFields value={details} onChange={setDetails} />
           {err && <p className="dcam-err-inline">{err}</p>}
           <div className="dcam-actions">
             <button onClick={again}>{t('Rifai')}</button>
