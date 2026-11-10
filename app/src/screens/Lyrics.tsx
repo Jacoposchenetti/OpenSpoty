@@ -155,15 +155,31 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     return () => cancelAnimationFrame(raf)
   }, [lines, segs, pb, scrollMode])
 
-  // automatic: the whole text (all lit) moves up at a steady speed while the song plays
+  // automatic: the whole text (all lit) moves up at a steady speed while the song plays;
+  // a jump in the song (the bar dragged, ±) brings the words of that moment to the middle
   useEffect(() => {
     if (scrollMode !== 'auto') return
     let raf = 0
     let prev = performance.now()
     let acc = 0
+    let lastPos = pb.position()
+    const jumpTo = (t: number) => {
+      let line = -1
+      if (lines) for (let k = 0; k < lines.length && lines[k].t <= t + 0.15; k++) line = k
+      let chord = -1
+      for (let k = 0; k < segs.length && segs[k][0] <= t + 0.15; k++) chord = k
+      const el =
+        (lines?.length ? box.current?.querySelector<HTMLElement>(`[data-i="${Math.max(0, line)}"]`) : null) ??
+        box.current?.querySelector<HTMLElement>(`[data-c="${Math.max(0, chord)}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
     const tick = (now: number) => {
       const dt = Math.min(0.1, (now - prev) / 1000)
       prev = now
+      const pos = pb.position()
+      const expected = lastPos + (pb.playing ? dt * (pb.mix.speed ?? 1) : 0)
+      if (Math.abs(pos - expected) > 1.5) jumpTo(pos)
+      lastPos = pos
       if (pb.playing && box.current) {
         acc += scrollSpeed * dt
         const step = Math.floor(acc)
@@ -176,7 +192,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [scrollMode, scrollSpeed, pb])
+  }, [scrollMode, scrollSpeed, pb, lines, segs])
 
   const toggleChords = () => {
     setShowChords(!showChords)
