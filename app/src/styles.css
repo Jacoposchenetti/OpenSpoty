@@ -4587,3 +4587,8 @@ button.concert {
   max-height: 55vh;
   overflow-y: auto;
 }
+/* three buttons (Jam, Importa, Playlist) next to the title: they wrap under it on narrow screens */
+.lib-head {
+  flex-wrap: wrap;
+  gap: 8px;
+}

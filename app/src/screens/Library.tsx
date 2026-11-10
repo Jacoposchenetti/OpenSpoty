@@ -65,6 +65,9 @@ function Overview() {
               <Users /> Jam{jam.active ? ` · ${(jam.guests?.length ?? 0) + 1}` : ''}
             </button>
           )}
+          <button className="small" onClick={() => setImporting(true)}>
+            <Download /> {t('Importa')}
+          </button>
           <button className="small" onClick={() => setCreating(true)}>
             <Plus /> {t('Playlist')}
           </button>
@@ -180,11 +183,6 @@ function Overview() {
           confirm={t('Crea')}
           onDone={(name) => store.setLibView(store.createPlaylist(name))}
           onClose={() => setCreating(false)}
-          extra={
-            <button onClick={() => (setCreating(false), setImporting(true))}>
-              <Download /> {t('Importa playlist')}
-            </button>
-          }
         />
       )}
       {importing && <ImportPlaylists onClose={() => setImporting(false)} />}
