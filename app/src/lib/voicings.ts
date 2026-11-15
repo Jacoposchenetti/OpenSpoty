@@ -177,9 +177,16 @@ async function bookShapes(root: number, quality: string): Promise<Shape[]> {
   })
 }
 
-/** the database's shapes first, then the worked-out ones it doesn't have */
+/** the database's shapes and the worked-out ones it doesn't have, from the nut up the neck */
 export async function allGuitarShapes(root: number, quality: string): Promise<Shape[]> {
   const book = await bookShapes(root, quality).catch(() => [])
   const seen = new Set(book.map((x) => x.frets.join(',')))
-  return [...book, ...guitarShapes(root, quality).filter((x) => !seen.has(x.frets.join(',')))]
+  const all = [...book, ...guitarShapes(root, quality).filter((x) => !seen.has(x.frets.join(',')))]
+  // from the nut up the neck: where the hand sits (its lowest pressed fret; open shapes first);
+  // at the same place the database's come first (the sort keeps their order)
+  const where = (x: Shape) => {
+    const pressed = x.frets.filter((f) => f > 0)
+    return pressed.length ? Math.min(...pressed) : 0
+  }
+  return all.map((x, i) => ({ x, i, w: where(x) })).sort((a, b) => a.w - b.w || a.i - b.i).map((y) => y.x)
 }

@@ -70,12 +70,14 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   // the musical settings fold away (more room for the words); how the lyrics scroll
   const [panel, setPanel] = useState(pref('suona-panel', '0') === '1')
   const [scrollMode, setScrollMode] = useState<'follow' | 'auto'>(pref('scroll-mode', 'auto') === 'follow' ? 'follow' : 'auto')
-  const [scrollSpeed, setScrollSpeed] = useState(Number(pref('scroll-speed', '30')) || 30) // px per second
+  // px per second of song: by default the song's own pace (worked out below); one you set stays for this song
+  const mySpeed = Number(pref(`scroll-speed:${songId}`, '0')) || 0
+  const [scrollSpeed, setScrollSpeed] = useState(mySpeed || 30)
   const [scrollMenu, setScrollMenu] = useState(false)
   const setScroll = (v: number) => {
     const x = Math.max(5, Math.min(120, Math.round(v / 5) * 5))
     setScrollSpeed(x)
-    setPref('scroll-speed', String(x))
+    setPref(`scroll-speed:${songId}`, String(x))
   }
   const pickScroll = (m: 'follow' | 'auto') => (setScrollMode(m), setPref('scroll-mode', m), setScrollMenu(false))
   const [alignErr, setAlignErr] = useState<string | null>(null)
@@ -181,7 +183,7 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       if (Math.abs(pos - expected) > 1.5) jumpTo(pos)
       lastPos = pos
       if (pb.playing && box.current && now >= holdUntil) {
-        acc += scrollSpeed * dt
+        acc += scrollSpeed * dt * (pb.mix.speed ?? 1) // at 80% the song (and the words) go slower
         const step = Math.floor(acc)
         if (step) {
           box.current.scrollTop += step
@@ -190,9 +192,30 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       }
       raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
+    raf = requestAnimationFrame((now) => {
+      jumpTo(lastPos) // in step with the song from the start
+      tick(now)
+    })
     return () => cancelAnimationFrame(raf)
   }, [scrollMode, scrollSpeed, pb, lines, segs])
+
+  // the song's pace: how far the words go on screen from the first timed line to the last, over their time
+  useEffect(() => {
+    if (scrollMode !== 'auto' || mySpeed || !lines || lines.length < 2) return
+    const t0 = window.setTimeout(() => {
+      const els = [...(box.current?.querySelectorAll<HTMLElement>('[data-i]') ?? [])]
+      if (els.length < 2) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      const a = lines[Number(first.dataset.i)]?.t
+      const b = lines[Number(last.dataset.i)]?.t
+      if (a === undefined || b === undefined || b - a < 10) return
+      const pace = (last.offsetTop - first.offsetTop) / (b - a)
+      if (pace > 0) setScrollSpeed(Math.max(5, Math.min(120, Math.round(pace * 10) / 10)))
+    }, 300) // after the words (and chords) are laid out
+    return () => clearTimeout(t0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollMode, lines, blocks, showChords])
 
   const toggleChords = () => {
     setShowChords(!showChords)
