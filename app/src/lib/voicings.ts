@@ -1,6 +1,7 @@
-/* How to play a chord: every playable guitar shape (standard tuning) worked out
-   from the notes — not copied from a chord book — easiest first; and the piano
-   keys (root position and inversions). Used by the chord diagrams in Suona. */
+/* How to play a chord on the guitar (standard tuning): first the shapes of
+   chords-db (MIT, by David Rubert: fingerings chosen by people), then every other
+   playable shape worked out from the notes, easiest first; and the piano keys
+   (root position and inversions). Used by the chord diagrams in Suona. */
 
 /** the notes of each quality (semitones above the root), and which may be left out */
 const NOTES: Record<string, { iv: number[]; optional: number[] }> = {
@@ -131,4 +132,54 @@ export function pianoVoicings(root: number, quality: string): number[][] {
     out.push(notes)
   }
   return out
+}
+
+/* ------------------------------------------------------------ chords-db */
+
+// our qualities -> chords-db suffixes
+const SUFFIX: Record<string, string> = {
+  maj: 'major',
+  min: 'minor',
+  '7': '7',
+  maj7: 'maj7',
+  min7: 'm7',
+  sus4: 'sus4',
+  sus2: 'sus2',
+  dim: 'dim',
+  aug: 'aug',
+  maj6: '6',
+  min6: 'm6',
+  dim7: 'dim7',
+  hdim7: 'm7b5',
+  minmaj7: 'mmaj7'
+}
+const KEYS = ['C', 'Csharp', 'D', 'Eb', 'E', 'F', 'Fsharp', 'G', 'Ab', 'A', 'Bb', 'B']
+
+type DbPosition = { frets: number[]; fingers: number[]; baseFret: number; barres: number[] }
+type Db = { chords: Record<string, Array<{ suffix: string; positions: DbPosition[] }>> }
+let db: Promise<Db> | null = null
+
+/** the database's shapes for the chord (loaded once, on the first diagram) */
+async function bookShapes(root: number, quality: string): Promise<Shape[]> {
+  db ??= import('@tombatossals/chords-db/lib/guitar.json').then((m) => (m.default ?? m) as unknown as Db)
+  const chord = (await db).chords[KEYS[root]]?.find((c) => c.suffix === SUFFIX[quality])
+  return (chord?.positions ?? []).map((p) => {
+    // its frets count from baseFret: made absolute like ours
+    const frets = p.frets.map((f) => (f > 0 ? f + p.baseFret - 1 : f))
+    let barre: Shape['barre']
+    if (p.barres.length) {
+      const fret = p.barres[0] + p.baseFret - 1
+      const finger = p.fingers[p.frets.indexOf(p.barres[0])]
+      const on = frets.map((f, i) => (f === fret && p.fingers[i] === finger ? i : -1)).filter((i) => i >= 0)
+      if (on.length > 1) barre = { fret, from: on[0], to: on[on.length - 1] }
+    }
+    return { frets, fingers: p.fingers, barre }
+  })
+}
+
+/** the database's shapes first, then the worked-out ones it doesn't have */
+export async function allGuitarShapes(root: number, quality: string): Promise<Shape[]> {
+  const book = await bookShapes(root, quality).catch(() => [])
+  const seen = new Set(book.map((x) => x.frets.join(',')))
+  return [...book, ...guitarShapes(root, quality).filter((x) => !seen.has(x.frets.join(',')))]
 }

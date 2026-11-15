@@ -1,10 +1,10 @@
 import { ChevronLeft, ChevronRight, Guitar, Piano } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Sheet } from '../components/ui'
 import { t } from '../lib/i18n'
-import { guitarShapes, pianoVoicings, type Shape } from '../lib/voicings'
+import { allGuitarShapes, guitarShapes, pianoVoicings, type Shape } from '../lib/voicings'
 
-/* Tapping a chord in Suona: how to play it — every guitar shape (‹ ›, "3 di 26"),
+/* Tapping a chord in Suona: how to play it — the guitar shapes (chords-db's, then the worked-out ones; ‹ ›, "3 di 26"),
    or the piano keys (root position and inversions); the button below switches. */
 
 const INSTR_KEY = 'stemkit:chord-instrument'
@@ -18,7 +18,14 @@ export function ChordDiagramSheet({ name, root, quality, capo, onClose }: { name
       return 'guitar'
     }
   })
-  const shapes = useMemo(() => guitarShapes(root, quality), [root, quality])
+  const [shapes, setShapes] = useState<Shape[]>(() => guitarShapes(root, quality))
+  useEffect(() => {
+    let live = true
+    void allGuitarShapes(root, quality).then((x) => live && setShapes(x))
+    return () => {
+      live = false
+    }
+  }, [root, quality])
   const keys = useMemo(() => pianoVoicings(root, quality), [root, quality])
   const [i, setI] = useState(0)
   const n = instr === 'guitar' ? shapes.length : keys.length

@@ -47,7 +47,7 @@ Per sincronizzare telefono e PC, apri la schermata di sincronizzazione nell'app 
 
 ## Come funziona
 
-OpenSpoty è sviluppata con React e Capacitor. La separazione audio usa [StemKit](https://github.com/danielravina/stemkit) e il modello HT-Demucs a sei tracce di Meta. Le tracce separate vengono salvate in FLAC senza perdita; il brano originale non viene ricompresso. Gli accordi vengono ricavati dall'audio sul dispositivo; tono e velocità usano Signalsmith Stretch. I testi arrivano da LRCLIB.
+OpenSpoty è sviluppata con React e Capacitor. La separazione audio usa [StemKit](https://github.com/danielravina/stemkit) e il modello HT-Demucs a sei tracce di Meta. Le tracce separate vengono salvate in FLAC senza perdita; il brano originale non viene ricompresso. Gli accordi vengono ricavati dall'audio sul dispositivo; tono e velocità usano Signalsmith Stretch. I testi arrivano da LRCLIB. Le forme degli accordi per chitarra vengono da [chords-db](https://github.com/tombatossals/chords-db) (MIT, © 2016 David Rubert), completate da quelle calcolate dall'app.
 
 ## Feedback
 

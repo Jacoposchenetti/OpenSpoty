@@ -47,7 +47,7 @@ To sync phone and PC, open the sync screen in the PC app to view its HTTPS addre
 
 ## How it works
 
-OpenSpoty is built with React and Capacitor. Audio separation uses [StemKit](https://github.com/danielravina/stemkit) and Meta's six-stem HT-Demucs model. Separated stems are stored as lossless FLAC; the original track is not recompressed. Chords are inferred on-device, and pitch and speed changes use Signalsmith Stretch. Lyrics are provided by LRCLIB.
+OpenSpoty is built with React and Capacitor. Audio separation uses [StemKit](https://github.com/danielravina/stemkit) and Meta's six-stem HT-Demucs model. Separated stems are stored as lossless FLAC; the original track is not recompressed. Chords are inferred on-device, and pitch and speed changes use Signalsmith Stretch. Lyrics are provided by LRCLIB. Guitar chord shapes come from [chords-db](https://github.com/tombatossals/chords-db) (MIT, © 2016 David Rubert), completed by shapes worked out in the app.
 
 ## Feedback
 
