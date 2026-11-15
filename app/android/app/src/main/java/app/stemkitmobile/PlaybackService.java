@@ -205,14 +205,31 @@ public class PlaybackService extends androidx.media.MediaBrowserServiceCompat im
         });
     }
 
+    // in the foreground (Android keeps the app running with the screen off): set when it worked.
+    // Created by the system's media controls with the app in background it can't be: it tries again on every play
+    private volatile boolean foreground;
+    private long lastForegroundTry;
+
     private void startForegroundCompat(Notification n) {
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         else startForeground(NOTIF_ID, n);
+        foreground = true;
+    }
+
+    private void ensureForeground(boolean playing) {
+        if (foreground) return;
+        try {
+            startForegroundCompat(build(playing));
+        } catch (Exception e) {
+            android.util.Log.w("StemKitPlayback", "foreground not allowed now", e);
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String a = intent != null ? intent.getAction() : null;
+        // started with startForegroundService: it must be in the foreground now (also if it already ran without)
+        ensureForeground(engine.isPlaying() || a == null);
         if (ACTION_PLAY.equals(a)) {
             requestFocus();
             engine.play();
@@ -267,6 +284,10 @@ public class PlaybackService extends androidx.media.MediaBrowserServiceCompat im
                 if (!art.isEmpty()) loadArt(art);
             }
             publishMetadata();
+        }
+        if (playing && !foreground && System.currentTimeMillis() - lastForegroundTry > 10_000) {
+            lastForegroundTry = System.currentTimeMillis();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> ensureForeground(true));
         }
         if (playing != lastPlaying || !t.equals(lastTitle)) {
             lastPlaying = playing;

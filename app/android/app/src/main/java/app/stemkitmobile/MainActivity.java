@@ -45,10 +45,26 @@ public class MainActivity extends BridgeActivity {
         overLockScreen(intent);
     }
 
+    private static java.lang.ref.WeakReference<MainActivity> current = new java.lang.ref.WeakReference<>(null);
+
     /** a ringing alarm shows its screen over the lock screen and turns the display on */
     private void overLockScreen(Intent intent) {
+        current = new java.lang.ref.WeakReference<>(this);
         boolean alarm = intent != null && intent.getBooleanExtra("alarmRinging", false);
+        if (!alarm && AlarmService.ringing != null) return; // still ringing: stays over the lock screen
         setShowWhenLocked(alarm);
         setTurnScreenOn(alarm);
+        if (alarm) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    /** the alarm stopped: the app goes back behind the lock screen */
+    static void alarmOver() {
+        MainActivity a = current.get();
+        if (a == null) return;
+        a.runOnUiThread(() -> {
+            a.setShowWhenLocked(false);
+            a.setTurnScreenOn(false);
+            a.getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
     }
 }

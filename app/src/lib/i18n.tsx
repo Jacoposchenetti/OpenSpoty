@@ -443,6 +443,7 @@ const en: Record<string, string> = {
   "In ordine casuale": 'Shuffle',
   "Fermati": 'Stop',
   "Sale piano piano in {time}": 'Fade in over {time}',
+  'Parte subito a tutto volume': 'Starts at full volume right away',
   "Posticipa di {time} min": 'Snooze for {time} min',
   "Elimina sveglia": 'Delete alarm',
   "Svegliami con…": 'Wake me up with…',

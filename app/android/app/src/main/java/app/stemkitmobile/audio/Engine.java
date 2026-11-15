@@ -182,8 +182,43 @@ public final class Engine {
 
     private volatile boolean screenOff;
 
+    // with the screen off: the phone stays awake while a song plays or the next one loads
+    // (else it falls asleep between two songs, before the next stream arrives); let go a bit after a pause
+    private PowerManager.WakeLock cpuLock;
+    private android.net.wifi.WifiManager.WifiLock wifiLock;
+    private final android.os.Handler awakeHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable letSleep = () -> {
+        if (cpuLock != null && cpuLock.isHeld()) cpuLock.release();
+        if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
+    };
+
+    private void keepAwake(boolean on) {
+        awakeHandler.post(() -> {
+            awakeHandler.removeCallbacks(letSleep);
+            if (!on) {
+                awakeHandler.postDelayed(letSleep, 30_000);
+                return;
+            }
+            try {
+                if (cpuLock != null && !cpuLock.isHeld()) cpuLock.acquire(4 * 60 * 60_000L);
+                if (wifiLock != null && !wifiLock.isHeld()) wifiLock.acquire();
+            } catch (Exception ex) {
+                Log.w(TAG, "wake lock", ex);
+            }
+        });
+    }
+
     private Engine(Context ctx) {
         PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        if (pm != null) {
+            cpuLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "stemkit:playback");
+            cpuLock.setReferenceCounted(false);
+        }
+        android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) ctx.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wm != null) {
+            wifiLock = wm.createWifiLock(android.os.Build.VERSION.SDK_INT >= 29 ? android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF : android.net.wifi.WifiManager.WIFI_MODE_FULL, "stemkit:playback");
+            wifiLock.setReferenceCounted(false);
+        }
         screenOff = pm != null && !pm.isInteractive();
         IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         f.addAction(Intent.ACTION_SCREEN_ON);
@@ -215,7 +250,18 @@ public final class Engine {
         }
     }
 
+    private boolean awake;
+
     private void emit(JSONObject e) {
+        if ("state".equals(e.optString("type")) || "tick".equals(e.optString("type"))) {
+            boolean want = e.optBoolean("playing") || e.optBoolean("loading");
+            synchronized (awakeHandler) {
+                if (want != awake) {
+                    awake = want;
+                    keepAwake(want);
+                }
+            }
+        }
         Listener[] ls;
         synchronized (listeners) {
             ls = listeners.toArray(new Listener[0]);

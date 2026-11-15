@@ -49,7 +49,27 @@ public class AlarmService extends Service {
     private int savedVolume = -1;
     private AudioManager am;
 
+    // the phone stays awake from the alarm's broadcast until the music plays (else, in standby,
+    // it falls asleep again before the song has loaded), and the screen lights up with the alarm
+    private static android.os.PowerManager.WakeLock cpu;
+    private android.os.PowerManager.WakeLock screen;
+
+    static synchronized void holdAwake(Context ctx) {
+        android.os.PowerManager pm = (android.os.PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+        if (pm == null) return;
+        if (cpu == null) {
+            cpu = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "stemkit:alarm");
+            cpu.setReferenceCounted(false);
+        }
+        cpu.acquire(35 * 60_000L); // at most as long as it rings
+    }
+
+    static synchronized void letSleep() {
+        if (cpu != null && cpu.isHeld()) cpu.release();
+    }
+
     static void ring(Context ctx, String id) {
+        holdAwake(ctx);
         Intent i = new Intent(ctx, AlarmService.class).putExtra("id", id);
         androidx.core.content.ContextCompat.startForegroundService(ctx, i);
     }
@@ -99,6 +119,8 @@ public class AlarmService extends Service {
         Notification n = notification(alarm);
         if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         else startForeground(NOTIF_ID, n);
+        holdAwake(this);
+        lightUp();
 
         JSONArray days = alarm.optJSONArray("days");
         if (days == null || days.length() == 0) AlarmClock.disable(this, alarm.optString("id"));
@@ -107,7 +129,7 @@ public class AlarmService extends Service {
         am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         savedVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * (float) alarm.optDouble("volume", 0.6))), 0);
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, Math.max(1, Math.round(max * (float) alarm.optDouble("volume", 1.0))), 0);
 
         // the music: the alarm's songs, shuffled if asked, fading in
         List<Engine.Spec> specs = new ArrayList<>();
@@ -137,16 +159,19 @@ public class AlarmService extends Service {
             engine = Engine.get(this);
             Engine.Spec first = specs.get(0);
             JSONObject mix = first.mix != null ? first.mix : new JSONObject();
-            try {
-                first.mix = new JSONObject(mix.toString()).put("master", 0.02);
-            } catch (Exception ignored) {
+            int fade = Math.max(0, alarm.optInt("fadeSec", 0));
+            if (fade > 0) {
+                try {
+                    first.mix = new JSONObject(mix.toString()).put("master", 0.02);
+                } catch (Exception ignored) {
+                }
             }
             first.countIn = false;
             engine.load(first, true);
             engine.setUpcoming(specs.subList(1, specs.size()), null);
             engine.setAutoAdvance(true);
             engine.setRepeatOne(repeatOne);
-            fadeIn(mix, Math.max(1, alarm.optInt("fadeSec", 45)));
+            if (fade > 0) fadeIn(mix, fade);
             // nothing playing after a while (offline, broken file): ring the phone's alarm sound
             handler.postDelayed(() -> {
                 if (engine != null && !engine.isPlaying()) playFallback();
@@ -154,6 +179,29 @@ public class AlarmService extends Service {
         }
         // nobody stops it: it gives up after 30 minutes
         handler.postDelayed(this::finish, 30 * 60_000);
+    }
+
+    /** the screen on, and the alarm's screen over the lock screen (also if Android shows the notification as a banner) */
+    private void lightUp() {
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isInteractive()) {
+                @SuppressWarnings("deprecation")
+                int flags = android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK | android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP | android.os.PowerManager.ON_AFTER_RELEASE;
+                screen = pm.newWakeLock(flags, "stemkit:alarm-screen");
+                screen.acquire(60_000L);
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            startActivity(ringingIntent());
+        } catch (Exception ignored) {
+            // not allowed from the background: the full-screen notification opens it
+        }
+    }
+
+    private Intent ringingIntent() {
+        return new Intent(this, MainActivity.class).putExtra("alarmRinging", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
     private void fadeIn(JSONObject mix, int seconds) {
@@ -183,7 +231,7 @@ public class AlarmService extends Service {
     }
 
     private Notification notification(JSONObject alarm) {
-        Intent open = new Intent(this, MainActivity.class).putExtra("alarmRinging", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        Intent open = ringingIntent();
         PendingIntent full = PendingIntent.getActivity(this, 3, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop = PendingIntent.getService(this, 4, new Intent(this, AlarmService.class).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent snooze = PendingIntent.getService(this, 5, new Intent(this, AlarmService.class).setAction(ACTION_SNOOZE), PendingIntent.FLAG_IMMUTABLE);
@@ -218,6 +266,10 @@ public class AlarmService extends Service {
         if (am != null && savedVolume >= 0) am.setStreamVolume(AudioManager.STREAM_MUSIC, savedVolume, 0);
         savedVolume = -1;
         ringing = null;
+        if (screen != null && screen.isHeld()) screen.release();
+        screen = null;
+        letSleep();
+        MainActivity.alarmOver();
         AlarmClock.reschedule(this);
         stopForeground(true);
         stopSelf();
@@ -226,6 +278,8 @@ public class AlarmService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (screen != null && screen.isHeld()) screen.release();
+        if (ringing == null) letSleep();
         super.onDestroy();
     }
 }

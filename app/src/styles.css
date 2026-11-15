@@ -2429,7 +2429,8 @@ input.with-ico {
 .alarm-ringing {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 1000;
+  pointer-events: auto;
   background: linear-gradient(180deg, #3b2a7a, var(--bg));
   display: flex;
   flex-direction: column;
@@ -2469,6 +2470,24 @@ input.with-ico {
   min-height: 64px;
   font-size: 20px;
   border-radius: 999px;
+}
+.ring-snooze {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  font-weight: 700;
+}
+.ring-snooze svg {
+  width: 22px;
+  height: 22px;
+}
+.ring-snooze:active,
+.ring-stop:active {
+  transform: scale(0.97);
 }
 .ring-stop {
   background: var(--accent);

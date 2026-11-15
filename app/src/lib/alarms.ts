@@ -60,8 +60,8 @@ export const newAlarm = (): Alarm => ({
   content: { kind: 'liked', id: '', name: 'Brani che ti piacciono' },
   shuffle: true,
   after: 'repeat',
-  volume: 0.6,
-  fadeSec: 45,
+  volume: 1,
+  fadeSec: 0,
   snooze: 9
 })
 

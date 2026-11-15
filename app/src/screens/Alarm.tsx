@@ -1,6 +1,7 @@
 import { App as CapApp } from '@capacitor/app'
 import { AlarmClock, BellRing, EllipsisVertical, Heart, ListMusic, Music, Pause, Play, Plus, Search as SearchIcon, Shuffle, Timer, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Sheet, SongThumb, Spinner } from '../components/ui'
 import { Alarms, dayNames, dateLabel, daysLabel, fromIso, inWords, isoDate, isPast, loadAlarms, months, newAlarm, pad, saveAlarmList, whenLabel, type Alarm, type AlarmContent, type AlarmState } from '../lib/alarms'
 import { songsFor } from '../lib/catalog'
@@ -421,8 +422,8 @@ function AlarmEditor({ alarm, isNew, onSave, onDelete, onClose }: { alarm: Alarm
         <input type="range" min={0.1} max={1} step={0.05} value={a.volume} onChange={(e) => set({ volume: Number(e.target.value) })} />
       </label>
       <label className="slider-row">
-        <span>{tr('Sale piano piano in {time}', { time: a.fadeSec < 60 ? `${a.fadeSec} s` : `${Math.round(a.fadeSec / 60)} min` })}</span>
-        <input type="range" min={5} max={300} step={5} value={a.fadeSec} onChange={(e) => set({ fadeSec: Number(e.target.value) })} />
+        <span>{a.fadeSec <= 0 ? tr('Parte subito a tutto volume') : tr('Sale piano piano in {time}', { time: a.fadeSec < 60 ? `${a.fadeSec} s` : `${Math.round(a.fadeSec / 60)} min` })}</span>
+        <input type="range" min={0} max={300} step={5} value={a.fadeSec} onChange={(e) => set({ fadeSec: Number(e.target.value) })} />
       </label>
       <label className="slider-row">
         <span>{tr('Posticipa di {time} min', { time: a.snooze })}</span>
@@ -590,20 +591,30 @@ export function AlarmRinging() {
     setSynced(true)
     void loadAlarms().then((a) => (a.length ? pushAlarms(a, store) : null)).catch(() => undefined)
   }, [store, synced])
+  const [busy, setBusy] = useState(false)
   if (!ring) return null
-  return (
+  const act = (f: () => Promise<void>) => {
+    setBusy(true)
+    void f()
+      .catch(() => undefined)
+      .then(check)
+      .finally(() => setBusy(false))
+  }
+  // over everything (player, sheets): it's the first thing to see and tap
+  return createPortal(
     <div className="alarm-ringing">
       <AlarmClock className="ring-ico" />
       <div className="ring-time">
         {pad(ring.hour)}:{pad(ring.minute)}
       </div>
       <div className="ring-label">{ring.label || tr('Sveglia')}</div>
-      <button className="ring-snooze" onClick={() => void Alarms.snooze().then(check)}>
-        {tr('Posticipa di {time} min', { time: ring.snooze })}
+      <button type="button" className="ring-snooze" disabled={busy} onClick={() => act(() => Alarms.snooze())}>
+        <BellRing /> {tr('Posticipa di {time} min', { time: ring.snooze })}
       </button>
-      <button className="ring-stop" onClick={() => void Alarms.stop().then(check)}>
+      <button type="button" className="ring-stop" disabled={busy} onClick={() => act(() => Alarms.stop())}>
         {tr('Stop')}
       </button>
-    </div>
+    </div>,
+    document.body
   )
 }
