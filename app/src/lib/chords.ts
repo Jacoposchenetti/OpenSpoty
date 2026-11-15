@@ -86,6 +86,14 @@ export function chordName(label: string, d: Display): string {
   return (d.flats ? FLAT : SHARP)[(((c.root + d.shift) % 12) + 12) % 12] + (SUFFIX[q] ?? '')
 }
 
+/** the chord as shown (transposed, simplified): its root and quality, for the diagrams */
+export function shownChord(label: string, d: Display): { root: number; quality: string } | null {
+  const c = parse(label)
+  if (!c) return null
+  const quality = d.simple ? SIMPLE[c.quality] ?? c.quality : c.quality
+  return { root: (((c.root + d.shift) % 12) + 12) % 12, quality }
+}
+
 /** the key: the major key whose chords cover most of the song (and its relative minor) */
 export function detectKey(segs: ChordSeg[], duration: number): { tonic: number; minor: boolean } | null {
   const dur = new Array(24).fill(0)

@@ -1,7 +1,8 @@
-import { Check, ChevronDown, EllipsisVertical, Guitar, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
+import { Check, ChevronDown, EllipsisVertical, Guitar, Pencil, Minus, Pause, Play, Plus, RotateCcw, SlidersHorizontal, SlidersVertical, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCardColour } from './LyricsCard'
 import { SplitJob } from '../components/SplitJob'
+import { ChordDiagramSheet } from './ChordDiagram'
 import { Sheet, Spinner, useBackHandler } from '../components/ui'
 import {
   applyEdits,
@@ -14,6 +15,7 @@ import {
   parse,
   prefersFlats,
   QUALITIES,
+  shownChord,
   type ChordData,
   type ChordSeg,
   type Display
@@ -59,6 +61,9 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
   const [capo, setCapo] = useState(Number(pref(`capo:${songId}`, '0')) || 0)
   const [simple, setSimple] = useState(pref('chords-simple', '0') === '1')
   const [editing, setEditing] = useState<ChordSeg | null>(null)
+  // a tap on a chord shows how to play it; with "Modifica accordi" on, it corrects it
+  const [diagram, setDiagram] = useState<ChordSeg | null>(null)
+  const [editMode, setEditMode] = useState(false)
   const [showTempo, setShowTempo] = useState(false)
   const [cur, setCur] = useState({ line: -1, chord: -1 })
   const [aligning, setAligning] = useState<{ pct: number; downloading: boolean } | null>(null)
@@ -200,7 +205,8 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       className={`cc ${here && c === currentChord ? 'now' : ''} ${c[2] < 0.45 ? 'unsure' : ''}`}
       onClick={(e) => {
         e.stopPropagation()
-        setEditing(c)
+        if (editMode) setEditing(c)
+        else setDiagram(c)
       }}
     >
       {chordName(c[1], d)}
@@ -278,6 +284,11 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
         <SlidersHorizontal /> {tr('Velocità, tracce, tono e accordi')}
         <ChevronDown className="chev" />
       </button>
+      {showChords && chords && (
+        <button className={`edit-chords ${editMode ? 'on' : ''}`} onClick={() => setEditMode(!editMode)}>
+          <Pencil /> {editMode ? tr('Modifica accordi: tocca un accordo per correggerlo') : tr('Modifica accordi')}
+        </button>
+      )}
       {/* the separation is shown here too while the panel is closed */}
       {!panel && store.deviceJob?.songId === song.id && <SplitJob compact />}
       <div className={`suona-panel ${panel ? 'open' : ''}`}>
@@ -440,6 +451,10 @@ export function LyricsView({ songId, onClose }: { songId: string; onClose: () =>
       <PlayBar />
       {showTempo && <TempoSheet song={song} mix={mix} onChange={update} onClose={() => setShowTempo(false)} />}
 
+      {diagram && (() => {
+        const sc = shownChord(diagram[1], d)
+        return sc ? <ChordDiagramSheet name={chordName(diagram[1], d)} root={sc.root} quality={sc.quality} capo={capo} onClose={() => setDiagram(null)} /> : null
+      })()}
       {editing && (
         <ChordEditor
           seg={editing}
