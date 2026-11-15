@@ -69,9 +69,9 @@ export function ChordDiagramSheet({ name, root, quality, capo, onClose }: { name
 function GuitarDiagram({ shape }: { shape: Shape }) {
   const pressed = shape.frets.filter((f) => f > 0)
   const top = pressed.length && Math.max(...pressed) > 5 ? Math.min(...pressed) : 1
-  const W = 200
-  const H = 240
-  const x0 = 30
+  const W = 230
+  const H = 268
+  const x0 = 46 // room on the left for the fret number (a barre reaches past the outer strings)
   const y0 = 46
   const gap = (W - 2 * x0) / 5
   const fh = 36
@@ -79,7 +79,7 @@ function GuitarDiagram({ shape }: { shape: Shape }) {
   return (
     <svg className="guitar-diagram" viewBox={`0 0 ${W} ${H}`} role="img">
       {/* the nut, or where the shape starts */}
-      {top === 1 ? <rect x={x0 - 2} y={y0 - 6} width={W - 2 * x0 + 4} height={6} className="nut" /> : <text x={W - x0 + 8} y={y0 + fh / 2 + 5} className="fret-num">{top}</text>}
+      {top === 1 ? <rect x={x0 - 2} y={y0 - 6} width={W - 2 * x0 + 4} height={6} className="nut" /> : <text x={x0 - 18} y={y0 + fh / 2 + 6} className="fret-num">{top}</text>}
       {[0, 1, 2, 3, 4, 5].map((f) => (
         <line key={`f${f}`} x1={x0} x2={W - x0} y1={y0 + f * fh} y2={y0 + f * fh} className="fret" />
       ))}
@@ -116,7 +116,7 @@ function GuitarDiagram({ shape }: { shape: Shape }) {
         ) : null
       )}
       {STRINGS.map((name, s) => (
-        <text key={`n${s}`} x={sx(s)} y={H - 6} className="string-name">
+        <text key={`n${s}`} x={sx(s)} y={y0 + 5 * fh + 26} className="string-name">
           {name}
         </text>
       ))}
